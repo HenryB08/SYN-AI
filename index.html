@@ -399,6 +399,132 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(228,193,105,.4)}
 
+/* ============ WORKSPACE SUITE · Stage 0 + 1 ============ */
+/* topbar sits above the stage so the notifications dropdown overlays the board */
+.topbar{position:relative;z-index:20}
+/* --- notifications bell --- */
+.bell-wrap{position:relative}
+.bell-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:var(--r-full);background:var(--bad);color:#fff;font-size:9px;font-weight:800;display:none;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(255,122,107,.55)}
+.bell-badge.on{display:flex}
+.icon-btn.lit{color:var(--gold);border-color:rgba(228,193,105,.4)}
+.notif-panel{position:absolute;top:47px;right:0;width:min(360px,86vw);max-height:min(64vh,520px);overflow-y:auto;z-index:80;border-radius:var(--r-md);background:rgba(20,18,26,.93);border:1px solid var(--glass-border);backdrop-filter:blur(38px) saturate(1.6);box-shadow:0 26px 74px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.08);display:none;animation:rise .24s cubic-bezier(.2,.8,.3,1)}
+.notif-panel.open{display:block}
+.notif-head{position:sticky;top:0;background:rgba(20,18,26,.95);backdrop-filter:blur(20px);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--glass-border-soft);z-index:2}
+.notif-head h4{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600}
+.notif-clear{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.notif-clear:hover{color:var(--gold)}
+.notif-item{display:flex;gap:11px;padding:12px 18px;border-bottom:1px solid var(--glass-border-soft);cursor:pointer;transition:background .18s;text-align:left;width:100%}
+.notif-item:hover{background:rgba(255,255,255,.05)}
+.notif-item.unread{background:rgba(228,193,105,.06)}
+.notif-ico{width:30px;height:30px;min-width:30px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:'IBM Plex Mono',monospace}
+.notif-txt{flex:1;font-size:12.5px;line-height:1.5}
+.notif-time{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:3px}
+.notif-dot{width:7px;height:7px;min-width:7px;border-radius:50%;background:var(--gold);margin-top:6px}
+.notif-empty{padding:34px 20px;text-align:center;color:var(--muted);font-size:12.5px}
+
+/* --- projects nav sublist --- */
+.proj-nav{display:flex;flex-direction:column;gap:2px;padding:2px 12px 6px 20px}
+.proj-nav-item{display:flex;align-items:center;gap:9px;padding:7px 12px;border-radius:12px;font-size:12px;font-weight:600;color:var(--muted);text-align:left;border:1px solid transparent;transition:all .18s}
+.proj-nav-item:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.proj-nav-item.active{background:rgba(255,255,255,.07);color:var(--text);border-color:var(--glass-border-soft)}
+.proj-dot{width:9px;height:9px;min-width:9px;border-radius:50%;background:var(--pn,#888);box-shadow:0 0 8px var(--pn,transparent)}
+.proj-nav-item .pn-count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--faint)}
+.proj-add{font-size:10.5px;font-weight:700;color:var(--muted);padding:6px 12px;text-align:left;border-radius:12px}
+.proj-add:hover{color:var(--gold)}
+
+/* --- tasks view --- */
+.tasks-wrap{flex:1;display:flex;flex-direction:column;min-height:0}
+.tasks-bar{padding:20px 26px 12px;display:flex;flex-direction:column;gap:12px}
+.tb-top{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.tb-top h2{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:600}
+.tb-top .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+.tb-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tb-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tb-filters select,.tb-filters input{background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:var(--r-full);color:var(--text);font-family:'Manrope',sans-serif;font-size:11.5px;font-weight:600;padding:7px 13px;outline:none;transition:all .2s}
+.tb-filters select:focus,.tb-filters input:focus{border-color:rgba(228,193,105,.4)}
+.tb-filters select option{background:#181622;color:var(--text)}
+.tb-filters .fl-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+
+/* board */
+.board{flex:1;display:flex;gap:13px;overflow-x:auto;overflow-y:hidden;padding:4px 26px 22px;align-items:stretch}
+.board-col{min-width:280px;width:280px;flex:0 0 auto;display:flex;flex-direction:column;border-radius:var(--r-md);background:rgba(255,255,255,.028);border:1px solid var(--glass-border-soft);overflow:hidden}
+.col-head{padding:13px 15px 10px;display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.col-head .col-dot{width:8px;height:8px;border-radius:50%}
+.col-head .col-n{margin-left:auto;color:var(--faint);font-weight:600}
+.col-cards{flex:1;overflow-y:auto;padding:0 11px 8px;display:flex;flex-direction:column;gap:9px;min-height:34px}
+.col-cards.drop-hi{background:rgba(228,193,105,.06);box-shadow:inset 0 0 0 1px rgba(228,193,105,.4)}
+.col-quick{padding:9px 11px 12px}
+.col-quick input{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:12px;color:var(--text);font-family:'Manrope',sans-serif;font-size:12.5px;padding:9px 12px;outline:none}
+.col-quick input:focus{border-color:rgba(228,193,105,.4)}
+.tcard{border-radius:14px;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-left:3px solid var(--pc,var(--gold));padding:12px 13px;cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s}
+.tcard:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.34)}
+.tcard.dragging{opacity:.35}
+.tcard.overdue{border-left-color:var(--bad)}
+.tc-title{font-size:13px;font-weight:700;line-height:1.4;margin-bottom:8px;word-break:break-word}
+.tc-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.tc-proj{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r-full);color:var(--pc,var(--gold));border:1px solid var(--pc-b,rgba(228,193,105,.3))}
+.tc-pri{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r-full)}
+.tc-due{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.tc-due.red{color:var(--bad)}
+.tc-due.amber{color:var(--gold)}
+.tc-labels{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.tc-lab{font-size:9.5px;font-weight:600;padding:2px 8px;border-radius:var(--r-full);background:rgba(255,255,255,.06);border:1px solid var(--glass-border-soft);color:var(--muted)}
+.tc-foot{display:flex;align-items:center;gap:7px;margin-top:9px}
+.tc-avs{display:flex}
+.t-av{width:22px;height:22px;min-width:22px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#8a6d2f);color:#141210;font-weight:800;font-size:9px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(20,18,26,.9);margin-left:-6px}
+.tc-avs .t-av:first-child{margin-left:0}
+.tc-sub{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--faint);display:flex;align-items:center;gap:6px}
+.tc-bar{width:44px;height:4px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.tc-bar i{display:block;height:100%;background:var(--good);border-radius:3px}
+.pri-low{color:var(--good);border:1px solid rgba(127,217,154,.35)}
+.pri-med{color:var(--gold);border:1px solid rgba(228,193,105,.35)}
+.pri-high{color:#EE9A5B;border:1px solid rgba(232,99,43,.4)}
+.pri-urgent{color:var(--bad);border:1px solid rgba(255,122,107,.45)}
+
+/* list view */
+.tlist{flex:1;overflow-y:auto;padding:4px 26px 24px}
+.tlist-group{margin-bottom:20px}
+.tlist-gh{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:6px 4px;display:flex;align-items:center;gap:9px}
+.tlist-gh .g-dot{width:8px;height:8px;border-radius:50%}
+.trow{display:flex;align-items:center;gap:12px;border-radius:var(--r-md);background:rgba(255,255,255,.045);border:1px solid var(--glass-border-soft);border-left:3px solid var(--pc,var(--gold));padding:12px 16px;margin-bottom:7px;cursor:pointer;transition:all .16s}
+.trow:hover{background:rgba(255,255,255,.07)}
+.trow.overdue{border-left-color:var(--bad)}
+.tr-check{width:19px;height:19px;min-width:19px;border-radius:6px;border:1.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .18s}
+.tr-check.done{background:var(--good);border-color:var(--good);color:#141210}
+.tr-title{flex:1;font-size:13.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tr-title.done{text-decoration:line-through;color:var(--muted)}
+.tr-side{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+
+/* task detail modal extras */
+.tm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tm-assignees{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+.assign-chip{display:flex;align-items:center;gap:7px;padding:6px 12px 6px 7px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);font-size:11.5px;font-weight:600;cursor:pointer;transition:all .18s}
+.assign-chip.on{border-color:rgba(228,193,105,.5);background:var(--accent-soft)}
+.assign-chip .t-av{margin:0;width:20px;height:20px;border:none}
+.sub-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.sub-item{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--glass-border-soft)}
+.sub-item .tr-check{cursor:pointer}
+.sub-item span{flex:1;font-size:13px}
+.sub-item span.done{text-decoration:line-through;color:var(--muted)}
+.sub-item .k-del{margin-left:0}
+.sub-prog{display:flex;align-items:center;gap:10px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sub-prog .bar{flex:1;height:6px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden}
+.sub-prog .bar i{display:block;height:100%;background:var(--good)}
+.chip-input{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:7px;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:16px}
+.chip-input .lab-chip{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:var(--r-full);background:rgba(255,255,255,.07);border:1px solid var(--glass-border-soft)}
+.chip-input .lab-chip b{cursor:pointer;color:var(--faint)}
+.chip-input .lab-chip b:hover{color:var(--bad)}
+.chip-input input{flex:1;min-width:100px;background:none;border:none;color:var(--text);font-family:'Manrope',sans-serif;font-size:13px;padding:5px;outline:none}
+.cmt-thread{display:flex;flex-direction:column;gap:10px;margin-top:6px;max-height:230px;overflow-y:auto}
+.cmt{display:flex;gap:10px;align-items:flex-start}
+.cmt .t-av{margin:0;width:26px;height:26px}
+.cmt-b{background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:6px 14px 14px 14px;padding:9px 13px;flex:1}
+.cmt-h{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
+.cmt-t{font-size:13px;white-space:pre-wrap}
+.tm-att{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--glass-border-soft);margin-bottom:6px}
+.tm-meta-line{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:14px}
+.empty-log.tasks-empty{margin:8vh auto 0;max-width:520px}
+
 @media(max-width:900px){
   .app{padding:11px;gap:11px}
   .sidebar{position:fixed;top:11px;left:11px;bottom:11px;z-index:50;transform:translateX(calc(-100% - 22px))}
@@ -461,6 +587,8 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     <div class="side-nav">
       <button class="nav-btn" data-view="dashboard"><span class="glyph">▦</span> Portfolio</button>
       <button class="nav-btn active" data-view="chat"><span class="glyph">◈</span> Workspace</button>
+      <button class="nav-btn" data-view="tasks"><span class="glyph">▣</span> Tasks <span class="badge" id="tasksBadge" style="display:none">0</span></button>
+      <div class="proj-nav" id="projNav"></div>
       <button class="nav-btn" data-view="team"><span class="glyph">◎</span> Team Chat <span class="badge" id="teamBadge" style="display:none">0</span></button>
       <button class="nav-btn" data-view="profile"><span class="glyph">⬡</span> Brand Profile</button>
       <button class="nav-btn" data-view="assets"><span class="glyph">▤</span> Assets</button>
@@ -479,6 +607,13 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <div class="lock-chip"><span class="chip-dot"></span>Locked to <b id="lockName">—</b></div>
       <div class="top-right">
         <button class="guard-chip" id="guardChip"><span class="g-lbl">Guardrails</span><span class="g-count" id="guardCount">0</span></button>
+        <div class="bell-wrap">
+          <button class="icon-btn" id="bellBtn" title="Notifications" aria-label="Notifications">◔<span class="bell-badge" id="bellBadge">0</span></button>
+          <div class="notif-panel" id="notifPanel">
+            <div class="notif-head"><h4>Notifications</h4><button class="notif-clear" id="notifClear">Mark all read</button></div>
+            <div id="notifList"></div>
+          </div>
+        </div>
         <button class="icon-btn" id="exportChatBtn" title="Export this chat" aria-label="Export chat">⤓</button>
         <button class="icon-btn" id="setBtn" title="Settings" aria-label="Settings">⚙</button>
       </div>
@@ -538,6 +673,9 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
         </div></div>
       </div>
 
+      <!-- TASKS -->
+      <div class="view" id="view-tasks"><div class="tasks-wrap" id="tasksWrap"></div></div>
+
       <!-- PROFILE -->
       <div class="view" id="view-profile"><div class="panel-scroll"><div class="panel-inner" id="profilePanel"></div></div></div>
       <!-- ASSETS -->
@@ -590,6 +728,53 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
   <div class="modal preview-modal">
     <div class="m-head"><h3 id="prevTitle">Preview</h3><button class="m-close" data-close="prevVeil" aria-label="Close">✕</button></div>
     <iframe class="preview-frame" id="prevFrame" sandbox="" title="File preview"></iframe>
+  </div>
+</div>
+
+<!-- TASK MODAL -->
+<div class="modal-veil" id="taskVeil">
+  <div class="modal">
+    <div class="m-head"><h3 id="tmTitle">Task</h3><button class="m-close" data-close="taskVeil" aria-label="Close">✕</button></div>
+    <div class="m-body" id="tmBody"></div>
+    <div class="m-foot">
+      <button class="btn-danger" id="tmDelete" style="margin-right:auto">Delete task</button>
+      <button class="btn-ghost" data-close="taskVeil">Close</button>
+      <button class="btn-gold" id="tmSave">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLAN MODAL -->
+<div class="modal-veil" id="planVeil">
+  <div class="modal" style="max-width:520px">
+    <div class="m-head"><h3>Ask SYN to plan</h3><button class="m-close" data-close="planVeil" aria-label="Close">✕</button></div>
+    <div class="m-body">
+      <label class="f-label" for="tmPlanInput">What are we planning, organizing, or launching?</label>
+      <textarea class="f-area" id="tmPlanInput" placeholder="e.g. Launch our spring product drop across email, social, and the website by April 15" style="min-height:88px"></textarea>
+      <div class="f-hint" id="planStatus">SYN reads your team and drafts a set of tasks. Review and edit them on the board after.</div>
+    </div>
+    <div class="m-foot">
+      <button class="btn-ghost" data-close="planVeil">Cancel</button>
+      <button class="btn-gold" id="planRun">Plan it</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-veil" id="projVeil">
+  <div class="modal" style="max-width:460px">
+    <div class="m-head"><h3 id="pmTitle">New project</h3><button class="m-close" data-close="projVeil" aria-label="Close">✕</button></div>
+    <div class="m-body">
+      <label class="f-label" for="pmName">Project name</label><input class="f-input" id="pmName">
+      <label class="f-label" for="pmColor">Color</label>
+      <div class="color-row"><input type="color" id="pmColorPick" value="#E4C169"><input class="f-input" id="pmColor" placeholder="#E4C169" style="flex:1"></div>
+      <label class="f-label" for="pmDesc">Description (optional)</label><textarea class="f-area" id="pmDesc"></textarea>
+    </div>
+    <div class="m-foot">
+      <button class="btn-danger" id="pmDelete" style="display:none;margin-right:auto">Delete project</button>
+      <button class="btn-ghost" data-close="projVeil">Cancel</button>
+      <button class="btn-gold" id="pmSave">Save Project</button>
+    </div>
   </div>
 </div>
 
@@ -922,6 +1107,14 @@ async function enterOrg(org, u){
   teamSeen = TEAMCHAT.length;
   startTeamPoll();
 
+  await loadWorkspaceData();
+  wireWorkspaceBus();
+  renderProjectsNav();
+  renderBell();
+  updateTasksBadge();
+  checkDueSoon();
+  startWorkspacePoll();
+
   refreshFraming();
   if (BRANDS.length){ activeBrandId = BRANDS[0].id; await selectBrand(activeBrandId); }
   else { activeBrandId = null; renderBrands(); renderChatList(); renderThread(); setView("chat"); }
@@ -1040,8 +1233,9 @@ function buildSystemPrompt(b){
     "[[/FILE]]",
     "Default documents to a fully designed, self-contained .html file in the brand's colors and typography, editorial-quality, print-ready. Use .csv for sheets/calendars/data (header row first). Use .doc only when Word is requested, built from SIMPLE Word-compatible HTML (h1, h2, p, table, short inline styles, no grid/flex/webfonts). Use .md or .txt only when plain text is requested. Keep files lean. Never mention the markers.",
     "3. MEMORY: when the user states a lasting fact, decision, preference, or correction about the brand or how they work (not small talk), save it by emitting on its own line: [[REMEMBER: the fact, under 25 words]] . Maximum 2 per response, only genuinely durable facts. It is stored permanently and silently.",
-    "4. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
-    "5. Never use em dashes.");
+    "4. TASKS: when the user asks you to plan, organize, launch, or break down a project or effort, decompose it into concrete tasks and emit each on its own line EXACTLY as: [[TASK: title | assignee | YYYY-MM-DD | priority | project]] . Assignee is a team member's name or blank. Priority is one of low, med, high, urgent. Project is a short project name (reuse the same name for all tasks in one plan). Date is optional but realistic. Each of these lines creates a real task on the team board, so make titles action-oriented and specific. Team members: " + TEAM.map(u => u.name).join(", ") + ".",
+    "5. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
+    "6. Never use em dashes.");
   return sp.join("\n");
 }
 function buildImagePrompt(b, scene){
@@ -1223,14 +1417,15 @@ function renderPending(){
 
 /* ---------------- GENERATED FILES ---------------- */
 function parseSpecial(raw){
-  const files = [], memories = [];
+  const files = [], memories = [], aiTasks = [];
   let clean = raw.replace(/\[\[FILE:([^\]]+)\]\]([\s\S]*?)\[\[\/FILE\]\]/g, (m, name, content) => {
     files.push({ name: name.trim(), content: content.replace(/^\n+|\n+$/g, "") }); return "";
   });
   const open = clean.match(/\[\[FILE:([^\]]+)\]\]([\s\S]*)$/);
   if (open){ files.push({ name: open[1].trim(), content: open[2].replace(/^\n+/, "") }); clean = clean.slice(0, open.index); }
   clean = clean.replace(/\[\[REMEMBER:\s*([\s\S]*?)\]\]/g, (m, fact) => { memories.push(fact.trim()); return ""; });
-  return { clean: clean.trim(), files, memories };
+  clean = clean.replace(/\[\[TASK:\s*([^\]]+?)\]\]/g, (m, body) => { aiTasks.push(body.trim()); return ""; });
+  return { clean: clean.trim(), files, memories, aiTasks };
 }
 function mimeFor(ext){
   return { csv:"text/csv", html:"text/html", htm:"text/html", md:"text/markdown", txt:"text/plain", doc:"application/msword", json:"application/json" }[ext] || "text/plain";
@@ -1433,21 +1628,25 @@ function finishSyn(raw, errKind){
   if (errKind === "stopped" && !(raw && raw.trim())){
     t.msgs.push({ role:"syn", text:"Stopped.", displayText:"Stopped.", rawText:"Stopped.", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
   } else if (errKind === "stopped"){
-    const { clean, files, memories } = parseSpecial(raw);
-    const display = (clean || (files.length ? "Your file is ready." : raw)) + "\n\n*(stopped early)*";
+    const { clean, files, memories, aiTasks } = parseSpecial(raw);
+    const madeS = ingestAITasks(aiTasks);
+    const display = (clean || (files.length ? "Your file is ready." : (madeS ? "Tasks added to the board." : raw))) + "\n\n*(stopped early)*";
     t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
+    if (madeS) toast("SYN created " + madeS + " task" + (madeS > 1 ? "s" : "") + ".");
   } else if (errKind === "net"){
     t.msgs.push({ role:"syn", text:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", displayText:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", rawText:"", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
   } else if (!raw){
     t.msgs.push({ role:"syn", text:"SYN returned an empty response. Try rephrasing.", displayText:"SYN returned an empty response. Try rephrasing.", rawText:"", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
   } else {
-    const { clean, files, memories } = parseSpecial(raw);
+    const { clean, files, memories, aiTasks } = parseSpecial(raw);
     if (memories.length){
       memories.forEach(mm => b.memories.push({ id: uid("m"), text: mm, by: currentUser.name, at: new Date().toISOString() }));
       saveBrands();
     }
-    const display = clean || (files.length ? "Your file is ready." : raw);
+    const made = ingestAITasks(aiTasks);
+    const display = clean || (files.length ? "Your file is ready." : (made ? "Tasks added to the board." : raw));
     t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
+    if (made) toast("SYN created " + made + " task" + (made > 1 ? "s" : "") + ".");
   }
   t.updatedAt = new Date().toISOString();
   saveChats(activeBrandId);
@@ -1845,6 +2044,7 @@ function setView(v){
   document.getElementById("view-" + v).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach(el => el.classList.toggle("active", el.dataset.view === v));
   if (v === "approvals") renderApprovals();
+  if (v === "tasks") renderTasks();
   if (v === "team") renderTeamChat();
   if (v === "profile") renderProfile();
   if (v === "settings") renderSettings();
@@ -1948,6 +2148,691 @@ async function backupWorkspace(){
     chats: CHATS, approvals: APPROVALS, settings: SETTINGS
   };
   doDownload({ name: "SYN_Workspace_Backup.json", content: JSON.stringify(data, null, 2) });
+}
+
+/* =====================================================================
+   WORKSPACE SUITE · STAGE 0 (foundation) + STAGE 1 (tasks / projects)
+   All data org-scoped via okey(), persisted through sGet/sSet, cached,
+   and refreshed on the same ~8s poll pattern as team chat.
+   ===================================================================== */
+
+/* ---------- global event bus ---------- */
+const BUS = (() => {
+  const map = {};
+  return {
+    on(evt, fn){ (map[evt] = map[evt] || []).push(fn); return () => { map[evt] = (map[evt] || []).filter(f => f !== fn); }; },
+    emit(evt, payload){ (map[evt] || []).forEach(f => { try{ f(payload); }catch(err){ console.error("bus handler", evt, err); } }); }
+  };
+})();
+
+/* ---------- org-scoped cached collections ---------- */
+const COLL = {};                  // name -> { cache, shared }
+const collDirty = new Set();
+const collTimers = {};
+function coll(name){ if (!COLL[name]) COLL[name] = { cache: null, shared: true }; return COLL[name]; }
+async function collLoad(name){ const c = coll(name); if (c.cache) return c.cache; c.cache = (await sGet(okey(name))) || []; return c.cache; }
+function collAll(name){ return coll(name).cache || []; }
+function collSave(name){
+  const c = coll(name);
+  collDirty.add(name);
+  clearTimeout(collTimers[name]);
+  collTimers[name] = setTimeout(async () => {
+    try{ await sSet(okey(name), c.cache || [], c.shared); }catch(e){ console.error("collSave", name, e); }
+    collDirty.delete(name);
+  }, 500);
+}
+function nowISO(){ return new Date().toISOString(); }
+
+/* ---------- typed entity factory ---------- */
+function entity(name, defaults){
+  return {
+    name,
+    load(){ return collLoad(name); },
+    list(filter){ const arr = collAll(name); return filter ? arr.filter(filter) : arr.slice(); },
+    get(id){ return collAll(name).find(x => x.id === id) || null; },
+    create(obj){
+      const c = coll(name); c.cache = c.cache || [];
+      const rec = Object.assign(defaults ? defaults() : {}, obj, {
+        id: obj && obj.id ? obj.id : uid(name[0]),
+        createdAt: obj && obj.createdAt ? obj.createdAt : nowISO(),
+        updatedAt: nowISO(),
+        createdBy: obj && obj.createdBy ? obj.createdBy : (currentUser ? currentUser.id : null),
+        createdByName: obj && obj.createdByName ? obj.createdByName : (currentUser ? currentUser.name : "")
+      });
+      c.cache.push(rec);
+      collSave(name);
+      BUS.emit("change:" + name, { op:"create", rec });
+      return rec;
+    },
+    update(id, patch){
+      const rec = collAll(name).find(x => x.id === id);
+      if (!rec) return null;
+      Object.assign(rec, patch, { updatedAt: nowISO() });
+      collSave(name);
+      BUS.emit("change:" + name, { op:"update", rec });
+      return rec;
+    },
+    remove(id){
+      const c = coll(name);
+      c.cache = (c.cache || []).filter(x => x.id !== id);
+      collSave(name);
+      BUS.emit("change:" + name, { op:"remove", id });
+    }
+  };
+}
+
+const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees:[], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"team", order: Date.now() }));
+const Projects = entity("projects", () => ({ name:"", color:"#E4C169", description:"" }));
+const Events   = entity("events", () => ({ title:"", start:null, end:null, allDay:true, description:"", location:"", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, visibility:"team" }));
+const Spaces   = entity("spaces", () => ({ name:"", icon:"◆", color:"#E4C169", description:"", type:"team", members:"all", archived:false }));
+const DMs      = entity("dms", () => ({ members:[], lastAt:null }));
+const Notifs   = entity("notifications", () => ({ forUserId:null, type:"", text:"", link:null, read:false }));
+const Activity = entity("activity", () => ({ actorId:null, actorName:"", type:"", text:"", refType:null, refId:null }));
+
+const WS_KEYS = ["tasks","projects","events","spaces","dms","notifications","activity"];
+async function loadWorkspaceData(){ await Promise.all(WS_KEYS.map(k => collLoad(k))); }
+
+/* ---------- notifications ---------- */
+const N_ICON = { assigned:"◎", "task-due":"⏰", mention:"@", dm:"✉", approval:"✓", event:"◷", comment:"❝", system:"◈" };
+function notify(forUserId, type, text, link){
+  if (!forUserId) return null;
+  const n = Notifs.create({ forUserId, type, text, link: link || null, read:false });
+  BUS.emit("notif:new", { forUserId });
+  return n;
+}
+function myNotifs(){ return Notifs.list(n => n.forUserId === (currentUser && currentUser.id)).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)); }
+function renderBell(){
+  if (!currentUser) return;
+  const list = myNotifs();
+  const unread = list.filter(n => !n.read).length;
+  const badge = document.getElementById("bellBadge");
+  if (badge){ badge.textContent = unread > 99 ? "99+" : unread; badge.classList.toggle("on", unread > 0); }
+  const btn = document.getElementById("bellBtn"); if (btn) btn.classList.toggle("lit", unread > 0);
+  const el = document.getElementById("notifList"); if (!el) return;
+  if (!list.length){ el.innerHTML = '<div class="notif-empty">No notifications yet. Assignments, mentions, due-soon tasks, and approvals land here.</div>'; return; }
+  el.innerHTML = list.slice(0, 40).map(n =>
+    '<button class="notif-item' + (n.read ? "" : " unread") + '" data-wact="openNotif" data-nid="' + n.id + '">' +
+    '<span class="notif-ico">' + (N_ICON[n.type] || "◈") + '</span>' +
+    '<span class="notif-txt">' + esc(n.text) + '<div class="notif-time">' + esc(fmtTime(n.createdAt)) + '</div></span>' +
+    (n.read ? "" : '<span class="notif-dot"></span>') + '</button>'
+  ).join("");
+}
+function toggleBell(){ const p = document.getElementById("notifPanel"); if (!p) return; const open = !p.classList.contains("open"); p.classList.toggle("open", open); if (open) renderBell(); }
+function closeBell(){ const p = document.getElementById("notifPanel"); if (p) p.classList.remove("open"); }
+function markAllRead(){
+  let changed = false;
+  collAll("notifications").forEach(n => { if (n.forUserId === currentUser.id && !n.read){ n.read = true; changed = true; } });
+  if (changed){ collSave("notifications"); BUS.emit("change:notifications", {}); }
+  renderBell();
+}
+function openNotification(id){
+  const n = Notifs.get(id); if (!n) return;
+  if (!n.read) Notifs.update(id, { read:true });
+  closeBell();
+  const link = n.link || {};
+  if (link.view === "tasks"){ setView("tasks"); if (link.taskId && Tasks.get(link.taskId)) openTaskModal(link.taskId); }
+  else if (link.view){ setView(link.view); }
+  renderBell();
+}
+
+/* ---------- activity feed ---------- */
+function logActivity(type, text, refType, refId){
+  Activity.create({ actorId: currentUser ? currentUser.id : null, actorName: currentUser ? currentUser.name : "", type, text, refType: refType || null, refId: refId || null });
+  const c = coll("activity");
+  if (c.cache && c.cache.length > 300){ c.cache.splice(0, c.cache.length - 300); collSave("activity"); }
+}
+function recentActivity(n){ return Activity.list().sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, n || 40); }
+
+/* ---------- due-soon scan (per-client, deduped) ---------- */
+function checkDueSoon(){
+  if (!currentUser) return;
+  const now = Date.now(), soon = now + 48 * 3600 * 1000;
+  Tasks.list(t => t.status !== "done" && t.dueDate && (t.assignees || []).includes(currentUser.id)).forEach(t => {
+    const due = new Date(t.dueDate + "T23:59:59").getTime();
+    if (due >= now && due <= soon){
+      const exists = Notifs.list(x => x.forUserId === currentUser.id && x.type === "task-due" && x.link && x.link.taskId === t.id).length;
+      if (!exists) notify(currentUser.id, "task-due", "Due soon: " + t.title, { view:"tasks", taskId:t.id });
+    }
+  });
+}
+
+/* ---------- workspace sync poll (8s, pauses when hidden) ---------- */
+let wsPollTimer = null;
+function collSig(arr){ let mx = ""; for (const x of arr){ if (x.updatedAt > mx) mx = x.updatedAt; } return arr.length + "|" + mx; }
+function startWorkspacePoll(){
+  clearInterval(wsPollTimer);
+  wsPollTimer = setInterval(async () => {
+    if (!ORG || document.hidden) return;
+    for (const name of WS_KEYS){
+      if (collDirty.has(name)) continue;                 // don't clobber unsaved local edits
+      const fresh = (await sGet(okey(name))) || [];
+      const c = coll(name);
+      if (collSig(fresh) !== collSig(c.cache || [])){
+        c.cache = fresh;
+        BUS.emit("change:" + name, { op:"sync" });
+      }
+    }
+    checkDueSoon();
+    renderBell();
+  }, 8000);
+}
+
+/* ---------- shared helpers ---------- */
+function teamById(id){ return TEAM.find(t => t.id === id) || null; }
+function teamName(id){ const u = teamById(id); return u ? u.name : ""; }
+function initials(name){ return (name || "?").split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase(); }
+function avatarHtml(id, cls){ const u = teamById(id); const nm = u ? u.name : "?"; return '<span class="t-av ' + (cls || "") + '" title="' + esc(nm) + '">' + esc(initials(nm)) + '</span>'; }
+function viewIs(v){ const el = document.getElementById("view-" + v); return el && el.classList.contains("active"); }
+
+/* =====================================================================
+   STAGE 1 · TASKS & PROJECTS
+   ===================================================================== */
+const T_STATUS = [
+  { key:"todo",       label:"To Do",       dot:"#8B93A7" },
+  { key:"inprogress", label:"In Progress", dot:"#5FA8FF" },
+  { key:"review",     label:"Review",      dot:"#E4C169" },
+  { key:"done",       label:"Done",        dot:"#7FD99A" }
+];
+const T_PRI = {
+  low:    { label:"Low",    cls:"pri-low",    color:"#7FD99A" },
+  med:    { label:"Med",    cls:"pri-med",    color:"#E4C169" },
+  high:   { label:"High",   cls:"pri-high",   color:"#EE9A5B" },
+  urgent: { label:"Urgent", cls:"pri-urgent", color:"#FF7A6B" }
+};
+let taskView = "board";                         // board | list | mine
+let taskFilter = { project:"", assignee:"", priority:"", label:"", sort:"manual" };
+let dragTaskId = null;
+let editingTaskId = null;
+let editingProjectId = null;
+let armedDone = null;
+
+function canSeeTask(t){ return t.visibility !== "private" || (currentUser && t.createdBy === currentUser.id); }
+function allLabels(){ const s = new Set(); Tasks.list(canSeeTask).forEach(t => (t.labels || []).forEach(l => s.add(l))); return Array.from(s).sort(); }
+function projectById(id){ return Projects.get(id); }
+function taskDueState(t){
+  if (!t.dueDate || t.status === "done") return "";
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = new Date(t.dueDate + "T00:00:00") - today;
+  if (diff < 0) return "red";
+  if (diff <= 2 * 86400000) return "amber";
+  return "";
+}
+function fmtDay(d){ if (!d) return ""; const dt = new Date(d + "T00:00:00"); return dt.toLocaleDateString([], { month:"short", day:"numeric" }); }
+
+function baseTasks(){
+  let list = Tasks.list(canSeeTask);
+  if (taskView === "mine") list = list.filter(t => (t.assignees || []).includes(currentUser.id));
+  if (taskFilter.project)  list = list.filter(t => t.projectId === taskFilter.project);
+  if (taskFilter.assignee) list = list.filter(t => (t.assignees || []).includes(taskFilter.assignee));
+  if (taskFilter.priority) list = list.filter(t => t.priority === taskFilter.priority);
+  if (taskFilter.label)    list = list.filter(t => (t.labels || []).includes(taskFilter.label));
+  return list;
+}
+function sortTasks(list){
+  const arr = list.slice();
+  const s = taskFilter.sort;
+  if (s === "due") arr.sort((a,b) => (a.dueDate ? Date.parse(a.dueDate) : Infinity) - (b.dueDate ? Date.parse(b.dueDate) : Infinity));
+  else if (s === "priority"){ const o = { urgent:0, high:1, med:2, low:3 }; arr.sort((a,b) => (o[a.priority] - o[b.priority]) || (a.order - b.order)); }
+  else if (s === "assignee") arr.sort((a,b) => (teamName((a.assignees || [])[0]) || "~").localeCompare(teamName((b.assignees || [])[0]) || "~"));
+  else arr.sort((a,b) => (a.order || 0) - (b.order || 0));
+  return arr;
+}
+
+/* ----- projects sidebar nav ----- */
+function renderProjectsNav(){
+  const el = document.getElementById("projNav");
+  if (!el) return;
+  const projs = Projects.list();
+  let html = '<button class="proj-nav-item' + (taskFilter.project === "" ? " active" : "") + '" data-wact="projFilter" data-pid=""><span class="proj-dot" style="--pn:var(--gold)"></span>All tasks<span class="pn-count">' + Tasks.list(canSeeTask).length + '</span></button>';
+  projs.forEach(p => {
+    const n = Tasks.list(t => canSeeTask(t) && t.projectId === p.id).length;
+    html += '<button class="proj-nav-item' + (taskFilter.project === p.id ? " active" : "") + '" data-wact="projFilter" data-pid="' + p.id + '">' +
+      '<span class="proj-dot" style="--pn:' + esc(p.color) + '"></span>' + esc(p.name) + '<span class="pn-count">' + n + '</span></button>';
+  });
+  html += '<button class="proj-add" data-wact="newProject">+ New project</button>';
+  el.innerHTML = html;
+}
+
+/* ----- tasks view (toolbar + board/list) ----- */
+function renderTasks(){
+  const wrap = document.getElementById("tasksWrap");
+  if (!wrap) return;
+  const projs = Projects.list();
+  const labels = allLabels();
+  const sel = (val, cur) => (val === cur ? " selected" : "");
+  const projName = taskFilter.project ? (projectById(taskFilter.project) || {}).name : "";
+  let bar =
+    '<div class="tasks-bar"><div class="tb-top">' +
+    '<div><h2>' + (taskView === "mine" ? "My Tasks" : (projName ? esc(projName) : "Tasks")) + '</h2>' +
+    '<div class="sub">Shared team work. Assign, track, and ship. Everything saves to the workspace.</div></div>' +
+    '<div class="tb-actions">' +
+    '<button class="mode-btn' + (taskView === "board" ? " active" : "") + '" data-wact="taskView" data-v="board">Board</button>' +
+    '<button class="mode-btn' + (taskView === "list" ? " active" : "") + '" data-wact="taskView" data-v="list">List</button>' +
+    '<button class="mode-btn' + (taskView === "mine" ? " active" : "") + '" data-wact="taskView" data-v="mine">My Tasks</button>' +
+    '<button class="head-btn ghost" data-wact="planProject" style="padding:8px 15px">✦ Ask SYN to plan</button>' +
+    '<button class="head-btn" data-wact="newTask" style="padding:8px 17px">+ New Task</button>' +
+    '</div></div>' +
+    '<div class="tb-filters"><span class="fl-lbl">Filter</span>' +
+    '<select data-wact="filter" data-k="project"><option value="">All projects</option>' + projs.map(p => '<option value="' + p.id + '"' + sel(p.id, taskFilter.project) + '>' + esc(p.name) + '</option>').join("") + '</select>' +
+    '<select data-wact="filter" data-k="assignee"><option value="">Anyone</option>' + TEAM.map(u => '<option value="' + u.id + '"' + sel(u.id, taskFilter.assignee) + '>' + esc(u.name) + '</option>').join("") + '</select>' +
+    '<select data-wact="filter" data-k="priority"><option value="">Any priority</option>' + Object.keys(T_PRI).map(k => '<option value="' + k + '"' + sel(k, taskFilter.priority) + '>' + T_PRI[k].label + '</option>').join("") + '</select>' +
+    '<select data-wact="filter" data-k="label"><option value="">Any label</option>' + labels.map(l => '<option value="' + esc(l) + '"' + sel(l, taskFilter.label) + '>' + esc(l) + '</option>').join("") + '</select>' +
+    '<span class="fl-lbl">Sort</span>' +
+    '<select data-wact="filter" data-k="sort"><option value="manual"' + sel("manual", taskFilter.sort) + '>Manual</option><option value="due"' + sel("due", taskFilter.sort) + '>Due date</option><option value="priority"' + sel("priority", taskFilter.sort) + '>Priority</option><option value="assignee"' + sel("assignee", taskFilter.sort) + '>Assignee</option></select>' +
+    (taskFilter.project || taskFilter.assignee || taskFilter.priority || taskFilter.label ? '<button class="mode-btn" data-wact="clearFilters">Clear</button>' : "") +
+    '</div></div>';
+
+  const total = Tasks.list(canSeeTask).length;
+  if (!total && taskView !== "board"){
+    wrap.innerHTML = bar + '<div class="empty-log tasks-empty">No tasks yet. Switch to the Board to quick-add into a column, use <b>+ New Task</b>, or ask SYN to plan a project and it will fill the board for you.</div>';
+    return;
+  }
+  wrap.innerHTML = bar + (taskView === "list" || taskView === "mine" ? renderTaskList() : renderBoard());
+  if (taskView === "board") wireBoardDnd();
+}
+
+function taskCardHtml(t){
+  const pri = T_PRI[t.priority] || T_PRI.med;
+  const proj = t.projectId ? projectById(t.projectId) : null;
+  const dueState = taskDueState(t);
+  const subDone = (t.subtasks || []).filter(s => s.done).length, subTot = (t.subtasks || []).length;
+  let h = '<div class="tcard' + (dueState === "red" ? " overdue" : "") + '" draggable="true" data-wact="openTask" data-tid="' + t.id + '" style="--pc:' + pri.color + '">';
+  h += '<div class="tc-title">' + esc(t.title || "Untitled") + '</div><div class="tc-meta">';
+  if (proj) h += '<span class="tc-proj" style="color:' + esc(proj.color) + ';border-color:' + hexToSoft(proj.color) + '">' + esc(proj.name) + '</span>';
+  h += '<span class="tc-pri ' + pri.cls + '">' + pri.label + '</span>';
+  if (t.dueDate) h += '<span class="tc-due ' + dueState + '">◷ ' + fmtDay(t.dueDate) + '</span>';
+  h += '</div>';
+  if ((t.labels || []).length) h += '<div class="tc-labels">' + t.labels.map(l => '<span class="tc-lab">' + esc(l) + '</span>').join("") + '</div>';
+  h += '<div class="tc-foot"><div class="tc-avs">' + (t.assignees || []).slice(0,4).map(id => avatarHtml(id)).join("") + '</div>';
+  const bits = [];
+  if (subTot) bits.push('<span class="tc-bar"><i style="width:' + Math.round(subDone / subTot * 100) + '%"></i></span>' + subDone + "/" + subTot);
+  if ((t.comments || []).length) bits.push("❝ " + t.comments.length);
+  if ((t.attachments || []).length) bits.push("≣ " + t.attachments.length);
+  if (bits.length) h += '<div class="tc-sub">' + bits.join(" · ") + '</div>';
+  h += '</div></div>';
+  return h;
+}
+function renderBoard(){
+  let h = '<div class="board" id="taskBoard">';
+  T_STATUS.forEach(col => {
+    const cards = sortTasks(baseTasks().filter(t => t.status === col.key));
+    h += '<div class="board-col"><div class="col-head"><span class="col-dot" style="background:' + col.dot + '"></span>' + col.label + '<span class="col-n">' + cards.length + '</span></div>' +
+      '<div class="col-cards" data-status="' + col.key + '">' + cards.map(taskCardHtml).join("") + '</div>' +
+      '<div class="col-quick"><input placeholder="+ Add task" data-wact="quickAdd" data-status="' + col.key + '"></div></div>';
+  });
+  return h + '</div>';
+}
+function renderTaskList(){
+  const list = sortTasks(baseTasks());
+  if (!list.length) return '<div class="empty-log tasks-empty">No tasks match. Adjust filters or add a task.</div>';
+  let h = '<div class="tlist">';
+  T_STATUS.forEach(col => {
+    const rows = list.filter(t => t.status === col.key);
+    if (!rows.length) return;
+    h += '<div class="tlist-group"><div class="tlist-gh"><span class="g-dot" style="background:' + col.dot + '"></span>' + col.label + ' · ' + rows.length + '</div>';
+    rows.forEach(t => {
+      const pri = T_PRI[t.priority] || T_PRI.med;
+      const proj = t.projectId ? projectById(t.projectId) : null;
+      const dueState = taskDueState(t);
+      const done = t.status === "done";
+      h += '<div class="trow' + (dueState === "red" ? " overdue" : "") + '" data-wact="openTask" data-tid="' + t.id + '" style="--pc:' + pri.color + '">' +
+        '<button class="tr-check' + (done ? " done" : "") + '" data-wact="toggleDone" data-tid="' + t.id + '">✓</button>' +
+        '<span class="tr-title' + (done ? " done" : "") + '">' + esc(t.title || "Untitled") + '</span>' +
+        '<span class="tr-side">' +
+        (proj ? '<span class="tc-proj" style="color:' + esc(proj.color) + ';border-color:' + hexToSoft(proj.color) + '">' + esc(proj.name) + '</span>' : "") +
+        '<span class="tc-pri ' + pri.cls + '">' + pri.label + '</span>' +
+        (t.dueDate ? '<span class="tc-due ' + dueState + '">◷ ' + fmtDay(t.dueDate) + '</span>' : "") +
+        '<span class="tc-avs">' + (t.assignees || []).slice(0,3).map(id => avatarHtml(id)).join("") + '</span>' +
+        '</span></div>';
+    });
+    h += '</div>';
+  });
+  return h + '</div>';
+}
+
+/* ----- drag & drop ----- */
+function wireBoardDnd(){
+  const board = document.getElementById("taskBoard");
+  if (!board) return;
+  board.querySelectorAll(".tcard").forEach(card => {
+    card.addEventListener("dragstart", e => { dragTaskId = card.dataset.tid; card.classList.add("dragging"); if (e.dataTransfer) e.dataTransfer.effectAllowed = "move"; });
+    card.addEventListener("dragend", () => { dragTaskId = null; card.classList.remove("dragging"); board.querySelectorAll(".col-cards").forEach(c => c.classList.remove("drop-hi")); });
+  });
+  board.querySelectorAll(".col-cards").forEach(zone => {
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drop-hi"); });
+    zone.addEventListener("dragleave", e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove("drop-hi"); });
+    zone.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("drop-hi"); dropTask(zone, e); });
+  });
+}
+function dropTask(zone, e){
+  const id = dragTaskId; if (!id) return;
+  const t = Tasks.get(id); if (!t) return;
+  const status = zone.dataset.status;
+  const cards = Array.from(zone.querySelectorAll(".tcard")).filter(c => c.dataset.tid !== id);
+  let idx = cards.length;
+  for (let i = 0; i < cards.length; i++){ const r = cards[i].getBoundingClientRect(); if (e.clientY < r.top + r.height / 2){ idx = i; break; } }
+  const colIds = sortTasks(baseTasks().filter(x => x.status === status && x.id !== id)).map(x => x.id);
+  colIds.splice(idx, 0, id);
+  colIds.forEach((tid, i) => { const tk = Tasks.get(tid); if (tk) tk.order = i; });
+  const wasDone = t.status === "done";
+  t.status = status;
+  Tasks.update(id, { status, order: t.order });
+  if (status === "done" && !wasDone){
+    logActivity("task", currentUser.name + " completed “" + t.title + "”", "task", id);
+    const rem = (t.subtasks || []).filter(s => !s.done).length;
+    if (rem) toast("Moved to Done with " + rem + " subtask" + (rem > 1 ? "s" : "") + " still open.");
+  }
+  renderTasks();
+}
+
+/* ----- quick add ----- */
+function quickAddTask(status, title){
+  title = (title || "").trim(); if (!title) return;
+  const order = Math.min(0, ...Tasks.list(t => t.status === status).map(t => t.order || 0)) - 1;
+  const t = Tasks.create({ title, status, order });
+  logActivity("task", currentUser.name + " added “" + title + "”", "task", t.id);
+  renderTasks();
+  toast("Task added.");
+}
+
+/* ----- assignment ----- */
+function toggleAssignee(id){
+  const t = Tasks.get(editingTaskId); if (!t) return;
+  syncTaskHeader();
+  const has = (t.assignees || []).includes(id);
+  t.assignees = has ? t.assignees.filter(x => x !== id) : (t.assignees || []).concat(id);
+  Tasks.update(t.id, { assignees: t.assignees });
+  if (!has && id !== currentUser.id){
+    notify(id, "assigned", currentUser.name + " assigned you: " + (t.title || "a task"), { view:"tasks", taskId:t.id });
+    logActivity("task", currentUser.name + " assigned " + teamName(id) + " to “" + (t.title || "a task") + "”", "task", t.id);
+  }
+  renderTaskModalBody();
+}
+
+/* ----- task modal ----- */
+function openTaskModal(id){
+  editingTaskId = id;
+  armedDone = null;
+  document.getElementById("tmTitle").textContent = "Task detail";
+  renderTaskModalBody();
+  document.getElementById("taskVeil").classList.add("open");
+}
+function syncTaskHeader(){
+  const t = Tasks.get(editingTaskId); if (!t) return;
+  const g = id => { const el = document.getElementById(id); return el ? el.value : undefined; };
+  if (g("tmName") !== undefined) t.title = g("tmName").trim();
+  if (g("tmDesc") !== undefined) t.description = g("tmDesc");
+  if (g("tmStatus") !== undefined) t.status = g("tmStatus");
+  if (g("tmPri") !== undefined) t.priority = g("tmPri");
+  if (g("tmDue") !== undefined) t.dueDate = g("tmDue") || null;
+  if (g("tmStart") !== undefined) t.startDate = g("tmStart") || null;
+  if (g("tmProj") !== undefined) t.projectId = g("tmProj") || null;
+  if (g("tmVis") !== undefined) t.visibility = g("tmVis");
+}
+function renderTaskModalBody(){
+  const t = Tasks.get(editingTaskId); if (!t) return;
+  const body = document.getElementById("tmBody");
+  const opt = (val, cur, label) => '<option value="' + val + '"' + (val === cur ? " selected" : "") + '>' + label + '</option>';
+  const subDone = (t.subtasks || []).filter(s => s.done).length, subTot = (t.subtasks || []).length;
+  const proj = t.projectId ? projectById(t.projectId) : null;
+  let h = '';
+  h += '<label class="f-label" for="tmName">Title</label><input class="f-input" id="tmName" value="' + esc(t.title) + '">';
+  h += '<label class="f-label" for="tmDesc">Description</label><textarea class="f-area" id="tmDesc">' + esc(t.description || "") + '</textarea>';
+  h += '<div class="tm-grid">';
+  h += '<div><label class="f-label" for="tmStatus">Status</label><select class="f-input" id="tmStatus">' + T_STATUS.map(s => opt(s.key, t.status, s.label)).join("") + '</select></div>';
+  h += '<div><label class="f-label" for="tmPri">Priority</label><select class="f-input" id="tmPri">' + Object.keys(T_PRI).map(k => opt(k, t.priority, T_PRI[k].label)).join("") + '</select></div>';
+  h += '</div><div class="tm-grid">';
+  h += '<div><label class="f-label" for="tmStart">Start date</label><input class="f-input" id="tmStart" type="date" value="' + esc(t.startDate || "") + '"></div>';
+  h += '<div><label class="f-label" for="tmDue">Due date</label><input class="f-input" id="tmDue" type="date" value="' + esc(t.dueDate || "") + '"></div>';
+  h += '</div>';
+  h += '<div class="tm-grid"><div><label class="f-label" for="tmProj">Project</label><select class="f-input" id="tmProj"><option value="">No project</option>' + Projects.list().map(p => opt(p.id, t.projectId || "", p.name)).join("") + '</select></div>';
+  h += '<div><label class="f-label" for="tmVis">Visibility</label><select class="f-input" id="tmVis">' + opt("team", t.visibility, "Team") + opt("private", t.visibility, "Private to me") + '</select></div></div>';
+
+  h += '<label class="f-label">Assignees</label><div class="tm-assignees">' +
+    TEAM.map(u => { const on = (t.assignees || []).includes(u.id); return '<button type="button" class="assign-chip' + (on ? " on" : "") + '" data-wact="assign" data-uid="' + u.id + '">' + avatarHtml(u.id) + esc(u.name.split(" ")[0]) + '</button>'; }).join("") + '</div>';
+
+  h += '<label class="f-label">Labels</label><div class="chip-input" id="tmLabels">' +
+    (t.labels || []).map(l => '<span class="lab-chip">' + esc(l) + '<b data-wact="delLabel" data-l="' + esc(l) + '">✕</b></span>').join("") +
+    '<input id="tmLabelInput" placeholder="Add label, Enter"></div>';
+
+  h += '<label class="f-label">Subtasks' + (subTot ? ' · ' + subDone + '/' + subTot : "") + '</label>';
+  if (subTot) h += '<div class="sub-prog"><span class="bar"><i style="width:' + Math.round(subDone / subTot * 100) + '%"></i></span>' + Math.round(subDone / subTot * 100) + '%</div>';
+  h += '<div class="sub-list">' + (t.subtasks || []).map(s =>
+    '<div class="sub-item"><button class="tr-check' + (s.done ? " done" : "") + '" data-wact="subToggle" data-sid="' + s.id + '">✓</button>' +
+    '<span class="' + (s.done ? "done" : "") + '">' + esc(s.text) + '</span>' +
+    '<button class="k-del" data-wact="subDel" data-sid="' + s.id + '">✕</button></div>').join("") + '</div>';
+  h += '<div class="mini-form"><input class="f-input" id="tmSubInput" placeholder="Add a subtask, Enter"></div>';
+
+  h += '<label class="f-label">Attachments</label>';
+  h += (t.attachments || []).map((a, i) => '<div class="tm-att"><span class="fc-ico" style="width:32px;height:32px;border-radius:10px">' + (a.kind === "image" ? "▣" : a.kind === "pdf" ? "⌘" : "≣") + '</span><div style="flex:1"><div class="fc-name">' + esc(a.name) + '</div><div class="fc-meta">' + (a.kind || "file").toUpperCase() + (a.size ? " · " + fmtSize(a.size) : "") + '</div></div><button class="k-del" data-wact="attDel" data-i="' + i + '">✕</button></div>').join("");
+  h += '<button class="add-btn" data-wact="attAdd" style="margin-top:4px">+ Attach file</button><input type="file" id="tmFile" multiple style="display:none">';
+
+  if (BRANDS.length){
+    const linked = t.linkedChatId && (CHATS[t.linkedBrandId] || []).find(c => c.id === t.linkedChatId);
+    h += '<label class="f-label">Linked chat</label>';
+    h += '<select class="f-input" id="tmChat" data-wact="linkChat"><option value="">None</option>' +
+      chats().filter(canSee).map(c => '<option value="' + c.id + '"' + (t.linkedChatId === c.id ? " selected" : "") + '>' + esc(c.name) + '</option>').join("") + '</select>';
+    if (linked) h += '<button class="add-btn" data-wact="openLinkedChat" style="margin-top:6px">↗ Open linked chat</button>';
+  }
+
+  h += '<label class="f-label">Comments</label><div class="cmt-thread">' +
+    ((t.comments || []).length ? t.comments.map(c => '<div class="cmt">' + avatarHtml(c.byId) + '<div class="cmt-b"><div class="cmt-h">' + esc(c.by) + ' · ' + esc(fmtTime(c.at)) + '</div><div class="cmt-t">' + esc(c.text) + '</div></div></div>').join("") : '<div class="k-empty">No comments yet.</div>') +
+    '</div><div class="mini-form"><input class="f-input" id="tmCmtInput" placeholder="Write a comment, Enter"></div>';
+
+  h += '<div class="tm-meta-line">Created by ' + esc(t.createdByName || "—") + ' · ' + esc(fmtTime(t.createdAt)) + '</div>';
+  body.innerHTML = h;
+
+  const bindEnter = (inpId, fn) => { const el = document.getElementById(inpId); if (el) el.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); fn(el.value); el.value = ""; } }); };
+  bindEnter("tmLabelInput", v => addTaskLabel(v));
+  bindEnter("tmSubInput", v => addSubtask(v));
+  bindEnter("tmCmtInput", v => addComment(v));
+  const fi = document.getElementById("tmFile");
+  if (fi) fi.onchange = function(){ taskAttachFiles(this.files); this.value = ""; };
+}
+function addTaskLabel(v){ v = (v || "").trim(); if (!v) return; const t = Tasks.get(editingTaskId); if (!t) return; syncTaskHeader(); if (!(t.labels || []).includes(v)){ t.labels = (t.labels || []).concat(v); Tasks.update(t.id, { labels:t.labels }); } renderTaskModalBody(); }
+function addSubtask(v){ v = (v || "").trim(); if (!v) return; const t = Tasks.get(editingTaskId); if (!t) return; syncTaskHeader(); t.subtasks = (t.subtasks || []).concat({ id:uid("s"), text:v, done:false }); Tasks.update(t.id, { subtasks:t.subtasks }); renderTaskModalBody(); }
+function addComment(v){ v = (v || "").trim(); if (!v) return; const t = Tasks.get(editingTaskId); if (!t) return; syncTaskHeader(); t.comments = (t.comments || []).concat({ id:uid("c"), by:currentUser.name, byId:currentUser.id, at:nowISO(), text:v }); Tasks.update(t.id, { comments:t.comments }); (t.assignees || []).forEach(uid2 => { if (uid2 !== currentUser.id) notify(uid2, "comment", currentUser.name + " commented on “" + (t.title || "a task") + "”", { view:"tasks", taskId:t.id }); }); renderTaskModalBody(); }
+function taskAttachFiles(fileList){
+  const t = Tasks.get(editingTaskId); if (!t) return;
+  syncTaskHeader();
+  Array.from(fileList).forEach(f => {
+    if (f.size > 4.5 * 1048576){ toast(f.name + " is over 4.5 MB."); return; }
+    const r = new FileReader();
+    const done = obj => { t.attachments = (t.attachments || []).concat(obj); Tasks.update(t.id, { attachments:t.attachments }); renderTaskModalBody(); };
+    if (f.type.startsWith("image/")) { r.onload = () => done({ kind:"image", name:f.name, media:f.type, data:r.result.split(",")[1], size:f.size }); r.readAsDataURL(f); }
+    else if (f.type === "application/pdf"){ r.onload = () => done({ kind:"pdf", name:f.name, media:"application/pdf", data:r.result.split(",")[1], size:f.size }); r.readAsDataURL(f); }
+    else { r.onload = () => done({ kind:"text", name:f.name, text:String(r.result).slice(0, 40000), size:f.size }); r.readAsText(f); }
+  });
+}
+function saveTaskModal(){
+  const t = Tasks.get(editingTaskId); if (!t) return;
+  syncTaskHeader();
+  Tasks.update(t.id, {});
+  document.getElementById("taskVeil").classList.remove("open");
+  if (viewIs("tasks")) renderTasks();
+  renderProjectsNav();
+  toast("Task saved.");
+}
+function deleteTaskNow(){
+  const btn = document.getElementById("tmDelete");
+  if (!btn.dataset.armed){ btn.dataset.armed = "1"; btn.textContent = "Click again to delete"; setTimeout(() => { btn.dataset.armed = ""; btn.textContent = "Delete task"; }, 3000); return; }
+  btn.dataset.armed = ""; btn.textContent = "Delete task";
+  Tasks.remove(editingTaskId);
+  document.getElementById("taskVeil").classList.remove("open");
+  if (viewIs("tasks")) renderTasks();
+  renderProjectsNav();
+  toast("Task deleted.");
+}
+function toggleDone(id){
+  const t = Tasks.get(id); if (!t) return;
+  if (t.status !== "done"){
+    const rem = (t.subtasks || []).filter(s => !s.done).length;
+    if (rem && armedDone !== id){ armedDone = id; toast(rem + " subtask" + (rem > 1 ? "s" : "") + " still open. Tap the check again to mark done."); setTimeout(() => { if (armedDone === id) armedDone = null; }, 3000); return; }
+    armedDone = null;
+    Tasks.update(id, { status:"done" });
+    logActivity("task", currentUser.name + " completed “" + t.title + "”", "task", id);
+  } else {
+    Tasks.update(id, { status:"todo" });
+  }
+  if (viewIs("tasks")) renderTasks();
+}
+
+/* ----- project modal ----- */
+function openProjectModal(id){
+  editingProjectId = id || null;
+  const p = id ? Projects.get(id) : null;
+  document.getElementById("pmTitle").textContent = p ? "Edit project" : "New project";
+  document.getElementById("pmName").value = p ? p.name : "";
+  const color = p ? p.color : "#E4C169";
+  document.getElementById("pmColor").value = color;
+  document.getElementById("pmColorPick").value = normHex(color) || "#E4C169";
+  document.getElementById("pmDesc").value = p ? (p.description || "") : "";
+  document.getElementById("pmDelete").style.display = p ? "block" : "none";
+  document.getElementById("pmDelete").dataset.armed = "";
+  document.getElementById("pmDelete").textContent = "Delete project";
+  document.getElementById("projVeil").classList.add("open");
+}
+function saveProjectModal(){
+  const name = document.getElementById("pmName").value.trim();
+  if (!name){ document.getElementById("pmName").focus(); return; }
+  const color = normHex(document.getElementById("pmColor").value) || document.getElementById("pmColorPick").value || "#E4C169";
+  const desc = document.getElementById("pmDesc").value.trim();
+  if (editingProjectId){ Projects.update(editingProjectId, { name, color, description:desc }); }
+  else { const p = Projects.create({ name, color, description:desc }); logActivity("project", currentUser.name + " created project " + name, "project", p.id); }
+  document.getElementById("projVeil").classList.remove("open");
+  renderProjectsNav();
+  if (viewIs("tasks")) renderTasks();
+  toast("Project saved.");
+}
+function deleteProjectNow(){
+  const btn = document.getElementById("pmDelete");
+  if (!btn.dataset.armed){ btn.dataset.armed = "1"; btn.textContent = "Click again to delete"; setTimeout(() => { btn.dataset.armed = ""; btn.textContent = "Delete project"; }, 3000); return; }
+  const pid = editingProjectId;
+  Tasks.list(t => t.projectId === pid).forEach(t => Tasks.update(t.id, { projectId:null }));
+  Projects.remove(pid);
+  if (taskFilter.project === pid) taskFilter.project = "";
+  document.getElementById("projVeil").classList.remove("open");
+  renderProjectsNav();
+  if (viewIs("tasks")) renderTasks();
+  toast("Project deleted. Its tasks were kept.");
+}
+
+/* ----- AI task ingestion ([[TASK:]]) ----- */
+function ingestAITasks(lines){
+  if (!lines || !lines.length) return 0;
+  let made = 0;
+  lines.forEach(line => {
+    const parts = line.split("|").map(s => s.trim());
+    const title = parts[0]; if (!title) return;
+    const assigneeName = parts[1] || "";
+    const dateStr = parts[2] || "";
+    const priStr = (parts[3] || "med").toLowerCase();
+    const projName = parts[4] || "";
+    const assignee = TEAM.find(u => assigneeName && (u.name.toLowerCase() === assigneeName.toLowerCase() || u.name.toLowerCase().split(" ")[0] === assigneeName.toLowerCase()));
+    let projectId = null;
+    if (projName){
+      let p = Projects.list().find(x => x.name.toLowerCase() === projName.toLowerCase());
+      if (!p) p = Projects.create({ name: projName });
+      projectId = p.id;
+    }
+    const pri = ["low","med","high","urgent"].includes(priStr) ? priStr : (priStr.startsWith("med") ? "med" : (priStr.startsWith("urg") ? "urgent" : (priStr.startsWith("hi") ? "high" : (priStr.startsWith("lo") ? "low" : "med"))));
+    const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : null;
+    const t = Tasks.create({ title, priority:pri, dueDate, projectId, assignees: assignee ? [assignee.id] : [] });
+    if (assignee && assignee.id !== currentUser.id) notify(assignee.id, "assigned", currentUser.name + " (via SYN) assigned you: " + title, { view:"tasks", taskId:t.id });
+    made++;
+  });
+  if (made){ logActivity("task", currentUser.name + " used SYN to create " + made + " task" + (made > 1 ? "s" : ""), "task", null); renderProjectsNav(); if (viewIs("tasks")) renderTasks(); }
+  return made;
+}
+
+/* ----- Ask SYN to plan ----- */
+async function planWithSYN(){
+  const t = document.getElementById("tmPlanInput");
+  const goal = (t.value || "").trim();
+  if (!goal){ t.focus(); return; }
+  const btn = document.getElementById("planRun");
+  const status = document.getElementById("planStatus");
+  btn.textContent = "Planning…"; btn.disabled = true;
+  status.textContent = "SYN is breaking this down into tasks…";
+  const today = new Date().toISOString().slice(0,10);
+  const names = TEAM.map(u => u.name).join(", ");
+  try{
+    const res = await fetch(apiBase() + "/v1/messages", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        model: MODELS.smart, max_tokens: 1500,
+        system: "You are a project planner. Break the user's goal into concrete, actionable tasks. Respond with ONLY task lines, one per line, each EXACTLY in this format and nothing else:\n[[TASK: title | assignee | YYYY-MM-DD | priority | project]]\nAssignee must be one of these team members or left blank: " + names + ". Priority is one of low, med, high, urgent. Project is a short project name (reuse the same name for all tasks in this plan). Dates should be realistic relative to today (" + today + "). Produce 4 to 10 tasks. No commentary, no markdown, only the task lines.",
+        messages: [{ role:"user", content: "Goal: " + goal }]
+      })
+    });
+    const data = await res.json();
+    const txt = (data.content || []).filter(c => c.type === "text").map(c => c.text).join("");
+    const lines = (txt.match(/\[\[TASK:([^\]]+)\]\]/g) || []).map(m => m.replace(/\[\[TASK:/, "").replace(/\]\]$/, "").trim());
+    const n = ingestAITasks(lines);
+    if (n){ document.getElementById("planVeil").classList.remove("open"); toast("SYN created " + n + " task" + (n > 1 ? "s" : "") + "."); }
+    else status.textContent = "SYN didn't return tasks in a usable format. Try rephrasing, or add tasks manually.";
+  }catch(e){
+    status.textContent = "SYN is offline right now. The AI planner needs SYN Core connected. You can still add tasks manually with + New Task.";
+  }
+  btn.textContent = "Plan it"; btn.disabled = false;
+}
+function openPlanModal(){
+  document.getElementById("tmPlanInput").value = "";
+  document.getElementById("planStatus").textContent = "SYN reads your team and drafts a set of tasks. Review and edit them on the board after.";
+  document.getElementById("planVeil").classList.add("open");
+}
+
+/* ---------- workspace click delegation (data-wact) ---------- */
+document.addEventListener("click", e => {
+  const w = e.target.closest("[data-wact]");
+  if (!w) return;
+  const a = w.dataset.wact;
+  if (a === "openNotif"){ openNotification(w.dataset.nid); return; }
+  if (a === "projFilter"){ taskFilter.project = w.dataset.pid; renderProjectsNav(); setView("tasks"); return; }
+  if (a === "newProject"){ openProjectModal(null); return; }
+  if (a === "taskView"){ taskView = w.dataset.v; renderTasks(); return; }
+  if (a === "newTask"){ const t = Tasks.create({ title:"", status:"todo" }); openTaskModal(t.id); return; }
+  if (a === "planProject"){ openPlanModal(); return; }
+  if (a === "filter"){ return; }              // handled on change
+  if (a === "clearFilters"){ taskFilter = { project:taskFilter.project, assignee:"", priority:"", label:"", sort:"manual" }; renderTasks(); renderProjectsNav(); return; }
+  if (a === "quickAdd") return;               // handled on Enter
+  if (a === "openTask"){ if (e.target.closest("[data-wact]") === w) openTaskModal(w.dataset.tid); return; }
+  if (a === "toggleDone"){ e.stopPropagation(); toggleDone(w.dataset.tid); return; }
+  if (a === "assign"){ toggleAssignee(w.dataset.uid); return; }
+  if (a === "delLabel"){ const t = Tasks.get(editingTaskId); syncTaskHeader(); t.labels = (t.labels || []).filter(l => l !== w.dataset.l); Tasks.update(t.id, { labels:t.labels }); renderTaskModalBody(); return; }
+  if (a === "subToggle"){ const t = Tasks.get(editingTaskId); syncTaskHeader(); const s = (t.subtasks || []).find(x => x.id === w.dataset.sid); if (s) s.done = !s.done; Tasks.update(t.id, { subtasks:t.subtasks }); renderTaskModalBody(); return; }
+  if (a === "subDel"){ const t = Tasks.get(editingTaskId); syncTaskHeader(); t.subtasks = (t.subtasks || []).filter(x => x.id !== w.dataset.sid); Tasks.update(t.id, { subtasks:t.subtasks }); renderTaskModalBody(); return; }
+  if (a === "attAdd"){ document.getElementById("tmFile").click(); return; }
+  if (a === "attDel"){ const t = Tasks.get(editingTaskId); syncTaskHeader(); t.attachments = (t.attachments || []).filter((_, i) => i !== +w.dataset.i); Tasks.update(t.id, { attachments:t.attachments }); renderTaskModalBody(); return; }
+  if (a === "openLinkedChat"){ const t = Tasks.get(editingTaskId); if (t && t.linkedChatId){ document.getElementById("taskVeil").classList.remove("open"); selectBrand(t.linkedBrandId || activeBrandId).then(() => { const b = brand(); if (b){ b._activeThread = t.linkedChatId; renderChatList(); renderThread(); setView("chat"); } }); } return; }
+});
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  const qa = e.target.closest("[data-wact='quickAdd']");
+  if (qa){ e.preventDefault(); quickAddTask(qa.dataset.status, qa.value); qa.value = ""; return; }
+});
+document.addEventListener("change", e => {
+  const f = e.target.closest("[data-wact='filter']");
+  if (f){ taskFilter[f.dataset.k] = f.value; renderTasks(); renderProjectsNav(); return; }
+  const lc = e.target.closest("[data-wact='linkChat']");
+  if (lc){ const t = Tasks.get(editingTaskId); if (t){ syncTaskHeader(); t.linkedChatId = lc.value || null; t.linkedBrandId = lc.value ? activeBrandId : null; Tasks.update(t.id, { linkedChatId:t.linkedChatId, linkedBrandId:t.linkedBrandId }); renderTaskModalBody(); } return; }
+});
+
+/* ---------- bus subscriptions (wire once) ---------- */
+let busWired = false;
+function wireWorkspaceBus(){
+  if (busWired) return; busWired = true;
+  BUS.on("change:tasks", () => { if (viewIs("tasks")) renderTasks(); renderProjectsNav(); updateTasksBadge(); });
+  BUS.on("change:projects", () => { renderProjectsNav(); if (viewIs("tasks")) renderTasks(); });
+  BUS.on("change:notifications", () => renderBell());
+  BUS.on("notif:new", () => renderBell());
+}
+function updateTasksBadge(){
+  const badge = document.getElementById("tasksBadge");
+  if (!badge || !currentUser) return;
+  const n = Tasks.list(t => t.status !== "done" && (t.assignees || []).includes(currentUser.id) && taskDueState(t) === "red").length;
+  badge.style.display = n ? "inline-block" : "none";
+  badge.textContent = n;
 }
 
 /* ---------------- EVENT WIRING ---------------- */
@@ -2080,6 +2965,18 @@ const stageEl = document.getElementById("stage");
 ["dragenter","dragover"].forEach(ev => stageEl.addEventListener(ev, e => { e.preventDefault(); stageEl.classList.add("dragging"); }));
 ["dragleave","drop"].forEach(ev => stageEl.addEventListener(ev, e => { e.preventDefault(); if (ev === "drop" || e.target === stageEl) stageEl.classList.remove("dragging"); }));
 stageEl.addEventListener("drop", e => { stageEl.classList.remove("dragging"); if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+/* --- workspace suite wiring (Stage 0 + 1) --- */
+document.getElementById("bellBtn").addEventListener("click", e => { e.stopPropagation(); toggleBell(); });
+document.getElementById("notifClear").addEventListener("click", markAllRead);
+document.addEventListener("click", e => { const p = document.getElementById("notifPanel"); if (p.classList.contains("open") && !e.target.closest(".bell-wrap")) closeBell(); });
+document.getElementById("tmSave").addEventListener("click", saveTaskModal);
+document.getElementById("tmDelete").addEventListener("click", deleteTaskNow);
+document.getElementById("pmSave").addEventListener("click", saveProjectModal);
+document.getElementById("pmDelete").addEventListener("click", deleteProjectNow);
+document.getElementById("pmColorPick").addEventListener("input", function(){ document.getElementById("pmColor").value = this.value.toUpperCase(); });
+document.getElementById("pmColor").addEventListener("input", function(){ const h = normHex(this.value); if (h) document.getElementById("pmColorPick").value = h; });
+document.getElementById("planRun").addEventListener("click", planWithSYN);
 
 boot();
 </script>
