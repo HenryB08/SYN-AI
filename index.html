@@ -677,6 +677,39 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .md-empty-hero p{color:var(--muted);max-width:440px;margin:0 auto 20px;font-size:13.5px}
 .md-empty-hero .starter-row{justify-content:center}
 
+/* --- my profile --- */
+.prof-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.prof-av{width:74px;height:74px;min-width:74px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#8a6d2f);color:#141210;font-weight:800;font-size:24px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.prof-av img{width:100%;height:100%;object-fit:cover;display:block}
+.prof-actions{display:flex;gap:8px;flex-wrap:wrap}
+.prof-accent-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prof-swatch{width:30px;height:30px;border-radius:9px;border:1px solid var(--glass-border);background:var(--pa,var(--gold))}
+
+/* --- integrations --- */
+.int-card{border-radius:var(--r-md);background:rgba(255,255,255,.04);border:1px solid var(--glass-border-soft);padding:16px 18px;margin-bottom:12px}
+.int-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.int-logo{width:34px;height:34px;min-width:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;font-family:'IBM Plex Mono',monospace}
+.int-name{font-size:14.5px;font-weight:700}
+.int-sub{font-size:11.5px;color:var(--muted)}
+.int-status{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;padding:4px 11px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);color:var(--muted)}
+.int-status.on{color:var(--good);border-color:rgba(127,217,154,.4)}
+.int-status.staged{color:var(--gold);border-color:rgba(228,193,105,.35)}
+.int-body{margin-top:12px}
+.int-url-row{display:flex;gap:8px;flex-wrap:wrap}
+.int-url-row input{flex:1;min-width:180px;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:14px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:10px 13px;outline:none}
+.int-url-row input:focus{border-color:rgba(228,193,105,.4)}
+.int-toggles{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+.int-tog{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;color:var(--muted);padding:6px 11px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.03);cursor:pointer;transition:all .16s}
+.int-tog.on{color:var(--gold);border-color:rgba(228,193,105,.45);background:var(--accent-soft)}
+.int-tog .dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.int-tog.on .dot{background:var(--gold)}
+.int-note{font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.6}
+
+/* --- event join button --- */
+.ev-join{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:7px 15px;border-radius:var(--r-full);background:linear-gradient(120deg,var(--good),#a7e6bb);color:#0d1f14;box-shadow:0 4px 14px rgba(127,217,154,.28);transition:transform .16s}
+.ev-join:hover{transform:translateY(-1px)}
+.md-row .ev-join{padding:4px 11px;font-size:9px}
+
 /* --- quick-add menu --- */
 .newmenu-btn{white-space:nowrap}
 .newmenu{width:210px;padding:8px}
@@ -1348,6 +1381,7 @@ async function enterOrg(org, u){
   document.getElementById("uName").textContent = u.name;
   document.getElementById("uRole").textContent = u.role + " · " + org.name;
   document.getElementById("uAvatar").textContent = u.name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase();
+  document.getElementById("uAvatar").dataset.uid = u.id;
   document.getElementById("addBrandBtn").disabled = !isAdmin();
   document.getElementById("obText").textContent = isAdmin()
     ? "Set up your brand: SYN can research your company on the web and fill in your voice, colors, products, and guardrails automatically. From then on, everything your team makes here ships on-brand."
@@ -1359,8 +1393,11 @@ async function enterOrg(org, u){
   await loadWorkspaceData();
   await loadSeen();
   await loadPrefs();
+  await loadIntegrations();
   await initSpaces();
   wireWorkspaceBus();
+  refreshMyAvatar();
+  applyPersonalAccent();
   renderProjectsNav();
   renderBell();
   updateTasksBadge();
@@ -1906,6 +1943,7 @@ function finishSyn(raw, errKind){
     t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
     if (made) toast("SYN created " + made + " task" + (made > 1 ? "s" : "") + ".");
     if (madeE) toast("SYN scheduled " + madeE + " event" + (madeE > 1 ? "s" : "") + ".");
+    if (typeof fireIntegrations === "function") fireIntegrations("approval", currentUser.name + " generated content for " + b.name + " awaiting approval");
   }
   t.updatedAt = new Date().toISOString();
   saveChats(activeBrandId);
@@ -2237,11 +2275,69 @@ async function researchBrand(){
   btn.textContent = "Research & Fill";
 }
 
+/* ---------------- INTEGRATIONS UI ---------------- */
+const INT_LOGO = { slack:["S","#7C3AED"], teams:["T","#5059C9"], zoom:["Z","#2D8CFF"], zapier:["Z","#EE7A38"] };
+function googleCalIntCard(){
+  return '<div class="int-card"><div class="int-head"><span class="int-logo" style="background:rgba(66,133,244,.16);color:#5B9BF6">G</span>' +
+    '<div><div class="int-name">Google Calendar</div><div class="int-sub">Add-to-Google links + .ics export</div></div>' +
+    '<span class="int-status on">Active</span></div>' +
+    '<div class="int-body"><button class="btn-ghost" data-act="exportIcs">Export workspace .ics</button>' +
+    '<div class="int-note">Per-event "Add to Google Calendar" and .ics export work today. Live two-way sync arrives with SYN Core.</div></div></div>';
+}
+function stagedIntCard(name, glyph, col, sub){
+  return '<div class="int-card"><div class="int-head"><span class="int-logo" style="background:' + col + '22;color:' + col + '">' + glyph + '</span>' +
+    '<div><div class="int-name">' + esc(name) + '</div><div class="int-sub">' + esc(sub) + '</div></div>' +
+    '<span class="int-status staged">Connects with SYN Core</span></div>' +
+    '<div class="int-body"><button class="btn-ghost" data-wact="intStaged" data-n="' + esc(name) + '">Connect</button>' +
+    '<div class="int-note">Requires SYN Core for secure OAuth. Not connected yet.</div></div></div>';
+}
+function renderIntegrations(){
+  let h = '<div class="spec-block"><div class="sb-head">Integrations</div><div class="sb-body">';
+  if (!isAdmin()){
+    const active = INT_HOOKS.filter(x => INTS[x[0]] && INTS[x[0]].url).map(x => x[1]);
+    h += '<div class="int-note">Workspace integrations are managed by an admin.' + (active.length ? ' Active: ' + esc(active.join(", ")) + '.' : ' None connected yet.') + '</div>';
+    h += googleCalIntCard();
+    return h + '</div></div>';
+  }
+  h += googleCalIntCard();
+  INT_HOOKS.forEach(hook => {
+    const key = hook[0], name = hook[1], cfg = INTS[key] || {}, on = cfg.on || {}, lg = INT_LOGO[key], connected = !!cfg.url;
+    h += '<div class="int-card"><div class="int-head"><span class="int-logo" style="background:' + lg[1] + '22;color:' + lg[1] + '">' + lg[0] + '</span>' +
+      '<div><div class="int-name">' + name + '</div><div class="int-sub">' + (key === "zapier" ? "Generic webhook · Zapier / Make / anything" : "Incoming webhook · posts workspace notifications") + '</div></div>' +
+      '<span class="int-status' + (connected ? " on" : "") + '">' + (connected ? "Connected" : "Not connected") + '</span></div>' +
+      '<div class="int-body"><div class="int-url-row"><input data-int-url="' + key + '" placeholder="Paste ' + esc(name) + ' webhook URL" value="' + esc(cfg.url || "") + '">' +
+      '<button class="btn-gold" data-wact="intSave" data-k="' + key + '">Save</button>' +
+      (connected ? '<button class="btn-ghost" data-wact="intTest" data-k="' + key + '">Send test</button><button class="btn-ghost" data-wact="intClear" data-k="' + key + '">Remove</button>' : "") + '</div>' +
+      '<div class="int-toggles">' + INT_EVENTS.map(ev => '<button class="int-tog' + (on[ev[0]] !== false ? " on" : "") + '" data-wact="intToggle" data-k="' + key + '" data-e="' + ev[0] + '"><span class="dot"></span>' + ev[1] + '</button>').join("") + '</div></div></div>';
+  });
+  h += stagedIntCard("Zoom Meetings", "Z", "#2D8CFF", "Auto-create Zoom links on events. Meeting links can be added manually on any event today.");
+  h += stagedIntCard("Google Drive", "D", "#34A853", "Sync generated files and assets to a shared Drive folder.");
+  h += '<div class="int-note">Webhook posts go directly from your browser (fire-and-forget; delivery confirmation and retries arrive with SYN Core). Add a Join link to any event from the event editor.</div>';
+  return h + '</div></div>';
+}
+
 /* ---------------- SETTINGS ---------------- */
 let resetUid = null;
 function renderSettings(){
   const p = document.getElementById("settingsPanel");
   let html = '<div class="panel-head"><div><h2>Settings</h2><p class="sub">' + esc(ORG ? ORG.name : "") + ' workspace, team, and session controls.</p></div></div>';
+
+  // My Profile (personal, per-user)
+  const myProf = Profiles.get(currentUser.id) || {};
+  const acc = myProf.accent || "";
+  html += '<div class="spec-block"><div class="sb-head">My Profile</div><div class="sb-body">' +
+    '<div class="prof-row">' + avatarBig(currentUser.id, 'width:74px;height:74px;font-size:24px').replace('class="avatar"', 'class="avatar prof-av"') +
+    '<div style="flex:1;min-width:200px"><div class="prof-actions"><button class="btn-ghost" data-wact="profUpload">Upload photo</button>' +
+    (myProf.avatar ? '<button class="btn-ghost" data-wact="profRemoveAvatar">Remove</button>' : '') + '</div>' +
+    '<div class="f-hint" style="margin-top:8px">A square photo works best. Stored compressed and shared with your team.</div></div>' +
+    '<input type="file" id="profFile" accept="image/*" style="display:none"></div>' +
+    '<label class="f-label" for="profName" style="margin-top:16px">Display name</label>' +
+    '<div class="mini-form" style="margin-top:0"><input class="f-input" id="profName" value="' + esc(currentUser.name) + '"><button class="btn-gold" data-wact="profSaveName">Save</button></div>' +
+    '<label class="f-label" style="margin-top:16px">Personal accent</label>' +
+    '<div class="f-hint" style="margin-top:0;margin-bottom:8px">Themes only your own My Day and Portfolio screens. Never changes shared screens for teammates.</div>' +
+    '<div class="prof-accent-row"><input type="color" id="profAccentPick" value="' + (normHex(acc) || "#E4C169") + '"><input class="f-input" id="profAccent" placeholder="Brand default" value="' + esc(acc) + '" style="max-width:150px">' +
+    '<button class="btn-gold" data-wact="profSaveAccent">Apply</button>' + (acc ? '<button class="btn-ghost" data-wact="profClearAccent">Use brand accent</button>' : '') +
+    '</div></div></div>';
 
   if (isAdmin()){
     html += '<div class="spec-block"><div class="sb-head">Live Team Code <button class="add-btn" data-act="refreshCode">Refresh</button></div><div class="sb-body">' +
@@ -2270,6 +2366,8 @@ function renderSettings(){
     '<div class="set-row"><div class="set-info"><div class="set-title">Google Calendar</div><div class="set-sub">Per-event "Add to Google Calendar" and .ics export work now. Live two-way Google sync arrives with SYN Core.</div></div>' +
     '<span class="role-pill">Coming with SYN Core</span></div>' +
     '</div></div>';
+
+  html += renderIntegrations();
 
   // Projects management
   html += '<div class="spec-block"><div class="sb-head">Projects <button class="add-btn" data-wact="newProject">+ New project</button></div><div class="sb-body">';
@@ -2309,7 +2407,7 @@ function renderSettings(){
 
   html += '<div class="spec-block"><div class="sb-head">Team · ' + esc(ORG ? ORG.name : "") + '</div><div class="sb-body">';
   TEAM.forEach(m => {
-    html += '<div class="team-row"><div class="avatar">' + esc(m.name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase()) + '</div>' +
+    html += '<div class="team-row">' + avatarBig(m.id) +
       '<div><div class="k-name">' + esc(m.name) + '</div><div class="k-meta">' + esc(m.email) + '</div></div>';
     if (isAdmin() && m.id !== currentUser.id){
       html += '<select class="role-sel" data-act="roleChange" data-uid="' + m.id + '">' +
@@ -2341,6 +2439,10 @@ function renderSettings(){
     '<button class="btn-ghost" data-act="signout">Sign out</button></div></div></div>';
   p.innerHTML = html;
   startCodeCountdown();
+  const pf = document.getElementById("profFile");
+  if (pf) pf.onchange = function(){ if (this.files && this.files[0]) compressImage(this.files[0], 256, data => { if (data){ saveMyProfile({ avatar:data }); refreshMyAvatar(); renderSettings(); toast("Photo updated."); } else toast("Could not read that image."); }); this.value = ""; };
+  const pap = document.getElementById("profAccentPick"), pat = document.getElementById("profAccent");
+  if (pap && pat){ pap.addEventListener("input", () => { pat.value = pap.value.toUpperCase(); }); pat.addEventListener("input", () => { const h = normHex(pat.value); if (h) pap.value = h; }); }
 }
 /* Live team-code counter: ticks the minutes-remaining down and swaps the code
    in place when it rotates on the half-hour. Rotation logic itself is unchanged. */
@@ -2362,6 +2464,7 @@ function setView(v){
   document.querySelectorAll(".view").forEach(el => el.classList.remove("active"));
   document.getElementById("view-" + v).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach(el => el.classList.toggle("active", el.dataset.view === v));
+  if (typeof applyPersonalAccent === "function") applyPersonalAccent();
   if (v === "approvals") renderApprovals();
   if (v === "myday") renderMyDay();
   if (v === "people") renderPeople();
@@ -2499,13 +2602,28 @@ function entity(name, defaults){
 
 const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees:[], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"team", order: Date.now() }));
 const Projects = entity("projects", () => ({ name:"", color:"#E4C169", description:"" }));
-const Events   = entity("events", () => ({ title:"", description:"", location:"", startDate:null, endDate:null, allDay:true, startTime:"09:00", endTime:"10:00", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, visibility:"team" }));
+const Events   = entity("events", () => ({ title:"", description:"", location:"", startDate:null, endDate:null, allDay:true, startTime:"09:00", endTime:"10:00", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, meetingLink:"", visibility:"team" }));
 const Spaces   = entity("spaces", () => ({ name:"", icon:"◆", color:"#E4C169", description:"", type:"team", members:"all", archived:false }));
 const DMs      = entity("dms", () => ({ members:[], lastAt:null }));
 const Notifs   = entity("notifications", () => ({ forUserId:null, type:"", text:"", link:null, read:false }));
 const Activity = entity("activity", () => ({ actorId:null, actorName:"", type:"", text:"", refType:null, refId:null }));
+const Profiles = entity("profiles", () => ({ avatar:null, accent:null }));   // per-user, id = userId
 
-const WS_KEYS = ["tasks","projects","events","spaces","dms","notifications","activity"];
+const WS_KEYS = ["tasks","projects","events","spaces","dms","notifications","activity","profiles"];
+
+/* ---------- per-org integrations config (admin-managed, shared) ---------- */
+let INTS = {};
+async function loadIntegrations(){ INTS = (await sGet(okey("integrations"))) || {}; }
+function saveIntegrations(){ saveSoon(okey("integrations"), () => INTS); }
+const INT_EVENTS = [["assigned","Task assigned"],["approval","Approval requested"],["event","Event created"],["mention","@mention"]];
+const INT_HOOKS = [["slack","Slack"],["teams","Microsoft Teams"],["zoom","Zoom"],["zapier","Webhook / Zapier"]];
+/* Fire-and-forget browser POST (no-cors: request is really sent, response is opaque) */
+function postWebhook(url, payload){ if (!url) return; try{ fetch(url, { method:"POST", mode:"no-cors", body: JSON.stringify(payload) }).catch(() => {}); }catch(e){} }
+function fireIntegrations(eventType, text){
+  INT_HOOKS.forEach(h => { const cfg = INTS[h[0]]; if (cfg && cfg.url && (!cfg.on || cfg.on[eventType] !== false)){
+    postWebhook(cfg.url, { text: "[SYN · " + (ORG ? ORG.name : "") + "] " + text, event:eventType, workspace: ORG ? ORG.name : "", actor: currentUser ? currentUser.name : "", ts: nowISO(), source:"SYN Workspace" });
+  }});
+}
 async function loadWorkspaceData(){ await Promise.all(WS_KEYS.map(k => collLoad(k))); }
 
 /* ---------- notifications ---------- */
@@ -2606,7 +2724,50 @@ function startWorkspacePoll(){
 function teamById(id){ return TEAM.find(t => t.id === id) || null; }
 function teamName(id){ const u = teamById(id); return u ? u.name : ""; }
 function initials(name){ return (name || "?").split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase(); }
-function avatarHtml(id, cls){ const u = teamById(id); const nm = u ? u.name : "?"; return '<span class="t-av ' + (cls || "") + '" title="' + esc(nm) + '">' + esc(initials(nm)) + '</span>'; }
+function avatarPhoto(id){ const p = Profiles.get(id); return p && p.avatar ? p.avatar : null; }
+function myAccent(){ const p = currentUser && Profiles.get(currentUser.id); return p && p.accent ? p.accent : null; }
+function avatarHtml(id, cls){
+  const u = teamById(id); const nm = u ? u.name : "?"; const ph = avatarPhoto(id);
+  if (ph) return '<span class="t-av ' + (cls || "") + '" title="' + esc(nm) + '" style="background:none;padding:0;overflow:hidden"><img src="' + esc(ph) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></span>';
+  return '<span class="t-av ' + (cls || "") + '" title="' + esc(nm) + '">' + esc(initials(nm)) + '</span>';
+}
+/* big .avatar circle with photo-or-initials (sidebar, people, messages, settings) */
+function avatarBig(id, extraStyle){
+  const u = teamById(id); const nm = u ? u.name : (currentUser && id === currentUser.id ? currentUser.name : "?"); const ph = avatarPhoto(id);
+  const st = extraStyle ? (';' + extraStyle) : '';
+  if (ph) return '<div class="avatar" style="background:none;padding:0;overflow:hidden' + st + '"><img src="' + esc(ph) + '" alt="' + esc(nm) + '" style="width:100%;height:100%;object-fit:cover;display:block"></div>';
+  return '<div class="avatar" style="' + (extraStyle || '') + '">' + esc(initials(nm)) + '</div>';
+}
+function refreshMyAvatar(){
+  const el = document.getElementById("uAvatar"); if (!el || !currentUser) return;
+  const ph = avatarPhoto(currentUser.id);
+  if (ph){ el.style.background = "none"; el.style.padding = "0"; el.style.overflow = "hidden"; el.innerHTML = '<img src="' + esc(ph) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'; }
+  else { el.style.background = ""; el.style.overflow = ""; el.textContent = initials(currentUser.name); }
+}
+/* personal accent themes ONLY the current user's own My Day + Portfolio screens */
+function applyPersonalAccent(){
+  const acc = myAccent();
+  ["view-myday","view-dashboard"].forEach(id => { const el = document.getElementById(id); if (!el) return;
+    if (acc){ el.style.setProperty("--accent", acc); el.style.setProperty("--accent-soft", hexToSoft(acc)); }
+    else { el.style.removeProperty("--accent"); el.style.removeProperty("--accent-soft"); }
+  });
+}
+function saveMyProfile(patch){
+  if (Profiles.get(currentUser.id)) Profiles.update(currentUser.id, patch);
+  else Profiles.create(Object.assign({ id: currentUser.id, avatar:null, accent:null }, patch));
+}
+/* downscale + compress an uploaded image to a small base64 JPEG for storage */
+function compressImage(file, maxPx, cb){
+  const r = new FileReader();
+  r.onload = () => { const img = new Image(); img.onload = () => {
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      try{ c.getContext("2d").drawImage(img, 0, 0, w, h); cb(c.toDataURL("image/jpeg", 0.82)); }catch(e){ cb(null); }
+    }; img.onerror = () => cb(null); img.src = r.result;
+  };
+  r.onerror = () => cb(null); r.readAsDataURL(file);
+}
 function viewIs(v){ const el = document.getElementById("view-" + v); return el && el.classList.contains("active"); }
 
 /* =====================================================================
@@ -2850,6 +3011,7 @@ function toggleAssignee(id){
   if (!has && id !== currentUser.id){
     notify(id, "assigned", currentUser.name + " assigned you: " + (t.title || "a task"), { view:"tasks", taskId:t.id });
     logActivity("task", currentUser.name + " assigned " + teamName(id) + " to “" + (t.title || "a task") + "”", "task", t.id);
+    fireIntegrations("assigned", currentUser.name + " assigned " + teamName(id) + " to “" + (t.title || "a task") + "”");
   }
   renderTaskModalBody();
 }
@@ -3043,7 +3205,7 @@ function ingestAITasks(lines){
     const pri = ["low","med","high","urgent"].includes(priStr) ? priStr : (priStr.startsWith("med") ? "med" : (priStr.startsWith("urg") ? "urgent" : (priStr.startsWith("hi") ? "high" : (priStr.startsWith("lo") ? "low" : "med"))));
     const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : null;
     const t = Tasks.create({ title, priority:pri, dueDate, projectId, assignees: assignee ? [assignee.id] : [] });
-    if (assignee && assignee.id !== currentUser.id) notify(assignee.id, "assigned", currentUser.name + " (via SYN) assigned you: " + title, { view:"tasks", taskId:t.id });
+    if (assignee && assignee.id !== currentUser.id){ notify(assignee.id, "assigned", currentUser.name + " (via SYN) assigned you: " + title, { view:"tasks", taskId:t.id }); fireIntegrations("assigned", currentUser.name + " (via SYN) assigned " + assignee.name + " to “" + title + "”"); }
     made++;
   });
   if (made){ logActivity("task", currentUser.name + " used SYN to create " + made + " task" + (made > 1 ? "s" : ""), "task", null); renderProjectsNav(); if (viewIs("tasks")) renderTasks(); }
@@ -3204,7 +3366,7 @@ function renderAgenda(){
     h += '<div class="cal-ag-day"><div class="cal-ag-head">' + d.toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" }) + (iso === todayISO() ? " · Today" : "") + '</div>';
     map[iso].forEach(item => {
       if (item.kind === "task"){ const t = item.task; h += '<div class="cal-ag-row task" data-wact="openTaskCal" data-tid="' + t.id + '"><span class="ag-dot" style="background:var(--muted)"></span><span class="ag-time">Task</span><span class="ag-title">' + esc(t.title || "Task") + '</span></div>'; }
-      else { const ev = item.ev; h += '<div class="cal-ag-row" data-wact="openEvent" data-eid="' + ev.id + '"><span class="ag-dot" style="background:' + esc(ev.color) + '"></span><span class="ag-time">' + (ev.allDay ? "All day" : esc(ev.startTime || "")) + '</span><span class="ag-title">' + esc(ev.title || "Event") + (item.isStart ? "" : " (cont.)") + '</span></div>'; }
+      else { const ev = item.ev; h += '<div class="cal-ag-row" data-wact="openEvent" data-eid="' + ev.id + '"><span class="ag-dot" style="background:' + esc(ev.color) + '"></span><span class="ag-time">' + (ev.allDay ? "All day" : esc(ev.startTime || "")) + '</span><span class="ag-title">' + esc(ev.title || "Event") + (item.isStart ? "" : " (cont.)") + '</span>' + (ev.meetingLink ? '<a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="margin-left:auto">Join</a>' : "") + '</div>'; }
     });
     h += '</div>';
   });
@@ -3230,6 +3392,7 @@ function syncEventHeader(){
   if (g("evName") !== undefined) evDraft.title = g("evName");
   if (g("evDesc") !== undefined) evDraft.description = g("evDesc");
   if (g("evLoc") !== undefined) evDraft.location = g("evLoc");
+  if (g("evMeet") !== undefined) evDraft.meetingLink = g("evMeet").trim();
   if (g("evStart") !== undefined) evDraft.startDate = g("evStart") || evDraft.startDate;
   if (g("evEnd") !== undefined) evDraft.endDate = g("evEnd") || evDraft.startDate;
   if (g("evStartT") !== undefined) evDraft.startTime = g("evStartT");
@@ -3253,6 +3416,8 @@ function renderEventModal(){
   if (!ev.allDay) h += '<div class="tm-grid"><div><label class="f-label" for="evStartT">Start time</label><input class="f-input" id="evStartT" type="time" value="' + esc(ev.startTime || "09:00") + '"></div>' +
     '<div><label class="f-label" for="evEndT">End time</label><input class="f-input" id="evEndT" type="time" value="' + esc(ev.endTime || "10:00") + '"></div></div>';
   h += '<label class="f-label" for="evLoc">Location</label><input class="f-input" id="evLoc" value="' + esc(ev.location || "") + '">';
+  h += '<label class="f-label" for="evMeet">Meeting link (Zoom, Meet, Teams…)</label><input class="f-input" id="evMeet" placeholder="https://…" value="' + esc(ev.meetingLink || "") + '">';
+  if (ev.meetingLink) h += '<div style="margin-top:8px"><a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener">▶ Join meeting</a></div>';
   h += '<label class="f-label" for="evDesc">Description</label><textarea class="f-area" id="evDesc">' + esc(ev.description || "") + '</textarea>';
   h += '<label class="f-label">Attendees</label><div class="tm-assignees">' +
     TEAM.map(u => { const on = (ev.attendees || []).includes(u.id); return '<button type="button" class="assign-chip' + (on ? " on" : "") + '" data-wact="evAttend" data-uid="' + u.id + '">' + avatarHtml(u.id) + esc(u.name.split(" ")[0]) + '</button>'; }).join("") + '</div>';
@@ -3280,8 +3445,10 @@ function saveEventModal(){
   if (!evDraft.title.trim()){ document.getElementById("evName").focus(); toast("Give the event a title."); return; }
   if (evDraft.endDate < evDraft.startDate) evDraft.endDate = evDraft.startDate;
   const prevAtt = editingEventId ? ((Events.get(editingEventId) || {}).attendees || []) : [];
+  const wasNew = !editingEventId;
   const saved = editingEventId ? Events.update(editingEventId, evDraft) : Events.create(evDraft);
   (saved.attendees || []).forEach(uid2 => { if (uid2 !== currentUser.id && !prevAtt.includes(uid2)) notify(uid2, "event", currentUser.name + " invited you: " + saved.title + " (" + fmtDay(saved.startDate) + ")", { view:"calendar", eventId:saved.id }); });
+  if (wasNew) fireIntegrations("event", currentUser.name + " scheduled “" + saved.title + "” on " + fmtDay(saved.startDate) + (saved.allDay ? "" : " at " + (saved.startTime || "")) + (saved.meetingLink ? " · " + saved.meetingLink : ""));
   logActivity("event", currentUser.name + (editingEventId ? " updated " : " scheduled ") + "“" + saved.title + "”", "event", saved.id);
   document.getElementById("eventVeil").classList.remove("open");
   if (viewIs("calendar")) renderCalendar();
@@ -3355,6 +3522,7 @@ function ingestAIEvents(lines){
     const color = EV_COLORS[made % EV_COLORS.length];
     const ev = Events.create({ title, startDate, endDate:startDate, allDay: !hasTime, startTime, endTime:"10:00", attendees, color });
     attendees.forEach(id => { if (id !== currentUser.id) notify(id, "event", currentUser.name + " (via SYN) invited you: " + title + " (" + fmtDay(startDate) + ")", { view:"calendar", eventId:ev.id }); });
+    fireIntegrations("event", currentUser.name + " (via SYN) scheduled “" + title + "” on " + fmtDay(startDate));
     made++;
   });
   if (made){ logActivity("event", currentUser.name + " used SYN to schedule " + made + " event" + (made > 1 ? "s" : ""), "event", null); if (viewIs("calendar")) renderCalendar(); }
@@ -3429,6 +3597,24 @@ document.addEventListener("click", e => {
   if (a === "qaInvite"){ closeQuickAdd(); if (!isAdmin()){ toast("Ask your workspace admin for the team code to invite people."); return; } setView("settings"); toast("Share your live team code (in Settings) with teammates."); return; }
 });
 
+/* ---------- Part 2: profile + integrations delegation ---------- */
+document.addEventListener("click", e => {
+  const w = e.target.closest("[data-wact]"); if (!w) return;
+  const a = w.dataset.wact;
+  // My Profile
+  if (a === "profUpload"){ const f = document.getElementById("profFile"); if (f) f.click(); return; }
+  if (a === "profRemoveAvatar"){ saveMyProfile({ avatar:null }); refreshMyAvatar(); if (viewIs("settings")) renderSettings(); toast("Photo removed."); return; }
+  if (a === "profSaveName"){ const v = (document.getElementById("profName").value || "").trim(); if (!v) return; const me = TEAM.find(t => t.id === currentUser.id); if (me) me.name = v; currentUser.name = v; saveTeam(); const un = document.getElementById("uName"); if (un) un.textContent = v; refreshMyAvatar(); if (viewIs("settings")) renderSettings(); toast("Display name updated."); return; }
+  if (a === "profSaveAccent"){ const hx = normHex(document.getElementById("profAccent").value) || document.getElementById("profAccentPick").value; saveMyProfile({ accent: hx }); applyPersonalAccent(); if (viewIs("settings")) renderSettings(); toast("Personal accent applied to your My Day and Portfolio."); return; }
+  if (a === "profClearAccent"){ saveMyProfile({ accent:null }); applyPersonalAccent(); if (viewIs("settings")) renderSettings(); toast("Reverted to the brand accent."); return; }
+  // Integrations
+  if (a === "intSave"){ const k = w.dataset.k; const inp = document.querySelector('[data-int-url="' + k + '"]'); const url = inp ? inp.value.trim() : ""; INTS[k] = INTS[k] || { on:{} }; INTS[k].url = url; saveIntegrations(); renderSettings(); const nm = (INT_HOOKS.find(x => x[0] === k) || [,k])[1]; toast(url ? (nm + " webhook saved.") : (nm + " webhook cleared.")); return; }
+  if (a === "intClear"){ const k = w.dataset.k; if (INTS[k]) INTS[k].url = ""; saveIntegrations(); renderSettings(); toast("Webhook removed."); return; }
+  if (a === "intToggle"){ const k = w.dataset.k, ev = w.dataset.e; INTS[k] = INTS[k] || { url:"", on:{} }; INTS[k].on = INTS[k].on || {}; INTS[k].on[ev] = INTS[k].on[ev] === false ? true : false; saveIntegrations(); renderSettings(); return; }
+  if (a === "intTest"){ const k = w.dataset.k, cfg = INTS[k]; const nm = (INT_HOOKS.find(x => x[0] === k) || [,k])[1]; if (cfg && cfg.url){ postWebhook(cfg.url, { text: "[SYN · " + (ORG ? ORG.name : "") + "] Test notification from " + currentUser.name + ". Your " + nm + " webhook is connected.", event:"test", workspace: ORG ? ORG.name : "", source:"SYN Workspace" }); toast("Test sent to " + nm + " (fire-and-forget)."); } return; }
+  if (a === "intStaged"){ toast((w.dataset.n || "This integration") + " connects when SYN Core is live. No OAuth is configured yet."); return; }
+});
+
 /* =====================================================================
    STAGE 4 · MY DAY (per-user home) + PEOPLE directory
    ===================================================================== */
@@ -3495,7 +3681,7 @@ function renderMyDay(){
   h += '<div class="spec-block md-card"><div class="sb-head">Upcoming events <span style="color:var(--faint)">' + events.length + '</span></div><div class="sb-body">';
   if (!events.length) h += '<div class="md-empty-row">No events in the next 7 days.</div>';
   else events.slice(0, 8).forEach(x => { const ev = x.ev;
-    h += '<div class="md-row" data-wact="mdEvent" data-eid="' + ev.id + '"><span class="r-dot" style="--rd:' + esc(ev.color) + '"></span><div class="r-main"><div class="r-title">' + esc(ev.title || "Event") + '</div><div class="r-sub">' + (x.iso === todayISO() ? "Today" : dparse(x.iso).toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" })) + (ev.allDay ? " · All day" : " · " + esc(ev.startTime || "")) + '</div></div></div>';
+    h += '<div class="md-row" data-wact="mdEvent" data-eid="' + ev.id + '"><span class="r-dot" style="--rd:' + esc(ev.color) + '"></span><div class="r-main"><div class="r-title">' + esc(ev.title || "Event") + '</div><div class="r-sub">' + (x.iso === todayISO() ? "Today" : dparse(x.iso).toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" })) + (ev.allDay ? " · All day" : " · " + esc(ev.startTime || "")) + '</div></div>' + (ev.meetingLink ? '<a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Join</a>' : "") + '</div>';
   });
   h += '</div></div>';
 
@@ -3566,7 +3752,7 @@ function renderPeople(){
   let h = '<div class="panel-head"><div><h2>People</h2><p class="sub">Everyone in ' + esc(ORG ? ORG.name : "") + '. Message a teammate or see what they are working on.</p></div></div>';
   h += '<div class="people-grid">';
   TEAM.forEach(u => { const oc = openTaskCount(u.id);
-    h += '<div class="person-card"><div class="avatar">' + esc(initials(u.name)) + '</div><div class="p-info">' +
+    h += '<div class="person-card">' + avatarBig(u.id) + '<div class="p-info">' +
       '<div class="p-name">' + esc(u.name) + (u.id === currentUser.id ? ' <span style="color:var(--faint);font-size:11px;font-weight:600">You</span>' : '') + '</div>' +
       '<div class="p-meta">' + esc(u.email) + '</div><div class="p-role">' + esc(u.role) + ' · ' + oc + ' open task' + (oc === 1 ? '' : 's') + '</div>' +
       '<div class="p-acts">' + (u.id !== currentUser.id ? '<button class="mode-btn" data-wact="pDM" data-uid="' + u.id + '">Message</button>' : '') +
@@ -3733,7 +3919,8 @@ function spaceMsgHtml(m){
   if (m.note === "ai-offline") return '<div class="ai-offline-note">◍ SYN is offline · this space still works as a normal channel</div>';
   const isSyn = m.role === "syn";
   const mine = !isSyn && m.byId === currentUser.id;
-  let h = '<div class="tmsg' + (mine ? " me" : "") + (isSyn ? " syn" : "") + '"><div class="avatar">' + (isSyn ? "S" : esc(initials(m.by))) + '</div><div class="tmsg-b">' +
+  const av = isSyn ? '<div class="avatar">S</div>' : avatarBig(m.byId);
+  let h = '<div class="tmsg' + (mine ? " me" : "") + (isSyn ? " syn" : "") + '">' + av + '<div class="tmsg-b">' +
     '<div class="tmsg-h">' + esc(m.by || "") + ' · ' + esc(fmtTime(m.at)) + '</div>';
   if ((m.atts || []).length) h += '<div class="tmsg-atts">' + m.atts.map(attChipHtml).join("") + '</div>';
   const body = m.displayText != null ? m.displayText : (m.text || "");
@@ -3804,7 +3991,7 @@ function postHumanMessage(kind, id, text, atts){
   const key = msgKey(kind, id); const arr = collAll(key); arr.push(m); if (arr.length > 800) arr.splice(0, arr.length - 800); collSave(key);
   bumpThreadRecord(kind, id, m);
   if (kind === "dm"){ const other = dmOther(rec); if (other && other !== currentUser.id) notify(other, "dm", currentUser.name + ": " + text.slice(0, 60), { view:"spaces", dm:id }); }
-  mentions.forEach(uid2 => { if (uid2 !== currentUser.id) notify(uid2, "mention", currentUser.name + " mentioned you in " + rec.name + ": " + text.slice(0, 50), { view:"spaces", space:id }); });
+  mentions.forEach(uid2 => { if (uid2 !== currentUser.id){ notify(uid2, "mention", currentUser.name + " mentioned you in " + rec.name + ": " + text.slice(0, 50), { view:"spaces", space:id }); fireIntegrations("mention", currentUser.name + " mentioned " + teamName(uid2) + " in " + rec.name + ": " + text.slice(0, 80)); } });
   markSeen(kind, id);
   renderSpaceThread(); renderSpaceRail(); updateSpacesBadge();
   return m;
@@ -4077,6 +4264,7 @@ function wireWorkspaceBus(){
   BUS.on("change:spaces", () => { if (viewIs("spaces")) renderSpaceRail(); updateSpacesBadge(); if (viewIs("settings")) renderSettings(); });
   BUS.on("change:dms", () => { if (viewIs("spaces")) renderSpaceRail(); updateSpacesBadge(); });
   BUS.on("change:notifications", () => { renderBell(); if (viewIs("spaces")) renderSpaceRail(); });
+  BUS.on("change:profiles", () => { refreshMyAvatar(); applyPersonalAccent(); if (viewIs("people")) renderPeople(); if (viewIs("spaces")) renderSpaceThread(); if (viewIs("tasks")) renderTasks(); if (viewIs("settings")) renderSettings(); });
   ["tasks","events","spaces","dms","notifications","activity","projects"].forEach(k => BUS.on("change:" + k, () => { if (viewIs("myday")) renderMyDay(); if (viewIs("people") && (k === "tasks")) renderPeople(); }));
   BUS.on("notif:new", () => renderBell());
 }
