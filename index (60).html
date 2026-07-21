@@ -1,0 +1,2087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SYN · Brand Intelligence Platform · Syntrex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+<style>
+:root{
+  --bg:#050409;
+  --glass:rgba(255,255,255,.055);
+  --glass-strong:rgba(255,255,255,.09);
+  --glass-border:rgba(255,255,255,.12);
+  --glass-border-soft:rgba(255,255,255,.07);
+  --text:#F4F1EC;
+  --muted:rgba(244,241,236,.55);
+  --faint:rgba(244,241,236,.32);
+  --gold:#E4C169;
+  --gold-deep:#C8A24B;
+  --good:#7FD99A;
+  --bad:#FF7A6B;
+  --accent:#E4C169;
+  --accent-soft:rgba(228,193,105,.16);
+  --r-lg:26px;
+  --r-md:20px;
+  --r-full:999px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow:hidden}
+::selection{background:var(--gold);color:#141210}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:8px}
+
+/* ============ AURORA ============ */
+.aurora{position:fixed;inset:0;z-index:0;overflow:hidden;filter:blur(70px) saturate(1.2)}
+body.no-motion .blob{animation:none!important}
+.blob{position:absolute;border-radius:50%;opacity:.5;mix-blend-mode:screen;will-change:transform}
+.blob.b1{width:55vw;height:55vw;left:-12vw;top:-18vw;background:radial-gradient(circle at 35% 35%,#C8A24B,transparent 65%);animation:drift1 46s ease-in-out infinite}
+.blob.b2{width:48vw;height:48vw;right:-14vw;top:8vh;background:radial-gradient(circle at 60% 40%,#6C3FD8,transparent 62%);opacity:.34;animation:drift2 58s ease-in-out infinite}
+.blob.b3{width:52vw;height:52vw;left:22vw;bottom:-26vw;background:radial-gradient(circle at 50% 50%,#E8632B,transparent 62%);opacity:.3;animation:drift3 52s ease-in-out infinite}
+.blob.b4{width:34vw;height:34vw;right:8vw;bottom:-8vw;background:radial-gradient(circle at 50% 50%,#2B7BE8,transparent 60%);opacity:.2;animation:drift1 64s ease-in-out infinite reverse}
+@keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(9vw,7vh) scale(1.12)}66%{transform:translate(-5vw,12vh) scale(.94)}}
+@keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(-11vw,10vh) scale(1.16)}75%{transform:translate(5vw,-7vh) scale(.9)}}
+@keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(8vw,-10vh) scale(1.18)}}
+.veil{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at 50% 42%,transparent 0%,rgba(5,4,9,.55) 78%,rgba(5,4,9,.85) 100%);pointer-events:none}
+.grain{position:fixed;inset:0;z-index:1;opacity:.05;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E")}
+
+.glass{background:var(--glass);backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);border:1px solid var(--glass-border-soft);box-shadow:0 12px 48px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.08)}
+
+/* ============ BOOT / AUTH ============ */
+.fullscreen{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:24px}
+.fullscreen.on{display:flex}
+.boot-txt{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);text-align:center}
+.boot-orb{width:86px;height:86px;margin:0 auto 26px;border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.03));border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;box-shadow:0 0 50px rgba(228,193,105,.3),inset 0 1px 0 rgba(255,255,255,.22);animation:float 5s ease-in-out infinite}
+.boot-orb img{width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(228,193,105,.6))}
+@keyframes float{50%{transform:translateY(-9px)}}
+
+.auth-card{width:100%;max-width:430px;border-radius:30px;padding:42px 40px 34px;text-align:center;animation:rise .5s cubic-bezier(.2,.8,.3,1)}
+.auth-card h1{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600;letter-spacing:.14em;margin-bottom:4px}
+.auth-sub{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);margin-bottom:28px}
+.auth-card .f-input{margin-bottom:12px;text-align:left}
+.auth-btn{width:100%;margin-top:6px;font-size:14px;font-weight:800;padding:15px;border-radius:var(--r-full);background:linear-gradient(120deg,var(--gold),#F0D48A);color:#141210;box-shadow:0 8px 28px rgba(228,193,105,.35);transition:all .2s}
+.auth-btn:hover{transform:translateY(-2px)}
+.auth-switch{margin-top:18px;font-size:12.5px;color:var(--muted)}
+.auth-switch button{color:var(--gold);font-weight:700;margin-left:6px}
+.auth-note{margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);line-height:1.9}
+.auth-err{color:var(--bad);font-size:12.5px;margin-top:12px;display:none}
+.auth-tabs{display:flex;gap:7px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+.color-row{display:flex;gap:9px;align-items:center}
+.pal-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.pal-row .f-input{padding:10px 13px;font-size:13px}
+input[type=color]{width:46px;height:46px;min-width:46px;border-radius:14px;border:1px solid var(--glass-border);background:rgba(255,255,255,.05);padding:3px;cursor:pointer}
+input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
+.tmsg{display:flex;gap:11px;margin-bottom:15px;align-items:flex-start}
+.tmsg .avatar{width:32px;height:32px;min-width:32px;font-size:12px}
+.tmsg-b{background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:8px 20px 20px 20px;padding:11px 16px;max-width:80%;backdrop-filter:blur(12px)}
+.tmsg.me{flex-direction:row-reverse}
+.tmsg.me .tmsg-b{border-radius:20px 8px 20px 20px;background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.06))}
+.tmsg-h{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+.tmsg-t{font-size:14px;white-space:pre-wrap}
+.code-big{font-family:'IBM Plex Mono',monospace;font-size:30px;letter-spacing:.34em;color:var(--gold);text-align:center;padding:14px 0 6px}
+.code-sub{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);text-align:center;padding-bottom:10px}
+
+/* ============ APP ============ */
+.app{position:relative;z-index:2;display:none;height:100vh;height:100dvh;gap:16px;padding:16px}
+.app.on{display:flex}
+
+/* sidebar */
+.sidebar{width:300px;min-width:300px;border-radius:var(--r-lg);display:flex;flex-direction:column;overflow:hidden;transition:transform .32s cubic-bezier(.4,0,.2,1)}
+.side-head{padding:22px 20px 14px;display:flex;align-items:center;gap:13px}
+.logo-orb{width:48px;height:48px;min-width:48px;border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.03));border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;box-shadow:0 0 26px rgba(228,193,105,.28),inset 0 1px 0 rgba(255,255,255,.2)}
+.logo-orb img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(228,193,105,.55))}
+.wordmark{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:19px;letter-spacing:.2em}
+.ver{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase;display:block;margin-top:2px}
+.storage-pill{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;padding:4px 9px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft)}
+.storage-pill.ok{color:var(--good);border-color:rgba(127,217,154,.3)}
+.storage-pill.no{color:var(--bad);border-color:rgba(255,122,107,.3)}
+
+.side-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0}
+.side-label{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--muted);padding:12px 22px 8px;display:flex;align-items:center;justify-content:space-between}
+.add-btn{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--muted);padding:4px 11px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);transition:all .2s}
+.add-btn:hover{color:var(--gold);border-color:rgba(228,193,105,.4)}
+.add-btn:disabled{opacity:.35;cursor:default}
+
+.brand-list{padding:0 12px;display:flex;flex-direction:column;gap:6px}
+.brand-item{text-align:left;display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:var(--r-md);border:1px solid transparent;transition:all .22s}
+.brand-item:hover{background:rgba(255,255,255,.05)}
+.brand-item.active{background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.04));border-color:var(--glass-border);box-shadow:0 6px 24px rgba(0,0,0,.3),0 0 18px var(--bi-glow,transparent)}
+.brand-dot{width:10px;height:10px;min-width:10px;border-radius:50%;background:var(--bi-accent,#888);box-shadow:0 0 12px var(--bi-accent,transparent)}
+.b-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13.5px}
+.b-ind{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--faint);letter-spacing:.1em;text-transform:uppercase;margin-top:1px}
+
+.chat-search{margin:2px 12px 6px;display:flex}
+.chat-search input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--glass-border-soft);border-radius:14px;color:var(--text);font-family:'Manrope',sans-serif;font-size:12px;padding:8px 13px;outline:none}
+.chat-search input:focus{border-color:rgba(228,193,105,.4)}
+.chat-list{padding:0 12px 8px;display:flex;flex-direction:column;gap:4px}
+.chat-item{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:14px;font-size:12.5px;font-weight:600;color:var(--muted);text-align:left;border:1px solid transparent;transition:all .18s}
+.chat-item:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.chat-item.active{background:rgba(255,255,255,.08);color:var(--text);border-color:var(--glass-border-soft)}
+.c-glyph{font-size:9px;color:var(--faint)}
+.chat-item.active .c-glyph{color:var(--accent)}
+.c-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c-tools{display:none;gap:2px}
+.chat-item:hover .c-tools{display:flex}
+.c-tool{font-size:10px;color:var(--faint);padding:3px 5px;border-radius:8px}
+.c-tool:hover{color:var(--gold)}
+.c-tool.pin-on{color:var(--gold)}
+.chat-rename{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(228,193,105,.4);border-radius:12px;color:var(--text);font-family:'Manrope',sans-serif;font-size:12.5px;font-weight:600;padding:6px 10px;outline:none}
+
+.side-nav{padding:11px 12px;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--glass-border-soft)}
+.nav-btn{text-align:left;padding:10px 14px;display:flex;align-items:center;gap:12px;font-size:12.5px;font-weight:600;color:var(--muted);border-radius:var(--r-md);transition:all .2s}
+.nav-btn:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.nav-btn.active{color:var(--text);background:rgba(255,255,255,.08)}
+.nav-btn .glyph{width:17px;text-align:center;font-size:12px;color:var(--gold)}
+.nav-btn .badge{margin-left:auto;font-size:9.5px;font-weight:800;color:#141210;background:var(--gold);padding:1px 8px;border-radius:var(--r-full)}
+.user-row{margin:0 12px 12px;padding:11px 13px;border-radius:var(--r-md);background:rgba(255,255,255,.045);border:1px solid var(--glass-border-soft);display:flex;align-items:center;gap:11px}
+.avatar{width:34px;height:34px;min-width:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#8a6d2f);color:#141210;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+.u-name{font-size:12.5px;font-weight:700;line-height:1.3}
+.u-role{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+
+/* main */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;gap:13px}
+.topbar{border-radius:var(--r-full);padding:10px 20px;display:flex;align-items:center;gap:14px}
+.menu-btn{display:none;font-size:18px;color:var(--muted);padding:4px 8px}
+.lock-chip{display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);overflow:hidden;white-space:nowrap}
+.chip-dot{width:9px;height:9px;min-width:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent);transition:all .5s;animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 22px var(--accent)}}
+.lock-chip b{color:var(--text);font-weight:600;letter-spacing:.14em}
+.top-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.guard-chip{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:8px 15px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);display:flex;gap:8px;align-items:center;transition:all .2s}
+.guard-chip:hover{color:var(--gold);border-color:rgba(228,193,105,.4)}
+.g-count{color:var(--gold);font-weight:700}
+.icon-btn{width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);color:var(--muted);font-size:13px;transition:all .2s}
+.icon-btn:hover{color:var(--gold);border-color:rgba(228,193,105,.4)}
+
+.stage{flex:1;border-radius:var(--r-lg);display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
+.stage.dragging::after{content:"Drop files for SYN";position:absolute;inset:10px;z-index:30;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;color:var(--gold);background:rgba(5,4,9,.55);backdrop-filter:blur(6px);border:2px dashed rgba(228,193,105,.5);border-radius:var(--r-md);pointer-events:none}
+.view{flex:1;display:none;flex-direction:column;min-height:0}
+.view.active{display:flex}
+
+/* chat */
+.chat-scroll{flex:1;overflow-y:auto;padding:32px 0 14px}
+.chat-inner{max-width:780px;margin:0 auto;padding:0 26px}
+.empty-state{max-width:780px;margin:6vh auto 0;padding:0 26px;text-align:center}
+.empty-orb{width:70px;height:70px;margin:0 auto 22px;border-radius:25px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.03));border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;box-shadow:0 0 44px var(--accent-soft),inset 0 1px 0 rgba(255,255,255,.22);animation:float 6s ease-in-out infinite}
+.empty-orb img{width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 0 10px rgba(228,193,105,.6))}
+.empty-state h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(22px,2.7vw,30px);font-weight:600;margin-bottom:10px}
+.empty-state h1 .accent{background:linear-gradient(100deg,var(--accent),#fff 160%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.empty-state p{color:var(--muted);max-width:470px;margin:0 auto 24px;font-size:13.5px}
+.starter-row{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
+.starter{font-size:12px;font-weight:600;color:var(--muted);padding:10px 19px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.045);backdrop-filter:blur(10px);transition:all .22s}
+.starter:hover{color:var(--text);border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3),0 0 16px var(--accent-soft)}
+
+.msg{margin-bottom:22px;display:flex;flex-direction:column;animation:rise .38s cubic-bezier(.2,.8,.3,1)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.msg.user{align-items:flex-end}
+.msg.syn{align-items:flex-start}
+.who{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.24em;text-transform:uppercase;margin-bottom:6px;color:var(--faint);padding:0 8px;display:flex;gap:10px;align-items:center}
+.msg.syn .who{color:rgba(228,193,105,.75)}
+.who .w-time{color:var(--faint);letter-spacing:.1em}
+.bubble{max-width:88%;padding:15px 20px;font-size:14.5px;word-wrap:break-word;line-height:1.7}
+.bubble.plain{white-space:pre-wrap}
+.msg.user .bubble{background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.07));border:1px solid var(--glass-border);border-radius:24px 24px 8px 24px;backdrop-filter:blur(14px);white-space:pre-wrap}
+.msg.syn .bubble{background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:8px 24px 24px 24px;backdrop-filter:blur(14px);box-shadow:-6px 0 22px -12px var(--accent)}
+
+/* markdown inside SYN bubbles */
+.md p{margin:0 0 12px}
+.md p:last-child{margin-bottom:0}
+.md h1,.md h2,.md h3{font-family:'Space Grotesk',sans-serif;font-weight:600;margin:16px 0 8px;line-height:1.3}
+.md h1{font-size:19px}.md h2{font-size:16.5px}.md h3{font-size:15px;color:var(--gold)}
+.md h1:first-child,.md h2:first-child,.md h3:first-child{margin-top:0}
+.md ul,.md ol{margin:0 0 12px 20px}
+.md li{margin-bottom:5px}
+.md strong{font-weight:800;color:#fff}
+.md a{color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(228,193,105,.4)}
+.md blockquote{border-left:2px solid var(--accent);padding:2px 0 2px 14px;color:var(--muted);margin:0 0 12px}
+.md code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:rgba(0,0,0,.35);border:1px solid var(--glass-border-soft);border-radius:6px;padding:2px 7px}
+.md pre{position:relative;background:rgba(0,0,0,.45);border:1px solid var(--glass-border-soft);border-radius:14px;padding:15px 16px;margin:0 0 12px;overflow-x:auto}
+.md pre code{background:none;border:none;padding:0;font-size:12.5px;line-height:1.6;display:block;white-space:pre}
+.md table{border-collapse:collapse;width:100%;margin:0 0 12px;font-size:13px}
+.md th{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);text-align:left;border-bottom:1px solid var(--glass-border);padding:8px 10px}
+.md td{border-bottom:1px solid var(--glass-border-soft);padding:8px 10px}
+.md hr{border:none;border-top:1px solid var(--glass-border-soft);margin:14px 0}
+.copy-code{position:absolute;top:8px;right:8px;font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);border:1px solid var(--glass-border-soft);border-radius:var(--r-full);padding:4px 11px;background:rgba(5,4,9,.5)}
+.copy-code:hover{color:var(--gold);border-color:rgba(228,193,105,.4)}
+
+.att-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;justify-content:flex-end}
+.msg.syn .att-strip{justify-content:flex-start}
+.att-chip{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:var(--r-full);background:rgba(255,255,255,.07);border:1px solid var(--glass-border-soft);font-size:11.5px;font-weight:600;color:var(--muted)}
+.att-chip .a-ico{color:var(--gold);font-size:12px}
+.att-thumb{width:74px;height:74px;border-radius:16px;object-fit:cover;border:1px solid var(--glass-border)}
+
+.file-card{max-width:88%;margin-top:8px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.06);border:1px solid var(--glass-border);backdrop-filter:blur(14px);display:flex;align-items:center;gap:14px;padding:13px 17px}
+.fc-ico{width:40px;height:40px;min-width:40px;border-radius:13px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.fc-name{font-size:13px;font-weight:700;word-break:break-all}
+.fc-meta{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:2px}
+.fc-btns{margin-left:auto;display:flex;gap:8px;align-items:center}
+.fc-prev{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:9px 15px;border-radius:var(--r-full);border:1px solid var(--glass-border);color:var(--muted);transition:all .2s;white-space:nowrap}
+.fc-prev:hover{color:var(--gold);border-color:rgba(228,193,105,.45)}
+.fc-dl{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:9px 17px;border-radius:var(--r-full);background:linear-gradient(120deg,var(--gold),#F0D48A);color:#141210;box-shadow:0 4px 16px rgba(228,193,105,.3);transition:all .2s;white-space:nowrap}
+.fc-dl:hover{transform:translateY(-1px)}
+
+.actions{display:flex;gap:8px;margin-top:9px;align-items:center;padding:0 6px;flex-wrap:wrap}
+.act-btn{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:7px 16px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);color:var(--muted);transition:all .2s}
+.act-btn:hover{color:var(--text);transform:translateY(-1px)}
+.act-btn.approve:hover{color:var(--good);border-color:rgba(127,217,154,.5)}
+.act-btn.reject:hover{color:var(--bad);border-color:rgba(255,122,107,.5)}
+.act-btn.done-approve{color:var(--good);border-color:rgba(127,217,154,.5);pointer-events:none}
+.act-btn.done-reject{color:var(--bad);border-color:rgba(255,122,107,.5);pointer-events:none}
+.act-note{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+
+.mem-flag{display:flex;align-items:center;gap:9px;margin-top:9px;padding:8px 15px;border-radius:var(--r-full);border:1px solid rgba(228,193,105,.3);background:var(--accent-soft);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);max-width:88%}
+
+.img-card{max-width:88%;border-radius:8px 24px 24px 24px;overflow:hidden;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);backdrop-filter:blur(14px)}
+.ic-head{display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--glass-border-soft);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+.ic-head .route{margin-left:auto;color:var(--faint);letter-spacing:.1em}
+.ic-body{padding:16px 20px}
+.ic-label{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.ic-prompt{font-size:13px;white-space:pre-wrap;margin-bottom:14px;border-left:2px solid var(--accent);padding-left:14px}
+.ic-status{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:9px}
+.ic-status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold);animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+.status-line{display:flex;align-items:center;gap:11px;padding:13px 19px;max-width:88%;border-radius:8px 24px 24px 24px;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);backdrop-filter:blur(14px);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.s-dot{width:8px;height:8px;min-width:8px;border-radius:50%;background:var(--gold);animation:blink 1.4s infinite}
+
+/* composer */
+.composer-wrap{padding:6px 26px 20px}
+.composer{max-width:780px;margin:0 auto}
+.pending-strip{display:flex;gap:8px;flex-wrap:wrap;padding:0 8px 9px}
+.p-chip{display:flex;align-items:center;gap:9px;padding:7px 9px 7px 14px;border-radius:var(--r-full);background:rgba(255,255,255,.07);border:1px solid var(--glass-border);font-size:11px;font-weight:600;backdrop-filter:blur(10px)}
+.p-chip .a-ico{color:var(--gold)}
+.p-x{width:19px;height:19px;border-radius:50%;font-size:10px;color:var(--faint);display:flex;align-items:center;justify-content:center}
+.p-x:hover{color:var(--bad);background:rgba(255,122,107,.12)}
+.mode-row{display:flex;gap:7px;margin-bottom:10px;align-items:center;padding:0 8px;flex-wrap:wrap}
+.mode-btn{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:7px 17px;border-radius:var(--r-full);color:var(--muted);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);transition:all .22s}
+.mode-btn.active{color:#141210;background:linear-gradient(120deg,var(--gold),#F0D48A);border-color:transparent;box-shadow:0 4px 18px rgba(228,193,105,.35)}
+.mode-sep{width:1px;height:18px;background:var(--glass-border-soft)}
+.mode-hint{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.input-shell{display:flex;align-items:flex-end;gap:7px;padding:8px 8px 8px 11px;border-radius:32px;background:rgba(255,255,255,.07);border:1px solid var(--glass-border);backdrop-filter:blur(30px) saturate(1.6);box-shadow:0 16px 48px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);transition:border-color .25s,box-shadow .25s}
+.input-shell:focus-within{border-color:rgba(228,193,105,.45);box-shadow:0 16px 48px rgba(0,0,0,.45),0 0 28px var(--accent-soft),inset 0 1px 0 rgba(255,255,255,.12)}
+.tool-btn{width:40px;height:40px;min-width:40px;border-radius:50%;margin-bottom:3px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--muted);transition:all .2s}
+.tool-btn:hover{color:var(--gold);background:rgba(255,255,255,.06)}
+.tool-btn.rec{color:var(--bad);animation:blink 1.2s infinite}
+.input-shell textarea{flex:1;background:none;border:none;color:var(--text);resize:none;font-family:'Manrope',sans-serif;font-size:15px;line-height:1.55;padding:10px 0;max-height:170px;outline:none}
+.input-shell textarea::placeholder{color:var(--faint)}
+.send-btn{width:45px;height:45px;min-width:45px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#fff 220%);color:#141210;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px var(--accent-soft),0 0 22px var(--accent-soft);transition:transform .2s,background .5s}
+.send-btn:hover{transform:translateY(-2px) scale(1.05)}
+.send-btn.stop{background:linear-gradient(135deg,var(--bad),#ffb3a8 240%)}
+
+/* panels */
+.panel-scroll{flex:1;overflow-y:auto;padding:32px 0 44px}
+.panel-inner{max-width:820px;margin:0 auto;padding:0 26px}
+.panel-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+.panel-head h2{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:600;margin-bottom:4px}
+.panel-head .sub{color:var(--muted);font-size:13px}
+.head-btn{margin-left:auto;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:11px 21px;border-radius:var(--r-full);white-space:nowrap;background:linear-gradient(120deg,var(--gold),#F0D48A);color:#141210;box-shadow:0 5px 20px rgba(228,193,105,.32);transition:all .2s}
+.head-btn:hover{transform:translateY(-1px)}
+.head-btn.ghost{background:none;border:1px solid var(--glass-border);color:var(--muted);box-shadow:none}
+.head-btn.ghost:hover{color:var(--gold);border-color:rgba(228,193,105,.4)}
+.spec-block{border-radius:var(--r-md);background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);backdrop-filter:blur(12px);margin-bottom:13px;overflow:hidden}
+.sb-head{padding:12px 21px;border-bottom:1px solid var(--glass-border-soft);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;justify-content:space-between}
+.sb-body{padding:15px 21px;font-size:13.5px}
+.sb-body p{margin-bottom:8px}
+.sb-body p:last-child{margin-bottom:0}
+.tag-row{display:flex;gap:7px;flex-wrap:wrap}
+.tag{font-size:11.5px;font-weight:600;padding:6px 14px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04)}
+.tag.banned{color:var(--bad);border-color:rgba(255,122,107,.32);text-decoration:line-through}
+.tag.ok{color:var(--good);border-color:rgba(127,217,154,.3)}
+.swatch-row{display:flex;gap:12px;flex-wrap:wrap}
+.swatch{display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)}
+.swatch i{width:23px;height:23px;border-radius:9px;border:1px solid rgba(255,255,255,.18);display:inline-block}
+.k-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--glass-border-soft)}
+.k-row:last-child{border-bottom:none}
+.k-ico{width:34px;height:34px;min-width:34px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:'IBM Plex Mono',monospace;font-weight:700}
+.k-name{font-size:12.5px;font-weight:700;word-break:break-all}
+.k-meta{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.k-del{margin-left:auto;color:var(--faint);font-size:12px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.k-del:hover{color:var(--bad);background:rgba(255,122,107,.1)}
+.k-empty{color:var(--faint);font-size:12.5px;padding:6px 0}
+.mem-chip{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--glass-border-soft);font-size:13px}
+.mem-chip:last-child{border-bottom:none}
+.mem-chip .m-dot{color:var(--gold);font-size:10px;margin-top:5px}
+.mem-chip .m-meta{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase;margin-top:3px}
+.mem-chip .k-del{margin-top:2px}
+
+/* dashboard */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.dash-card{border-radius:var(--r-md);background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);backdrop-filter:blur(12px);padding:20px;transition:all .22s;cursor:pointer;text-align:left}
+.dash-card:hover{transform:translateY(-3px);border-color:var(--dc-accent,var(--glass-border));box-shadow:0 12px 32px rgba(0,0,0,.35),0 0 22px var(--dc-glow,transparent)}
+.dc-top{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.dc-dot{width:12px;height:12px;border-radius:50%;background:var(--dc-accent,#888);box-shadow:0 0 12px var(--dc-accent,transparent)}
+.dc-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px}
+.dc-ind{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--faint);letter-spacing:.1em;text-transform:uppercase}
+.dc-stats{display:flex;gap:16px}
+.dc-stat b{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;display:block;color:var(--text)}
+.dc-stat span{font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.dc-pending{margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.stat-tile{border-radius:var(--r-md);background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);padding:17px 19px}
+.stat-tile b{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:700;display:block}
+.stat-tile span{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+
+/* assets */
+.asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:13px}
+.asset-card{border-radius:var(--r-md);background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);padding:17px;display:flex;flex-direction:column;gap:10px}
+.asset-card .fc-ico{width:38px;height:38px;border-radius:12px}
+.asset-card .a-name{font-size:12.5px;font-weight:700;word-break:break-all}
+.asset-card .a-meta{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.asset-card .a-btns{display:flex;gap:7px;margin-top:auto}
+.asset-card .fc-prev,.asset-card .fc-dl{flex:1;text-align:center;padding:8px 5px}
+
+/* approvals */
+.appr-tabs{display:flex;gap:8px;margin-bottom:18px}
+.log-item{display:flex;gap:14px;align-items:center;border-radius:var(--r-md);background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);backdrop-filter:blur(12px);padding:14px 18px;margin-bottom:9px}
+.l-verdict{font-size:9.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:6px 13px;border-radius:var(--r-full);min-width:94px;text-align:center}
+.l-verdict.ap{color:var(--good);border:1px solid rgba(127,217,154,.4);background:rgba(127,217,154,.08)}
+.l-verdict.rj{color:var(--bad);border:1px solid rgba(255,122,107,.4);background:rgba(255,122,107,.08)}
+.l-verdict.pd{color:var(--gold);border:1px solid rgba(228,193,105,.4);background:var(--accent-soft)}
+.l-txt{flex:1;font-size:12.5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.l-meta{font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--faint);white-space:nowrap;letter-spacing:.06em;text-align:right}
+.l-btns{display:flex;gap:6px}
+.empty-log{color:var(--muted);font-size:13.5px;text-align:center;padding:36px;border-radius:var(--r-md);border:1px dashed var(--glass-border)}
+
+/* settings */
+.set-row{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--glass-border-soft)}
+.set-row:last-child{border-bottom:none}
+.set-info{flex:1}
+.set-title{font-size:13.5px;font-weight:700}
+.set-sub{font-size:11.5px;color:var(--faint)}
+.toggle{width:50px;height:29px;min-width:50px;border-radius:var(--r-full);position:relative;background:rgba(255,255,255,.1);border:1px solid var(--glass-border);transition:all .25s}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:var(--muted);transition:all .25s}
+.toggle.on{background:var(--accent-soft);border-color:rgba(228,193,105,.5)}
+.toggle.on::after{left:24px;background:var(--gold)}
+.team-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--glass-border-soft)}
+.team-row:last-child{border-bottom:none}
+.role-sel{margin-left:auto;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:12px;color:var(--gold);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:6px 10px;outline:none}
+.role-sel option{background:#181622;color:var(--text)}
+.role-pill{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(228,193,105,.3);padding:4px 11px;border-radius:var(--r-full)}
+.btn-ghost{font-size:12.5px;font-weight:700;padding:11px 22px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);color:var(--muted);transition:all .2s}
+.btn-ghost:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.btn-gold{font-size:12.5px;font-weight:800;padding:11px 24px;border-radius:var(--r-full);background:linear-gradient(120deg,var(--gold),#F0D48A);color:#141210;box-shadow:0 6px 22px rgba(228,193,105,.35);transition:all .2s}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-danger{font-size:12px;font-weight:700;padding:11px 20px;border-radius:var(--r-full);border:1px solid rgba(255,122,107,.4);color:var(--bad);transition:all .2s}
+.btn-danger:hover{background:rgba(255,122,107,.1)}
+
+/* modals */
+.modal-veil{position:fixed;inset:0;background:rgba(5,4,9,.6);backdrop-filter:blur(14px);display:none;align-items:center;justify-content:center;z-index:70;padding:20px}
+.modal-veil.open{display:flex}
+.modal{width:100%;max-width:560px;border-radius:var(--r-lg);background:rgba(20,18,26,.8);border:1px solid var(--glass-border);backdrop-filter:blur(40px) saturate(1.6);box-shadow:0 30px 90px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1);max-height:88vh;overflow-y:auto;animation:rise .3s cubic-bezier(.2,.8,.3,1)}
+.m-head{padding:20px 27px 13px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(20,18,26,.92);backdrop-filter:blur(20px);z-index:2}
+.m-head h3{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600}
+.m-close{color:var(--muted);font-size:16px;width:33px;height:33px;border-radius:50%;transition:all .2s}
+.m-close:hover{color:var(--text);background:rgba(255,255,255,.08)}
+.m-body{padding:4px 27px 10px}
+.f-label{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);display:block;margin:14px 0 6px}
+.f-label:first-child{margin-top:0}
+.f-input,.f-area{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:16px;color:var(--text);font-family:'Manrope',sans-serif;font-size:14px;padding:12px 16px;outline:none;transition:all .2s}
+.f-input:focus,.f-area:focus{border-color:rgba(228,193,105,.5);box-shadow:0 0 18px var(--accent-soft)}
+.f-area{resize:vertical;min-height:64px}
+.f-hint{font-size:11px;color:var(--faint);margin-top:5px}
+.m-foot{padding:15px 27px 24px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.mini-form{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
+.mini-form .f-input{flex:1;min-width:120px}
+.mini-form select{background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:16px;color:var(--text);font-family:'Manrope',sans-serif;font-size:13px;padding:11px 14px;outline:none}
+.mini-form select option{background:#181622}
+.preview-modal{max-width:940px;padding:0;overflow:hidden}
+.preview-frame{width:100%;height:72vh;border:none;background:#fff;display:block}
+
+.toast-wrap{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{font-size:13px;font-weight:600;color:var(--text);padding:12px 22px;border-radius:var(--r-full);background:rgba(20,18,26,.92);border:1px solid var(--glass-border);backdrop-filter:blur(20px);box-shadow:0 12px 40px rgba(0,0,0,.5);animation:rise .3s cubic-bezier(.2,.8,.3,1)}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:rgba(228,193,105,.4)}
+
+@media(max-width:900px){
+  .app{padding:11px;gap:11px}
+  .sidebar{position:fixed;top:11px;left:11px;bottom:11px;z-index:50;transform:translateX(calc(-100% - 22px))}
+  .sidebar.open{transform:none}
+  .menu-btn{display:block}
+  .g-lbl{display:none}
+  .mode-hint{display:none}
+  .bubble,.img-card,.file-card,.status-line,.mem-flag{max-width:95%}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+<div class="veil"></div>
+<div class="grain"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- BOOT -->
+<div class="fullscreen on" id="bootScreen">
+  <div>
+    <div class="boot-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt=""></div>
+    <div class="boot-txt">Waking the engine…</div>
+  </div>
+</div>
+
+<!-- AUTH -->
+<div class="fullscreen" id="authScreen">
+  <div class="auth-card glass">
+    <div class="boot-orb" style="width:78px;height:78px;margin-bottom:22px"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="Syntrex" style="width:50px;height:50px"></div>
+    <h1>SYN</h1>
+    <div class="auth-sub" id="authSub">Brand Intelligence Platform</div>
+    <div class="auth-tabs" id="authTabs"></div>
+    <div id="authFields"></div>
+    <button class="auth-btn" id="authBtn" onclick="authSubmit()">Sign In</button>
+    <div class="auth-err" id="authErr"></div>
+    <div class="auth-switch" id="authSwitch"></div>
+    <div class="auth-note">Each company workspace is private to its team<br>Powered by Syntrex Brand Intelligence</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <aside class="sidebar glass" id="sidebar">
+    <div class="side-head">
+      <div class="logo-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="Syntrex"></div>
+      <div><div class="wordmark">SYN</div><span class="ver" id="orgName">Brand Intelligence</span></div>
+      <span class="storage-pill" id="storagePill">…</span>
+    </div>
+
+    <div class="side-scroll">
+      <div class="side-label"><span id="brandsLabel">Your Brand</span> <button class="add-btn" id="addBrandBtn">+ Add</button></div>
+      <div class="brand-list" id="brandList"></div>
+      <div class="side-label" style="margin-top:5px">Chats <button class="add-btn" id="newChatBtn">+ New</button></div>
+      <div class="chat-search"><input id="chatSearch" placeholder="Search chats…"></div>
+      <div class="chat-list" id="chatList"></div>
+    </div>
+
+    <div class="side-nav">
+      <button class="nav-btn" data-view="dashboard"><span class="glyph">▦</span> Portfolio</button>
+      <button class="nav-btn active" data-view="chat"><span class="glyph">◈</span> Workspace</button>
+      <button class="nav-btn" data-view="team"><span class="glyph">◎</span> Team Chat <span class="badge" id="teamBadge" style="display:none">0</span></button>
+      <button class="nav-btn" data-view="profile"><span class="glyph">⬡</span> Brand Profile</button>
+      <button class="nav-btn" data-view="assets"><span class="glyph">▤</span> Assets</button>
+      <button class="nav-btn" data-view="approvals"><span class="glyph">✓</span> Approvals <span class="badge" id="pendBadge" style="display:none">0</span></button>
+      <button class="nav-btn" data-view="settings"><span class="glyph">⚙</span> Settings</button>
+    </div>
+    <div class="user-row">
+      <div class="avatar" id="uAvatar">?</div>
+      <div><div class="u-name" id="uName">—</div><div class="u-role" id="uRole">—</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar glass">
+      <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
+      <div class="lock-chip"><span class="chip-dot"></span>Locked to <b id="lockName">—</b></div>
+      <div class="top-right">
+        <button class="guard-chip" id="guardChip"><span class="g-lbl">Guardrails</span><span class="g-count" id="guardCount">0</span></button>
+        <button class="icon-btn" id="exportChatBtn" title="Export this chat" aria-label="Export chat">⤓</button>
+        <button class="icon-btn" id="setBtn" title="Settings" aria-label="Settings">⚙</button>
+      </div>
+    </div>
+
+    <div class="stage glass" id="stage">
+      <!-- DASHBOARD -->
+      <div class="view" id="view-dashboard"><div class="panel-scroll"><div class="panel-inner" id="dashPanel"></div></div></div>
+
+      <!-- CHAT -->
+      <div class="view active" id="view-chat">
+        <div class="chat-scroll" id="chatScroll">
+          <div class="empty-state" id="onboardState" style="display:none">
+            <div class="empty-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt=""></div>
+            <h1>Welcome to <span class="accent" id="obOrg">your workspace</span></h1>
+            <p id="obText">This workspace is a blank slate. Encode your first brand: its voice, colors, products, and guardrails. Everything SYN makes from then on ships as that brand.</p>
+            <div class="starter-row"><button class="btn-gold" id="obAddBrand">Set Up Your Brand</button></div>
+          </div>
+          <div class="empty-state" id="emptyState">
+            <div class="empty-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt=""></div>
+            <h1>What are we making for <span class="accent" id="esBrand">this brand</span>?</h1>
+            <p>Drop files, ask for research, documents, sheets, or campaigns. SYN remembers everything, keeps it on-brand, and nothing ships without a verdict.</p>
+            <div class="starter-row" id="starterRow"></div>
+          </div>
+          <div class="chat-inner" id="chatInner"></div>
+        </div>
+        <div class="composer-wrap">
+          <div class="composer">
+            <div class="pending-strip" id="pendingStrip"></div>
+            <div class="mode-row">
+              <button class="mode-btn active" id="modeCopy">Copy</button>
+              <button class="mode-btn" id="modeImage">Imagery</button>
+              <span class="mode-sep"></span>
+              <button class="mode-btn active" id="mSmart" title="Deep intelligence">Smart</button>
+              <button class="mode-btn" id="mFast" title="Fastest responses">Fast</button>
+              <span class="mode-hint" id="modeHint">Text · Files · Live Web · Memory</span>
+            </div>
+            <div class="input-shell">
+              <button class="tool-btn" id="attachBtn" title="Attach files" aria-label="Attach files">✦</button>
+              <button class="tool-btn" id="micBtn" title="Dictate" aria-label="Dictate">◉</button>
+              <textarea id="input" rows="1" placeholder="Ask SYN, or drop files anywhere…"></textarea>
+              <button class="send-btn" id="sendBtn" aria-label="Send">↑</button>
+            </div>
+            <input type="file" id="fileInput" multiple style="display:none">
+          </div>
+        </div>
+      </div>
+
+      <!-- TEAM CHAT -->
+      <div class="view" id="view-team">
+        <div class="chat-scroll" id="teamScroll"><div class="chat-inner" id="teamInner"></div></div>
+        <div class="composer-wrap"><div class="composer">
+          <div class="input-shell">
+            <textarea id="teamInput" rows="1" placeholder="Message your team…"></textarea>
+            <button class="send-btn" id="teamSendBtn" aria-label="Send">↑</button>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- PROFILE -->
+      <div class="view" id="view-profile"><div class="panel-scroll"><div class="panel-inner" id="profilePanel"></div></div></div>
+      <!-- ASSETS -->
+      <div class="view" id="view-assets"><div class="panel-scroll"><div class="panel-inner" id="assetsPanel"></div></div></div>
+      <!-- APPROVALS -->
+      <div class="view" id="view-approvals"><div class="panel-scroll"><div class="panel-inner" id="apprPanel"></div></div></div>
+      <!-- SETTINGS -->
+      <div class="view" id="view-settings"><div class="panel-scroll"><div class="panel-inner" id="settingsPanel"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- BRAND MODAL -->
+<div class="modal-veil" id="brandVeil">
+  <div class="modal">
+    <div class="m-head"><h3 id="bmTitle">Encode a new brand</h3><button class="m-close" data-close="brandVeil" aria-label="Close">✕</button></div>
+    <div class="m-body">
+      <label class="f-label">Auto-fill from the web</label>
+      <div class="mini-form" style="margin-top:0">
+        <input class="f-input" id="bmSite" placeholder="Company website (optional)">
+        <button class="btn-gold" id="bmResearch" type="button">Research &amp; Fill</button>
+      </div>
+      <div class="f-hint" id="bmResearchStatus">SYN will search the internet for this company and fill everything below. You correct anything it gets wrong.</div>
+      <label class="f-label" for="bmName">Brand name</label><input class="f-input" id="bmName">
+      <label class="f-label" for="bmInd">Industry</label><input class="f-input" id="bmInd" placeholder="e.g. Consumer beverage">
+      <label class="f-label" for="bmAccent">Accent color</label>
+      <div class="color-row"><input type="color" id="bmAccentPick" value="#E4C169"><input class="f-input" id="bmAccent" placeholder="#E4C169" style="flex:1"></div>
+      <label class="f-label" for="bmVoice">Voice &amp; tone</label><textarea class="f-area" id="bmVoice"></textarea>
+      <label class="f-label" for="bmAud">Audience</label><input class="f-input" id="bmAud">
+      <label class="f-label">Brand colors · pick on the wheel or type the code</label>
+      <div id="bmPaletteRows"></div>
+      <button class="add-btn" id="bmAddColor" type="button" style="margin-top:2px">+ Add color</button>
+      <label class="f-label" for="bmProd">Products · one per line</label><textarea class="f-area" id="bmProd"></textarea>
+      <label class="f-label" for="bmOk">Approved claims · one per line</label><textarea class="f-area" id="bmOk"></textarea>
+      <label class="f-label" for="bmBan">Banned claims &amp; phrases · one per line</label><textarea class="f-area" id="bmBan"></textarea>
+      <div class="f-hint">The guardrail layer. Regulated wording, legal no-gos, off-brand phrases. SYN will never use these.</div>
+      <label class="f-label" for="bmLegal">Legal &amp; regulatory constraints</label><textarea class="f-area" id="bmLegal"></textarea>
+      <label class="f-label" for="bmImg">Imagery style DNA</label><textarea class="f-area" id="bmImg"></textarea>
+    </div>
+    <div class="m-foot">
+      <button class="btn-danger" id="bmDelete" style="display:none;margin-right:auto">Delete brand</button>
+      <button class="btn-ghost" data-close="brandVeil">Cancel</button>
+      <button class="btn-gold" id="bmSave">Save Brand</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+<div class="modal-veil" id="prevVeil">
+  <div class="modal preview-modal">
+    <div class="m-head"><h3 id="prevTitle">Preview</h3><button class="m-close" data-close="prevVeil" aria-label="Close">✕</button></div>
+    <iframe class="preview-frame" id="prevFrame" sandbox="" title="File preview"></iframe>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   SYN PLATFORM v5 · Syntrex Brand Intelligence Engine · Multi-workspace
+   Persistent workspace (accounts, brands, chats, memory, approvals,
+   assets all saved), markdown rendering, live web research, model
+   routing, stop/regenerate, voice dictation, portfolio dashboard.
+   ===================================================================== */
+
+/* ================= DEPLOYMENT CONFIG =================
+   Set SYN_CORE_URL to your Cloudflare Worker URL (no trailing slash),
+   e.g. "https://syn-core.henrybello.workers.dev"
+   In the Claude preview this is not needed. On a live site it is required
+   for chat and research to work. */
+const SYN_CORE_URL = "PASTE_YOUR_WORKER_URL_HERE";
+function apiBase(){
+  return (SYN_CORE_URL && SYN_CORE_URL.startsWith("http")) ? SYN_CORE_URL : "https://api.anthropic.com";
+}
+
+/* ---------------- STORAGE ADAPTER (persistent, team-shared) ---------------- */
+const mem = {};                       // last-resort fallback
+let persistOk = false;
+let persistMode = "memory";           // "shared" (Claude preview) | "device" (browser) | "memory"
+function lsOk(){
+  try{ const k = "__syn_t"; localStorage.setItem(k, "1"); localStorage.removeItem(k); return true; }catch(e){ return false; }
+}
+async function sGet(key, shared = true){
+  if (window.storage){
+    try{ const r = await window.storage.get(key, shared); return r && r.value ? JSON.parse(r.value) : null; }
+    catch(e){ return null; }
+  }
+  if (lsOk()){
+    try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }catch(e){ return null; }
+  }
+  return mem[key] || null;
+}
+async function sSet(key, val, shared = true){
+  mem[key] = val;
+  if (window.storage){
+    try{ await window.storage.set(key, JSON.stringify(val), shared); }catch(e){ console.error("save fail", key, e); }
+    return;
+  }
+  if (lsOk()){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error("save fail", key, e); }
+  }
+}
+const saveTimers = {};
+function saveSoon(key, getVal, shared = true){
+  clearTimeout(saveTimers[key]);
+  saveTimers[key] = setTimeout(() => sSet(key, getVal(), shared), 600);
+}
+
+/* ---------------- STATE ---------------- */
+let ORGS = [];
+let ORG = null;
+let TEAM = [];
+let BRANDS = [];
+let APPROVALS = [];
+let SETTINGS = { motion:true };
+let CHATS = {};                       // brandId -> array of chats
+let currentUser = null;
+let activeBrandId = null;
+let mode = "copy";
+let modelPick = "smart";              // smart = sonnet, fast = haiku
+let pendingAtts = [];
+let busy = false;
+let abortCtl = null;
+let editingBrandId = null;
+let authMode = "signin";
+
+const MODELS = { smart:"claude-sonnet-4-6", fast:"claude-haiku-4-5-20251001" };
+const LOGO = "https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png";
+
+/* ---------------- DEFAULT DATA ---------------- */
+function defaultBrands(){
+  return [
+    { id:"halt", name:"HALT Fire", industry:"Fire Safety · Regulated", accent:"#FF6B3D",
+      voice:"Bold, direct, protective. Authority without fear-mongering. Short declarative sentences. Speaks like a firefighter, not a marketer. Safety is stated as fact, never hyped.",
+      audience:"Homeowners, contractors, facility managers, and distributors who need certified fire protection they can trust.",
+      palette:[{hex:"#E8400A",name:"Fire"},{hex:"#B8300A",name:"Ember"},{hex:"#1A1A1A",name:"Char"},{hex:"#FFFFFF",name:"Ash"}],
+      products:["Heat Barrier — 32oz pump spray","Pro Defense — professional-grade suppressant line","Fire suppression collateral & SDS documentation"],
+      approvedClaims:["UL Classified","Manufactured by Halt Industrial Inc.","513 Main Street, Windermere FL"],
+      bannedClaims:["UL Tested","UL Approved","UL Certified","fireproof","guarantees your safety","prevents all fires","FSI","2.5G tote"],
+      legal:"All certification language must read exactly 'UL Classified.' Manufacturer is Halt Industrial Inc. (never FSI). No absolute safety guarantees. Product claims must match current SDS sheets.",
+      imageStyle:"High-contrast product photography. Charcoal and deep-black environments, dramatic rim lighting, fire-orange accent glow. Industrial, premium, serious. No cartoonish flames, no people in danger, no visible fire touching products.",
+      memories:[], knowledge:[] },
+    { id:"wavers", name:"Doughbrik's Wavers", industry:"Consumer Snacks · DTC", accent:"#A78BFF",
+      voice:"Playful, punchy, internet-native. Big flavor energy, zero corporate speak. Sounds like your funniest friend recommending a snack. Emoji-light, hype-forward, always fun.",
+      audience:"Gen Z and young millennial snackers, David Dobrik's audience, DTC impulse buyers.",
+      palette:[{hex:"#8A5CF6",name:"Wave Purple"},{hex:"#FFD23F",name:"Crunch Gold"},{hex:"#FF5D8F",name:"Pop Pink"},{hex:"#101014",name:"Night"}],
+      products:["Wavers — wavy-cut snack chips, multiple flavors","DTC store bundles & drops"],
+      approvedClaims:["From the Doughbrik's universe","Bold wavy crunch"],
+      bannedClaims:["healthy","diet","weight loss","guilt-free","better than [competitor]"],
+      legal:"No health or nutrition claims of any kind. Celebrity references stay within approved brand language. No comparative superiority claims against named competitors.",
+      imageStyle:"Saturated, high-energy product scenes. Bold color blocking with purple and gold, floating chips, dynamic motion, studio-pop lighting. Fun and premium at once. Never muted, never minimal.",
+      memories:[], knowledge:[] },
+    { id:"karlo", name:"Karlo Financial", industry:"Financial Services · Regulated", accent:"#5FD4B0",
+      voice:"Calm, precise, trustworthy. Plain-English explanations of complex things. Warm but never casual. Confidence through clarity, not promises.",
+      audience:"Families and business owners planning long-term finances who value a steady, personal advisor relationship.",
+      palette:[{hex:"#3E7C6F",name:"Ledger Green"},{hex:"#0E1B18",name:"Vault"},{hex:"#D9CDB8",name:"Parchment"},{hex:"#C8A24B",name:"Gilt"}],
+      products:["Financial planning & advisory services","Retirement and long-term strategy engagements"],
+      approvedClaims:["Personalized financial guidance","Long-term planning focus"],
+      bannedClaims:["guaranteed returns","risk-free","beat the market","double your money","can't lose"],
+      legal:"No promises of returns or performance. No specific investment advice in marketing content. All claims must be compliant with financial marketing regulations. Educational framing only.",
+      imageStyle:"Quiet, editorial, warm-professional. Natural light, deep greens and parchment tones, real-life planning moments. Trust through calm, never stock-photo handshakes or money imagery.",
+      memories:[], knowledge:[] }
+  ];
+}
+
+/* ---------------- HELPERS ---------------- */
+function esc(s){ const d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+function toast(msg){
+  const w = document.getElementById("toastWrap");
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  w.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function uid(p){ return (p || "x") + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function brand(){ return BRANDS.find(b => b.id === activeBrandId) || BRANDS[0] || null; }
+function isAdmin(){ return currentUser && currentUser.role === "Admin"; }
+function hexToSoft(hex){ try{ const n = parseInt(hex.slice(1),16); return "rgba(" + ((n>>16)&255) + "," + ((n>>8)&255) + "," + (n&255) + ",.18)"; }catch(e){ return "rgba(228,193,105,.16)"; } }
+function fmtSize(b){ return b > 1048576 ? (b/1048576).toFixed(1)+" MB" : Math.max(1,Math.round(b/1024))+" KB"; }
+function extOf(name){ const i = name.lastIndexOf("."); return i < 0 ? "" : name.slice(i+1).toLowerCase(); }
+function fmtTime(iso){ const d = new Date(iso); return d.toLocaleDateString([], {month:"short",day:"numeric"}) + " · " + d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}); }
+function logoFail(img){
+  const p = img.parentElement;
+  if (p) p.innerHTML = '<span style="font-family:Space Grotesk,sans-serif;font-weight:700;font-size:22px;color:var(--gold)">S</span>';
+}
+async function hashPw(pw, salt){
+  const s = salt.toLowerCase() + "::" + pw;
+  if (window.crypto && crypto.subtle){
+    try{
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+    }catch(e){}
+  }
+  let h1 = 5381, h2 = 52711;
+  for (let i = 0; i < s.length; i++){ const c = s.charCodeAt(i); h1 = (h1 * 33) ^ c; h2 = (h2 * 31) ^ c; }
+  return (h1 >>> 0).toString(16) + (h2 >>> 0).toString(16);
+}
+function renderMD(text){
+  if (window.marked && window.DOMPurify){
+    try{ return DOMPurify.sanitize(marked.parse(text, { breaks:true })); }catch(e){}
+  }
+  return esc(text).replace(/\n/g, "<br>");
+}
+
+/* ---------------- PERSISTENCE ---------------- */
+function okey(sub){ return "syn5:" + (ORG ? ORG.id : "none") + ":" + sub; }
+const saveBrands    = () => saveSoon(okey("brands"), () => BRANDS.map(b => ({ ...b, knowledge: b.knowledge.filter(k => !k.tooBig) })));
+const saveTeam      = () => saveSoon(okey("team"), () => TEAM);
+const saveApprovals = () => saveSoon(okey("approvals"), () => APPROVALS);
+const saveSettings  = () => saveSoon(okey("settings"), () => SETTINGS);
+function saveChats(brandId){
+  saveSoon(okey("chats:" + brandId), () => (CHATS[brandId] || []).map(c => ({
+    ...c,
+    msgs: c.msgs.map(m => ({
+      ...m,
+      atts: (m.atts || []).map(a => (a.data && a.data.length > 400000) ? { kind:a.kind, name:a.name, stub:true } : a)
+    }))
+  })));
+}
+async function loadChats(brandId){
+  if (CHATS[brandId]) return CHATS[brandId];
+  CHATS[brandId] = (await sGet(okey("chats:" + brandId))) || [];
+  return CHATS[brandId];
+}
+
+/* ---------------- BOOT ---------------- */
+async function boot(){
+  persistMode = window.storage ? "shared" : (lsOk() ? "device" : "memory");
+  persistOk = persistMode !== "memory";
+  const pill = document.getElementById("storagePill");
+  pill.textContent = persistMode === "shared" ? "Saved" : persistMode === "device" ? "This Device" : "Session";
+  pill.className = "storage-pill " + (persistOk ? "ok" : "no");
+  pill.title = persistMode === "shared" ? "Team workspace storage is live. Everything persists and is shared."
+    : persistMode === "device" ? "Saved to this browser. Team-shared storage across devices arrives with SYN Core."
+    : "Storage unavailable; this session is in-memory only.";
+
+  ORGS = (await sGet("syn5:orgs")) || [];
+  document.getElementById("bootScreen").classList.remove("on");
+
+  const sess = await sGet("syn5:session", false);
+  if (sess && sess.orgId){
+    const org = ORGS.find(o => o.id === sess.orgId);
+    if (org){
+      const team = (await sGet("syn5:" + org.id + ":team")) || [];
+      const u = team.find(t => t.id === sess.userId);
+      if (u){ await enterOrg(org, u); return; }
+    }
+  }
+  showAuth(ORGS.length ? "signin" : "create");
+}
+
+/* ---------------- WORKSPACE JOIN CODES (rotate every 30 min) ---------------- */
+function orgCode(org, offset = 0){
+  const win = Math.floor(Date.now() / 1800000) + offset;
+  const s = org.secret + ":" + win;
+  let h1 = 2166136261, h2 = 40503;
+  for (let i = 0; i < s.length; i++){ const c = s.charCodeAt(i); h1 = ((h1 ^ c) * 16777619) >>> 0; h2 = ((h2 * 31) + c) >>> 0; }
+  const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let code = "", n = (h1 ^ h2) >>> 0;
+  for (let i = 0; i < 6; i++){ code += A[n % A.length]; n = Math.floor(n / A.length) + ((h2 >> i) & 255); }
+  return code;
+}
+function codeMinutesLeft(){ return Math.max(1, Math.ceil((1800000 - (Date.now() % 1800000)) / 60000)); }
+
+/* ---------------- AUTH ---------------- */
+function showAuth(m){
+  authMode = m;
+  const f = document.getElementById("authFields");
+  const sub = document.getElementById("authSub");
+  const btn = document.getElementById("authBtn");
+  const sw = document.getElementById("authSwitch");
+  const tabs = document.getElementById("authTabs");
+  document.getElementById("authErr").style.display = "none";
+  tabs.innerHTML =
+    '<button class="mode-btn ' + (m === "signin" ? "active" : "") + '" onclick="showAuth(\'signin\')">Sign In</button>' +
+    '<button class="mode-btn ' + (m === "create" ? "active" : "") + '" onclick="showAuth(\'create\')">New Workspace</button>' +
+    '<button class="mode-btn ' + (m === "join" ? "active" : "") + '" onclick="showAuth(\'join\')">Join Team</button>';
+  if (m === "create"){
+    sub.textContent = "Start your company workspace";
+    f.innerHTML = '<input class="f-input" id="aCompany" placeholder="Company name"><input class="f-input" id="aName" placeholder="Your full name"><input class="f-input" id="aEmail" placeholder="Work email" autocomplete="off"><input class="f-input" id="aPass" type="password" placeholder="Create a password">';
+    btn.textContent = "Create Workspace";
+    sw.innerHTML = "You become the workspace Admin. Your team joins with your live team code.";
+  } else if (m === "join"){
+    sub.textContent = "Join your company workspace";
+    f.innerHTML = '<input class="f-input" id="aCode" placeholder="Team code (from your admin)" autocomplete="off" style="text-transform:uppercase;letter-spacing:.2em"><input class="f-input" id="aName" placeholder="Your full name"><input class="f-input" id="aEmail" placeholder="Work email" autocomplete="off"><input class="f-input" id="aPass" type="password" placeholder="Create a password">';
+    btn.textContent = "Join Workspace";
+    sw.innerHTML = "The team code rotates every 30 minutes. Get the current one from your workspace admin.";
+  } else {
+    sub.textContent = "Welcome back";
+    f.innerHTML = '<input class="f-input" id="aEmail" placeholder="Work email" autocomplete="off"><input class="f-input" id="aPass" type="password" placeholder="Password">';
+    btn.textContent = "Sign In";
+    sw.innerHTML = '<button onclick="forgotInfo()">Forgot password?</button>';
+  }
+  document.getElementById("authScreen").classList.add("on");
+  f.querySelectorAll("input").forEach(i2 => i2.addEventListener("keydown", e => { if (e.key === "Enter") authSubmit(); }));
+}
+function forgotInfo(){
+  const e = document.getElementById("authErr");
+  e.textContent = "Ask your workspace Admin to reset your password from Settings → Team. Email reset links arrive with SYN Core.";
+  e.style.display = "block"; e.style.color = "var(--gold)";
+}
+function authErr(msg){ const e = document.getElementById("authErr"); e.style.color = "var(--bad)"; e.textContent = msg; e.style.display = "block"; }
+
+async function authSubmit(){
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ""; };
+  const em = val("aEmail").trim().toLowerCase();
+  const pass = val("aPass");
+  if (!em) return authErr("Enter your email.");
+  if (!pass) return authErr("Enter your password.");
+
+  if (authMode === "signin"){
+    for (const org of ORGS){
+      const team = (await sGet("syn5:" + org.id + ":team")) || [];
+      const u = team.find(t => t.email.toLowerCase() === em);
+      if (u && (await hashPw(pass, em)) === u.pwHash){
+        await sSet("syn5:session", { orgId: org.id, userId: u.id }, false);
+        await enterOrg(org, u); return;
+      }
+    }
+    return authErr("No match for that email and password. Check both, or create or join a workspace.");
+  }
+
+  const name = val("aName").trim();
+  if (!name) return authErr("Enter your name.");
+  if (pass.length < 4) return authErr("Password needs at least 4 characters.");
+
+  if (authMode === "create"){
+    const company = val("aCompany").trim();
+    if (!company) return authErr("Enter your company name.");
+    const org = { id: uid("o"), name: company, secret: uid("s") + Math.random().toString(36).slice(2) + Date.now().toString(36), createdAt: new Date().toISOString() };
+    ORGS.push(org);
+    await sSet("syn5:orgs", ORGS);
+    const u = { id: uid("u"), name, email: em, pwHash: await hashPw(pass, em), role: "Admin", createdAt: new Date().toISOString() };
+    await sSet("syn5:" + org.id + ":team", [u]);
+    await sSet("syn5:session", { orgId: org.id, userId: u.id }, false);
+    await enterOrg(org, u); return;
+  }
+
+  if (authMode === "join"){
+    const code = val("aCode").trim().toUpperCase();
+    if (!code) return authErr("Enter your team code.");
+    const org = ORGS.find(o => orgCode(o, 0) === code || orgCode(o, -1) === code);
+    if (!org) return authErr("That team code isn't valid right now. Codes rotate every 30 minutes; get the current one from your admin.");
+    const team = (await sGet("syn5:" + org.id + ":team")) || [];
+    if (team.find(t => t.email.toLowerCase() === em)) return authErr("That email already has an account in " + org.name + ". Sign in instead.");
+    const u = { id: uid("u"), name, email: em, pwHash: await hashPw(pass, em), role: "Member", createdAt: new Date().toISOString() };
+    team.push(u);
+    await sSet("syn5:" + org.id + ":team", team);
+    await sSet("syn5:session", { orgId: org.id, userId: u.id }, false);
+    await enterOrg(org, u); return;
+  }
+}
+async function signOut(){
+  await sSet("syn5:session", {}, false);
+  location.reload();
+}
+
+async function enterOrg(org, u){
+  ORG = org;
+  currentUser = u;
+  TEAM      = (await sGet(okey("team"))) || [u];
+  BRANDS    = (await sGet(okey("brands"))) || [];
+  APPROVALS = (await sGet(okey("approvals"))) || [];
+  SETTINGS  = (await sGet(okey("settings"))) || { motion:true };
+  BRANDS.forEach(b => { b.memories = b.memories || []; b.knowledge = b.knowledge || []; });
+  CHATS = {};
+  document.body.classList.toggle("no-motion", SETTINGS.motion === false);
+
+  document.getElementById("authScreen").classList.remove("on");
+  document.getElementById("app").classList.add("on");
+  document.getElementById("orgName").textContent = org.name;
+  document.getElementById("obOrg").textContent = org.name;
+  document.getElementById("uName").textContent = u.name;
+  document.getElementById("uRole").textContent = u.role + " · " + org.name;
+  document.getElementById("uAvatar").textContent = u.name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase();
+  document.getElementById("addBrandBtn").disabled = !isAdmin();
+  document.getElementById("obText").textContent = isAdmin()
+    ? "Set up your brand: SYN can research your company on the web and fill in your voice, colors, products, and guardrails automatically. From then on, everything your team makes here ships on-brand."
+    : "No brands are encoded yet. Your workspace Admin can encode the first brand, then everything your team makes here ships on-brand.";
+  document.getElementById("obAddBrand").style.display = isAdmin() ? "inline-block" : "none";
+
+  await loadTeamChat();
+  teamSeen = TEAMCHAT.length;
+  startTeamPoll();
+
+  refreshFraming();
+  if (BRANDS.length){ activeBrandId = BRANDS[0].id; await selectBrand(activeBrandId); }
+  else { activeBrandId = null; renderBrands(); renderChatList(); renderThread(); setView("chat"); }
+}
+
+/* ---------------- THREADS ---------------- */
+function chats(){ return CHATS[activeBrandId] || []; }
+function ensureThread(){
+  if (!brand()) return null;
+  const list = chats();
+  if (!list.length){
+    list.push({ id: uid("t"), name:"New chat", pinned:false, visibility:"team", ownerId: currentUser ? currentUser.id : null, ownerName: currentUser ? currentUser.name : "", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] });
+    CHATS[activeBrandId] = list;
+  }
+  let t = list.find(x => x.id === (brand()._activeThread || "") && canSee(x));
+  if (!t) t = list.find(canSee) || null;
+  if (!t){
+    t = { id: uid("t"), name:"New chat", pinned:false, visibility:"team", ownerId: currentUser ? currentUser.id : null, ownerName: currentUser ? currentUser.name : "", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] };
+    list.push(t);
+  }
+  brand()._activeThread = t.id;
+  return t;
+}
+function thread(){ return ensureThread(); }
+function canSee(c){ return c.visibility !== "private" || (currentUser && c.ownerId === currentUser.id); }
+function newChat(){
+  const t = { id: uid("t"), name:"New chat", pinned:false, visibility:"team", ownerId: currentUser.id, ownerName: currentUser.name, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] };
+  chats().unshift(t);
+  brand()._activeThread = t.id;
+  saveChats(activeBrandId);
+  renderChatList(); renderThread(); setView("chat");
+}
+function sortedChats(){
+  const q = (document.getElementById("chatSearch").value || "").toLowerCase();
+  let list = chats().filter(canSee);
+  if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || c.msgs.some(m => (m.text || "").toLowerCase().includes(q)));
+  return list.sort((a,b) => (b.pinned - a.pinned) || (new Date(b.updatedAt) - new Date(a.updatedAt)));
+}
+function renderChatList(){
+  const el = document.getElementById("chatList");
+  el.innerHTML = "";
+  if (!brand()) return;
+  ensureThread();
+  sortedChats().forEach(t => {
+    const btn = document.createElement("button");
+    btn.className = "chat-item" + (t.id === brand()._activeThread ? " active" : "");
+    btn.dataset.tid = t.id;
+    const priv = t.visibility === "private";
+    const mine = t.ownerId === currentUser.id;
+    btn.innerHTML = '<span class="c-glyph">' + (priv ? "🔒" : (t.pinned ? "★" : "◆")) + '</span>' +
+      '<span class="c-name">' + esc(t.name) + (priv ? ' <span style="color:var(--faint);font-size:10px">private</span>' : (t.ownerName && !mine ? ' <span style="color:var(--faint);font-size:10px">' + esc(t.ownerName.split(" ")[0]) + '</span>' : "")) + '</span>' +
+      '<span class="c-tools">' +
+      (mine || isAdmin() ? '<button class="c-tool" data-act="vis" title="' + (priv ? "Make visible to team" : "Make private to you") + '">' + (priv ? "◎" : "🔒") + '</button>' : "") +
+      '<button class="c-tool ' + (t.pinned ? "pin-on" : "") + '" data-act="pin" title="Pin">★</button>' +
+      '<button class="c-tool" data-act="rename" title="Rename">✎</button>' +
+      (mine || isAdmin() ? '<button class="c-tool" data-act="delchat" title="Delete">✕</button>' : "") + '</span>';
+    el.appendChild(btn);
+  });
+}
+function startRename(tid){
+  const t = chats().find(x => x.id === tid);
+  const item = document.querySelector('.chat-item[data-tid="' + tid + '"]');
+  if (!t || !item) return;
+  item.innerHTML = "";
+  const inp = document.createElement("input");
+  inp.className = "chat-rename"; inp.value = t.name;
+  inp.onclick = e => e.stopPropagation();
+  inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape"){ inp.value = t.name; inp.blur(); } };
+  inp.onblur = () => { t.name = inp.value.trim() || t.name; saveChats(activeBrandId); renderChatList(); };
+  item.appendChild(inp); inp.focus(); inp.select();
+}
+
+/* ---------------- SYSTEM PROMPT ---------------- */
+function buildSystemPrompt(b){
+  const t = thread();
+  const sp = [
+    "You are SYN, the proprietary brand intelligence platform built by Syntrex, an AI-native digital studio. You are a full-capability assistant: strategy, research, analysis, writing, documents, spreadsheets, code, planning, math. You format answers with clean markdown (headers, bold, lists, tables, code blocks) like a world-class assistant.",
+    "You are LOCKED to the brand \"" + b.name + "\" (" + b.industry + "). All brand-facing content ships as this brand.",
+    "You are working with " + currentUser.name + " (" + currentUser.role + " at Syntrex).",
+    "You have LIVE WEB SEARCH. Use it for research, competitors, trends, current facts, prices, and anything you are unsure of. Name sources in plain text (publication or site). Do not announce that you are searching; deliver the researched answer.",
+    "",
+    "BRAND VOICE: " + b.voice,
+    "AUDIENCE: " + b.audience,
+    "PALETTE: " + b.palette.map(p => p.name + " " + p.hex).join(", "),
+    "PRODUCTS: " + b.products.join("; "),
+    "APPROVED CLAIMS: " + (b.approvedClaims.join("; ") || "none recorded"),
+    "BANNED CLAIMS AND PHRASES you must NEVER use, including close variants: " + (b.bannedClaims.join("; ") || "none recorded"),
+    "LEGAL CONSTRAINTS: " + b.legal
+  ];
+
+  if (b.memories.length){
+    sp.push("", "PERMANENT BRAND MEMORY (facts and decisions saved across all chats; treat as truth):");
+    b.memories.slice(-40).forEach(m => sp.push("- " + m.text));
+  }
+  const textKnow = b.knowledge.filter(k => k.kind === "text");
+  if (textKnow.length){
+    sp.push("", "BRAND KNOWLEDGE LIBRARY:");
+    textKnow.forEach(k => sp.push("--- FILE: " + k.name + " ---\n" + (k.text || "").slice(0, 6000)));
+  }
+  const others = chats().filter(x => x.id !== t.id && x.msgs.length && canSee(x));
+  if (others.length){
+    sp.push("", "SHARED CONTEXT from this brand's other chats (for continuity):");
+    others.slice(0, 4).forEach(o => {
+      const recent = o.msgs.filter(m => m.mode !== "image").slice(-4)
+        .map(m => (m.role === "user" ? "Teammate: " : "SYN: ") + (m.text || "").slice(0, 200)).join("\n");
+      if (recent) sp.push("[Chat: " + o.name + "]\n" + recent);
+    });
+  }
+
+  sp.push("",
+    "PROTOCOLS:",
+    "1. Never use a banned claim or phrase in brand-facing content. If asked for one, use the closest compliant alternative and add one short line prefixed 'GUARDRAIL:' noting the swap.",
+    "2. FILES: when asked to create a document, report, one-pager, sheet, tracker, or any file, wrap it EXACTLY as:",
+    "[[FILE:filename.ext]]",
+    "content",
+    "[[/FILE]]",
+    "Default documents to a fully designed, self-contained .html file in the brand's colors and typography, editorial-quality, print-ready. Use .csv for sheets/calendars/data (header row first). Use .doc only when Word is requested, built from SIMPLE Word-compatible HTML (h1, h2, p, table, short inline styles, no grid/flex/webfonts). Use .md or .txt only when plain text is requested. Keep files lean. Never mention the markers.",
+    "3. MEMORY: when the user states a lasting fact, decision, preference, or correction about the brand or how they work (not small talk), save it by emitting on its own line: [[REMEMBER: the fact, under 25 words]] . Maximum 2 per response, only genuinely durable facts. It is stored permanently and silently.",
+    "4. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
+    "5. Never use em dashes.");
+  return sp.join("\n");
+}
+function buildImagePrompt(b, scene){
+  return "BRAND: " + b.name + "\nSTYLE DNA: " + b.imageStyle +
+    "\nPALETTE: " + b.palette.map(p => p.name + " " + p.hex).join(", ") +
+    "\nSCENE: " + scene + "\nCONSTRAINTS: " + b.legal;
+}
+
+/* ---------------- BRAND SELECT / SIDEBAR ---------------- */
+function renderBrands(){
+  const el = document.getElementById("brandList");
+  el.innerHTML = "";
+  BRANDS.forEach(b => {
+    const btn = document.createElement("button");
+    btn.className = "brand-item" + (b.id === activeBrandId ? " active" : "");
+    btn.dataset.bid = b.id;
+    btn.style.setProperty("--bi-accent", b.accent);
+    btn.style.setProperty("--bi-glow", hexToSoft(b.accent));
+    btn.innerHTML = '<span class="brand-dot"></span><span><span class="b-name">' + esc(b.name) + '</span><br><span class="b-ind">' + esc(b.industry) + "</span></span>";
+    el.appendChild(btn);
+  });
+}
+function refreshFraming(){
+  const lbl = document.getElementById("brandsLabel");
+  if (lbl) lbl.textContent = BRANDS.length > 1 ? "Brands" : "Your Brand";
+  const dash = document.querySelector('.nav-btn[data-view="dashboard"]');
+  if (dash) dash.style.display = BRANDS.length > 1 ? "flex" : "none";
+}
+async function selectBrand(id){
+  activeBrandId = id;
+  const b = brand();
+  refreshFraming();
+  await loadChats(id);
+  document.documentElement.style.setProperty("--accent", b.accent);
+  document.documentElement.style.setProperty("--accent-soft", hexToSoft(b.accent));
+  document.getElementById("lockName").textContent = b.name.toUpperCase();
+  document.getElementById("guardCount").textContent = b.bannedClaims.length;
+  document.getElementById("esBrand").textContent = b.name;
+  renderBrands(); renderChatList(); renderThread(); renderStarters(); updatePendBadge();
+  setView("chat");
+  if (window.innerWidth <= 900) document.getElementById("sidebar").classList.remove("open");
+}
+
+/* ---------------- CHAT RENDER ---------------- */
+const STARTERS = {
+  copy: ["Research our competitors online","3 Instagram captions for our flagship product","Build a 2-week content calendar as a sheet","Design a one-page brand overview"],
+  image: ["Hero product shot for the website","Lifestyle scene for social","Seasonal promo visual"]
+};
+function renderStarters(){
+  const row = document.getElementById("starterRow");
+  row.innerHTML = "";
+  STARTERS[mode].forEach(s => {
+    const btn = document.createElement("button");
+    btn.className = "starter"; btn.textContent = s;
+    btn.onclick = () => { document.getElementById("input").value = s; send(); };
+    row.appendChild(btn);
+  });
+}
+function renderThread(){
+  const inner = document.getElementById("chatInner");
+  inner.innerHTML = "";
+  const onboard = !BRANDS.length;
+  document.getElementById("onboardState").style.display = onboard ? "block" : "none";
+  document.querySelector("#view-chat .composer-wrap").style.display = onboard ? "none" : "block";
+  if (onboard){
+    document.getElementById("emptyState").style.display = "none";
+    document.getElementById("lockName").textContent = "—";
+    document.getElementById("guardCount").textContent = "0";
+    return;
+  }
+  const t = thread();
+  document.getElementById("emptyState").style.display = t.msgs.length ? "none" : "block";
+  t.msgs.forEach((m, i) => inner.appendChild(buildMsgNode(m, i)));
+  scrollBottom();
+}
+function buildMsgNode(m, idx){
+  const d = document.createElement("div");
+  d.className = "msg " + m.role;
+  const who = m.role === "user" ? esc(m.by || "You") : "SYN · " + esc(brand().name);
+  let html = '<div class="who">' + who + (m.at ? '<span class="w-time">' + esc(fmtTime(m.at)) + "</span>" : "") + "</div>";
+
+  if (m.atts && m.atts.length){
+    html += '<div class="att-strip">' + m.atts.map(a =>
+      a.stub ? '<span class="att-chip"><span class="a-ico">≣</span>' + esc(a.name) + " (session file)</span>"
+      : a.kind === "image" ? '<img class="att-thumb" src="data:' + a.media + ';base64,' + a.data + '" alt="' + esc(a.name) + '">'
+      : '<span class="att-chip"><span class="a-ico">' + (a.kind === "pdf" ? "⌘" : "≣") + '</span>' + esc(a.name) + "</span>"
+    ).join("") + "</div>";
+  }
+
+  if (m.mode === "image" && m.role === "syn"){
+    html += '<div class="img-card"><div class="ic-head">Imagery Request<span class="route">→ gpt-image-1 · SYN Core</span></div>' +
+      '<div class="ic-body"><div class="ic-label">Prompt compiled from brand profile</div>' +
+      '<div class="ic-prompt">' + esc(m.text) + '</div>' +
+      '<div class="ic-status">Queued · imagery renders when SYN Core connects</div></div></div>';
+    d.innerHTML = html; return d;
+  }
+
+  const bodyText = m.displayText != null ? m.displayText : (m.text || "");
+  if (bodyText){
+    if (m.role === "syn") html += '<div class="bubble md">' + renderMD(bodyText) + "</div>";
+    else html += '<div class="bubble">' + esc(bodyText) + "</div>";
+  }
+
+  (m.files || []).forEach((f, fi) => {
+    html += '<div class="file-card"><div class="fc-ico">.' + esc(extOf(f.name) || "txt") + '</div>' +
+      '<div><div class="fc-name">' + esc(f.name) + '</div><div class="fc-meta">Generated by SYN · ' + esc(brand().name) + '</div></div>' +
+      '<div class="fc-btns"><button class="fc-prev" data-act="preview" data-idx="' + idx + '" data-fi="' + fi + '">Preview</button>' +
+      '<button class="fc-dl" data-act="download" data-idx="' + idx + '" data-fi="' + fi + '">Download</button></div></div>';
+  });
+
+  if (m.savedMemories && m.savedMemories.length){
+    html += '<div class="mem-flag">◈ Saved to brand memory: ' + esc(m.savedMemories.join(" · ")) + "</div>";
+  }
+
+  if (m.role === "syn" && m.mode !== "image"){
+    const isLast = idx === thread().msgs.length - 1;
+    let acts = "";
+    if (m.verdict === "ap") acts += '<button class="act-btn done-approve">✓ Approved</button>';
+    else if (m.verdict === "rj") acts += '<button class="act-btn done-reject">✕ Rejected</button>';
+    else acts += '<button class="act-btn approve" data-act="approve" data-idx="' + idx + '">Approve</button>' +
+                 '<button class="act-btn reject" data-act="reject" data-idx="' + idx + '">Reject</button>';
+    acts += '<button class="act-btn" data-act="copy" data-idx="' + idx + '">Copy</button>';
+    if (isLast && !busy) acts += '<button class="act-btn" data-act="regen">Regenerate</button>';
+    if (!m.verdict) acts += '<span class="act-note">Nothing ships without a verdict</span>';
+    html += '<div class="actions">' + acts + "</div>";
+  }
+  d.innerHTML = html;
+  d.querySelectorAll("pre").forEach(pre => {
+    const btn = document.createElement("button");
+    btn.className = "copy-code"; btn.textContent = "Copy";
+    btn.onclick = () => { copyText(pre.innerText); btn.textContent = "Copied"; setTimeout(() => btn.textContent = "Copy", 1500); };
+    pre.appendChild(btn);
+  });
+  return d;
+}
+function scrollBottom(){
+  const sc = document.getElementById("chatScroll");
+  requestAnimationFrame(() => { sc.scrollTop = sc.scrollHeight; });
+}
+function copyText(txt){
+  if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).catch(() => fallbackCopy(txt)); }
+  else fallbackCopy(txt);
+}
+function fallbackCopy(txt){
+  const ta = document.createElement("textarea");
+  ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  ta.remove();
+}
+
+/* ---------------- ATTACHMENTS ---------------- */
+function handleFiles(fileList, target){
+  Array.from(fileList).forEach(f => {
+    if (f.size > 4.5 * 1048576){ toast(f.name + " is over 4.5 MB. Keep drops under that."); return; }
+    const r = new FileReader();
+    const push = obj => {
+      if (obj.data && obj.data.length > 700000) obj.tooBig = true;
+      if (target === "knowledge"){ if (!brand()) return; brand().knowledge.push(obj); saveBrands(); renderProfile(); }
+      else { pendingAtts.push(obj); renderPending(); }
+    };
+    if (f.type.startsWith("image/")){
+      r.onload = () => push({ kind:"image", name:f.name, media:f.type, data:r.result.split(",")[1], size:f.size });
+      r.readAsDataURL(f);
+    } else if (f.type === "application/pdf"){
+      r.onload = () => push({ kind:"pdf", name:f.name, media:"application/pdf", data:r.result.split(",")[1], size:f.size });
+      r.readAsDataURL(f);
+    } else {
+      r.onload = () => push({ kind:"text", name:f.name, text:String(r.result).slice(0, 60000), size:f.size });
+      r.readAsText(f);
+    }
+  });
+}
+function renderPending(){
+  document.getElementById("pendingStrip").innerHTML = pendingAtts.map((a, i) =>
+    '<span class="p-chip"><span class="a-ico">' + (a.kind === "image" ? "▣" : a.kind === "pdf" ? "⌘" : "≣") + '</span>' +
+    esc(a.name) + '<button class="p-x" data-act="unatt" data-i="' + i + '" aria-label="Remove">✕</button></span>').join("");
+}
+
+/* ---------------- GENERATED FILES ---------------- */
+function parseSpecial(raw){
+  const files = [], memories = [];
+  let clean = raw.replace(/\[\[FILE:([^\]]+)\]\]([\s\S]*?)\[\[\/FILE\]\]/g, (m, name, content) => {
+    files.push({ name: name.trim(), content: content.replace(/^\n+|\n+$/g, "") }); return "";
+  });
+  const open = clean.match(/\[\[FILE:([^\]]+)\]\]([\s\S]*)$/);
+  if (open){ files.push({ name: open[1].trim(), content: open[2].replace(/^\n+/, "") }); clean = clean.slice(0, open.index); }
+  clean = clean.replace(/\[\[REMEMBER:\s*([\s\S]*?)\]\]/g, (m, fact) => { memories.push(fact.trim()); return ""; });
+  return { clean: clean.trim(), files, memories };
+}
+function mimeFor(ext){
+  return { csv:"text/csv", html:"text/html", htm:"text/html", md:"text/markdown", txt:"text/plain", doc:"application/msword", json:"application/json" }[ext] || "text/plain";
+}
+function doDownload(f){
+  const ext = extOf(f.name);
+  let content = f.content;
+  if (ext === "doc" && !/^\s*</.test(content)) content = "<html><body><pre style='font-family:Calibri'>" + content + "</pre></body></html>";
+  const blob = new Blob([content], { type: mimeFor(ext) + ";charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = f.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function splitCsv(line){
+  const out = []; let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++){
+    const ch = line[i];
+    if (inQ){ if (ch === '"'){ if (line[i+1] === '"'){ cur += '"'; i++; } else inQ = false; } else cur += ch; }
+    else { if (ch === '"') inQ = true; else if (ch === ","){ out.push(cur); cur = ""; } else cur += ch; }
+  }
+  out.push(cur); return out;
+}
+function doPreview(f){
+  const ext = extOf(f.name);
+  let html;
+  if (ext === "html" || ext === "htm" || ext === "doc") html = f.content;
+  else if (ext === "csv"){
+    const rows = f.content.trim().split(/\r?\n/).map(splitCsv);
+    html = "<html><body style='font-family:Arial,sans-serif;background:#fff;padding:26px;color:#1a1a1a'><table style='border-collapse:collapse;width:100%'>" +
+      rows.map((r, i) => "<tr>" + r.map(c =>
+        (i === 0 ? "<th" : "<td") + " style='border:1px solid #e2ddd4;padding:10px 13px;text-align:left;" +
+        (i === 0 ? "background:#141210;color:#E4C169;font-size:11px;letter-spacing:.08em;text-transform:uppercase" : "font-size:13px") +
+        "'>" + escHtml(c) + (i === 0 ? "</th>" : "</td>")).join("") + "</tr>").join("") + "</table></body></html>";
+  } else html = "<html><body style='font-family:Arial,sans-serif;background:#fff;color:#1a1a1a;padding:38px;line-height:1.75;max-width:760px;margin:0 auto;white-space:pre-wrap'>" + escHtml(f.content) + "</body></html>";
+  document.getElementById("prevTitle").textContent = f.name;
+  document.getElementById("prevFrame").srcdoc = html;
+  document.getElementById("prevVeil").classList.add("open");
+}
+
+/* ---------------- SEND / GENERATE ---------------- */
+function setMode(m){
+  mode = m;
+  document.getElementById("modeCopy").classList.toggle("active", m === "copy");
+  document.getElementById("modeImage").classList.toggle("active", m === "image");
+  document.getElementById("modeHint").textContent = m === "copy" ? "Text · Files · Live Web · Memory" : "Imagery · Routed via SYN Core";
+  document.getElementById("input").placeholder = m === "copy" ? "Ask SYN, or drop files anywhere…" : "Describe the scene. SYN compiles the on-brand prompt…";
+  renderStarters();
+}
+function setModel(m){
+  modelPick = m;
+  document.getElementById("mSmart").classList.toggle("active", m === "smart");
+  document.getElementById("mFast").classList.toggle("active", m === "fast");
+}
+async function send(){
+  if (busy) return;
+  if (!brand()){ setView("chat"); return; }
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+  if (!text && !pendingAtts.length) return;
+  input.value = ""; input.style.height = "auto";
+
+  const t = thread();
+  const atts = pendingAtts; pendingAtts = []; renderPending();
+  t.msgs.push({ role:"user", text: text || "(files attached)", atts, mode, by: currentUser.name, at: new Date().toISOString() });
+  if (t.name === "New chat" && text) t.name = text.slice(0, 34) + (text.length > 34 ? "…" : "");
+  t.updatedAt = new Date().toISOString();
+  saveChats(activeBrandId);
+  renderChatList(); renderThread();
+
+  if (mode === "image"){
+    t.msgs.push({ role:"syn", text: buildImagePrompt(brand(), text || "See attached reference files."), mode:"image", at: new Date().toISOString() });
+    saveChats(activeBrandId); renderThread(); return;
+  }
+  await generate();
+}
+async function regenerate(){
+  if (busy) return;
+  const t = thread();
+  if (t.msgs.length && t.msgs[t.msgs.length - 1].role === "syn"){ t.msgs.pop(); saveChats(activeBrandId); renderThread(); }
+  await generate();
+}
+async function generate(){
+  const b = brand();
+  const t = thread();
+  busy = true;
+  abortCtl = new AbortController();
+  const sendBtn = document.getElementById("sendBtn");
+  sendBtn.textContent = "■"; sendBtn.classList.add("stop"); sendBtn.title = "Stop";
+
+  const live = document.createElement("div");
+  live.className = "msg syn";
+  live.innerHTML = '<div class="who">SYN · ' + esc(b.name) + '</div>' +
+    '<div class="status-line"><span class="s-dot"></span><span class="s-txt">Thinking…</span></div>' +
+    '<div class="bubble md" style="display:none"></div>';
+  document.getElementById("chatInner").appendChild(live);
+  scrollBottom();
+  const statusEl = live.querySelector(".status-line");
+  const statusTxt = live.querySelector(".s-txt");
+  const bubbleEl = live.querySelector(".bubble");
+  const setStatus = s => { statusEl.style.display = "flex"; statusTxt.textContent = s; scrollBottom(); };
+  const hideStatus = () => { statusEl.style.display = "none"; };
+  let lastPaint = 0;
+  const paintVisible = accum => {
+    const i = accum.indexOf("[[FILE:");
+    let vis = (i < 0 ? accum : accum.slice(0, i)).replace(/\[\[REMEMBER:[\s\S]*?(\]\]|$)/g, "").trim();
+    if (i >= 0){
+      const nm = accum.slice(i).match(/\[\[FILE:([^\]]+)\]\]/);
+      setStatus(nm ? "Designing " + nm[1].trim() + "…" : "Designing your file…");
+    } else hideStatus();
+    const now = Date.now();
+    if (vis && now - lastPaint > 120){
+      lastPaint = now;
+      bubbleEl.style.display = "block";
+      bubbleEl.innerHTML = renderMD(vis);
+      scrollBottom();
+    }
+  };
+
+  let raw = "";
+  try{
+    const history = t.msgs.filter(m => m.mode !== "image").map(m => {
+      if (m.role === "user"){
+        const blocks = [];
+        (m.atts || []).forEach(a => {
+          if (a.stub) blocks.push({ type:"text", text:"[A file named " + a.name + " was attached in an earlier session but is no longer available.]" });
+          else if (a.kind === "image") blocks.push({ type:"image", source:{ type:"base64", media_type:a.media, data:a.data } });
+          else if (a.kind === "pdf") blocks.push({ type:"document", source:{ type:"base64", media_type:"application/pdf", data:a.data } });
+          else blocks.push({ type:"text", text:"[Attached file: " + a.name + "]\n" + (a.text || "") });
+        });
+        blocks.push({ type:"text", text: m.text });
+        return { role:"user", content: blocks };
+      }
+      return { role:"assistant", content: m.rawText || m.text || " " };
+    });
+
+    let tries = 0, stopReason = "";
+    while (true){
+      const msgs = raw ? history.concat([{ role:"assistant", content: raw }]) : history;
+      const res = await fetch(apiBase() + "/v1/messages", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        signal: abortCtl.signal,
+        body: JSON.stringify({
+          model: MODELS[modelPick], max_tokens: 8000, stream: true,
+          system: buildSystemPrompt(b), messages: msgs,
+          tools: [{ type:"web_search_20250305", name:"web_search" }]
+        })
+      });
+      if (!res.ok || !res.body) throw new Error("net");
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "", searchInput = "";
+      stopReason = "";
+      while (true){
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream:true });
+        const lines = buf.split("\n"); buf = lines.pop();
+        for (const line of lines){
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          let ev; try{ ev = JSON.parse(payload); }catch(e){ continue; }
+          if (ev.type === "content_block_start"){
+            const cb = ev.content_block || {};
+            if (cb.type === "server_tool_use"){ searchInput = ""; setStatus("Searching the web…"); }
+            if (cb.type === "web_search_tool_result") setStatus("Reading sources…");
+          } else if (ev.type === "content_block_delta"){
+            const d = ev.delta || {};
+            if (d.type === "text_delta"){ raw += d.text; paintVisible(raw); }
+            else if (d.type === "input_json_delta"){
+              searchInput += d.partial_json || "";
+              const q = searchInput.match(/"query"\s*:\s*"([^"]*)/);
+              if (q && q[1]) setStatus("Searching: " + q[1]);
+            }
+          } else if (ev.type === "message_delta"){
+            if (ev.delta && ev.delta.stop_reason) stopReason = ev.delta.stop_reason;
+          }
+        }
+      }
+      if (stopReason !== "max_tokens" || ++tries >= 3) break;
+      setStatus("Continuing the document…");
+    }
+    raw = raw.trim();
+    live.remove();
+    finishSyn(raw || "", null);
+  }catch(err){
+    live.remove();
+    if (err && err.name === "AbortError"){ finishSyn(raw, "stopped"); }
+    else finishSyn(raw, raw ? null : "net");
+  }
+  busy = false;
+  abortCtl = null;
+  sendBtn.textContent = "↑"; sendBtn.classList.remove("stop"); sendBtn.title = "Send";
+  renderThread();
+}
+function finishSyn(raw, errKind){
+  const t = thread();
+  const b = brand();
+  if (errKind === "stopped" && !(raw && raw.trim())){
+    t.msgs.push({ role:"syn", text:"Stopped.", displayText:"Stopped.", rawText:"Stopped.", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
+  } else if (errKind === "stopped"){
+    const { clean, files, memories } = parseSpecial(raw);
+    const display = (clean || (files.length ? "Your file is ready." : raw)) + "\n\n*(stopped early)*";
+    t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
+  } else if (errKind === "net"){
+    t.msgs.push({ role:"syn", text:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", displayText:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", rawText:"", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
+  } else if (!raw){
+    t.msgs.push({ role:"syn", text:"SYN returned an empty response. Try rephrasing.", displayText:"SYN returned an empty response. Try rephrasing.", rawText:"", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
+  } else {
+    const { clean, files, memories } = parseSpecial(raw);
+    if (memories.length){
+      memories.forEach(mm => b.memories.push({ id: uid("m"), text: mm, by: currentUser.name, at: new Date().toISOString() }));
+      saveBrands();
+    }
+    const display = clean || (files.length ? "Your file is ready." : raw);
+    t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
+  }
+  t.updatedAt = new Date().toISOString();
+  saveChats(activeBrandId);
+  updatePendBadge();
+}
+
+/* ---------------- APPROVALS ---------------- */
+function pendingCount(){
+  let n = 0;
+  BRANDS.forEach(b => (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach(m => { if (m.role === "syn" && m.mode !== "image" && !m.verdict && m.rawText) n++; })));
+  return n;
+}
+function updatePendBadge(){
+  const n = pendingCount();
+  const badge = document.getElementById("pendBadge");
+  badge.style.display = n ? "inline-block" : "none";
+  badge.textContent = n;
+}
+function setVerdict(idx, approved){
+  const t = thread();
+  const m = t.msgs[idx];
+  if (!m || m.verdict) return;
+  m.verdict = approved ? "ap" : "rj";
+  APPROVALS.unshift({ id: uid("a"), brand: brand().name, chat: t.name, user: currentUser.name, text: (m.displayText || m.text || "").slice(0, 400), approved, at: new Date().toISOString() });
+  saveApprovals(); saveChats(activeBrandId);
+  renderThread(); updatePendBadge();
+}
+let apprTab = "pending";
+async function renderApprovals(){
+  for (const b of BRANDS) await loadChats(b.id);
+  const p = document.getElementById("apprPanel");
+  const pend = [];
+  BRANDS.forEach(b => (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach((m, i) => {
+    if (m.role === "syn" && m.mode !== "image" && !m.verdict && m.rawText) pend.push({ b, c, m, i });
+  })));
+  let html = '<div class="panel-head"><div><h2>Approvals</h2><p class="sub">Every generation, every verdict, every approver, timestamped forever. The audit trail is the moat.</p></div>' +
+    '<button class="head-btn ghost" data-act="exportAppr">Export CSV</button></div>';
+  html += '<div class="appr-tabs">' +
+    '<button class="mode-btn ' + (apprTab === "pending" ? "active" : "") + '" data-act="apprTab" data-tab="pending">Pending (' + pend.length + ')</button>' +
+    '<button class="mode-btn ' + (apprTab === "history" ? "active" : "") + '" data-act="apprTab" data-tab="history">History (' + APPROVALS.length + ')</button></div>';
+
+  if (apprTab === "pending"){
+    if (!pend.length) html += '<div class="empty-log">Queue is clear. Everything generated has a verdict.</div>';
+    else pend.forEach((x, n) => {
+      html += '<div class="log-item"><span class="l-verdict pd">Pending</span>' +
+        '<span class="l-txt">' + esc((x.m.displayText || x.m.text || "").slice(0, 200)) + "</span>" +
+        '<span class="l-meta">' + esc(x.b.name) + "<br>" + esc(x.c.name) + "</span>" +
+        '<span class="l-btns"><button class="act-btn approve" data-act="qApprove" data-n="' + n + '">✓</button>' +
+        '<button class="act-btn reject" data-act="qReject" data-n="' + n + '">✕</button></span></div>';
+    });
+    p.dataset.pend = "1";
+    p._pend = pend;
+  } else {
+    if (!APPROVALS.length) html += '<div class="empty-log">No verdicts yet.</div>';
+    else APPROVALS.forEach(l => {
+      html += '<div class="log-item"><span class="l-verdict ' + (l.approved ? "ap" : "rj") + '">' + (l.approved ? "Approved" : "Rejected") + "</span>" +
+        '<span class="l-txt">' + esc(l.text) + "</span>" +
+        '<span class="l-meta">' + esc(l.brand) + " · " + esc(l.user) + "<br>" + esc(fmtTime(l.at)) + "</span></div>";
+    });
+  }
+  p.innerHTML = html;
+  p._pend = pend;
+}
+function queueVerdict(n, approved){
+  const p = document.getElementById("apprPanel");
+  const x = (p._pend || [])[n];
+  if (!x) return;
+  x.m.verdict = approved ? "ap" : "rj";
+  APPROVALS.unshift({ id: uid("a"), brand: x.b.name, chat: x.c.name, user: currentUser.name, text: (x.m.displayText || x.m.text || "").slice(0, 400), approved, at: new Date().toISOString() });
+  saveApprovals(); saveChats(x.b.id);
+  renderApprovals(); updatePendBadge();
+}
+function exportApprovals(){
+  const rows = [["Verdict","Brand","Chat","Approver","Time","Content"]];
+  APPROVALS.forEach(l => rows.push([l.approved ? "Approved" : "Rejected", l.brand, l.chat, l.user, l.at, l.text.replace(/\n/g, " ")]));
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\n");
+  doDownload({ name:"SYN_Approval_Audit_Trail.csv", content: csv });
+}
+
+/* ---------------- PROFILE ---------------- */
+function renderProfile(){
+  const b = brand();
+  const p = document.getElementById("profilePanel");
+  if (!b){ p.innerHTML = '<div class="empty-log">No brands encoded yet. ' + (isAdmin() ? "Use + Add in the sidebar to encode your first brand." : "Your Admin can encode the first brand.") + '</div>'; return; }
+  let html = '<div class="panel-head"><div><h2>' + esc(b.name) + '</h2><p class="sub">' + esc(b.industry) + " · Encoded once. Enforced everywhere. Remembered forever.</p></div>" +
+    (isAdmin() ? '<button class="head-btn" data-act="editBrand">Edit Profile</button>' : "") + "</div>";
+
+  html += '<div class="spec-block"><div class="sb-head">Permanent Brand Memory <span style="color:var(--faint)">' + b.memories.length + ' saved</span></div><div class="sb-body">';
+  if (!b.memories.length) html += '<div class="k-empty">Nothing yet. When you tell SYN lasting facts or decisions in any chat, it saves them here automatically. You can also count on it to carry corrections forward.</div>';
+  else b.memories.slice().reverse().forEach(m => {
+    html += '<div class="mem-chip"><span class="m-dot">◈</span><div style="flex:1">' + esc(m.text) +
+      '<div class="m-meta">' + esc(m.by || "") + " · " + esc(fmtTime(m.at)) + '</div></div>' +
+      '<button class="k-del" data-act="delMem" data-mid="' + m.id + '" aria-label="Forget">✕</button></div>';
+  });
+  html += "</div></div>";
+
+  html += '<div class="spec-block"><div class="sb-head">Brand Knowledge Library <button class="add-btn" data-act="upKnow">+ Upload</button></div><div class="sb-body">';
+  if (!b.knowledge.length) html += '<div class="k-empty">Upload brand guides, product sheets, past campaigns, packaging shots. Every chat for this brand draws on them.</div>';
+  else b.knowledge.forEach((k, i) => {
+    html += '<div class="k-row"><div class="k-ico">' + (k.kind === "image" ? "▣" : k.kind === "pdf" ? "⌘" : "≣") + '</div>' +
+      '<div><div class="k-name">' + esc(k.name) + '</div><div class="k-meta">' + k.kind.toUpperCase() + " · " + fmtSize(k.size || 0) + (k.tooBig ? " · session only" : "") + '</div></div>' +
+      '<button class="k-del" data-act="delKnow" data-i="' + i + '" aria-label="Remove">✕</button></div>';
+  });
+  html += '</div></div><input type="file" id="kInput" multiple style="display:none">';
+
+  const blockHtml = (title, body) => '<div class="spec-block"><div class="sb-head">' + esc(title) + '</div><div class="sb-body">' + body + "</div></div>";
+  html +=
+    blockHtml("Voice & Tone", "<p>" + esc(b.voice) + "</p>") +
+    blockHtml("Audience", "<p>" + esc(b.audience) + "</p>") +
+    blockHtml("Palette", '<div class="swatch-row">' + b.palette.map(c => '<span class="swatch"><i style="background:' + esc(c.hex) + '"></i>' + esc(c.name) + " · " + esc(c.hex) + "</span>").join("") + "</div>") +
+    blockHtml("Products", '<div class="tag-row">' + b.products.map(x => '<span class="tag">' + esc(x) + "</span>").join("") + "</div>") +
+    blockHtml("Approved Claims", '<div class="tag-row">' + (b.approvedClaims.map(x => '<span class="tag ok">' + esc(x) + "</span>").join("") || '<span class="k-empty">None recorded</span>') + "</div>") +
+    blockHtml("Banned Claims · Guardrails", '<div class="tag-row">' + (b.bannedClaims.map(x => '<span class="tag banned">' + esc(x) + "</span>").join("") || '<span class="k-empty">None recorded</span>') + "</div>") +
+    blockHtml("Legal & Regulatory Constraints", "<p>" + esc(b.legal) + "</p>") +
+    blockHtml("Imagery Style DNA", "<p>" + esc(b.imageStyle) + "</p>");
+  p.innerHTML = html;
+  const kIn = document.getElementById("kInput");
+  if (kIn) kIn.onchange = function(){ handleFiles(this.files, "knowledge"); this.value = ""; };
+}
+
+/* ---------------- ASSETS ---------------- */
+function brandAssets(b){
+  const out = [];
+  (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach((m, i) => (m.files || []).forEach(f => out.push({ f, chat: c.name, at: m.at }))));
+  return out.reverse();
+}
+function renderAssets(){
+  const b = brand();
+  if (!b){ document.getElementById("assetsPanel").innerHTML = '<div class="empty-log">No brands yet, so no assets yet.</div>'; return; }
+  const list = brandAssets(b);
+  const p = document.getElementById("assetsPanel");
+  let html = '<div class="panel-head"><div><h2>' + esc(b.name) + ' · Assets</h2><p class="sub">Every deliverable SYN has produced for this brand, saved and ready.</p></div></div>';
+  if (!list.length) html += '<div class="empty-log">No files yet. Ask SYN for a document, sheet, or one-pager in the workspace and it lands here automatically.</div>';
+  else{
+    html += '<div class="asset-grid">';
+    list.forEach((x, i) => {
+      html += '<div class="asset-card"><div class="fc-ico">.' + esc(extOf(x.f.name) || "txt") + '</div>' +
+        '<div class="a-name">' + esc(x.f.name) + '</div>' +
+        '<div class="a-meta">' + esc(x.chat) + (x.at ? " · " + esc(fmtTime(x.at)) : "") + '</div>' +
+        '<div class="a-btns"><button class="fc-prev" data-act="aPrev" data-i="' + i + '">Preview</button>' +
+        '<button class="fc-dl" data-act="aDl" data-i="' + i + '">Download</button></div></div>';
+    });
+    html += "</div>";
+  }
+  p.innerHTML = html;
+  p._assets = list;
+}
+
+/* ---------------- DASHBOARD ---------------- */
+async function renderDashboard(){
+  for (const b of BRANDS) await loadChats(b.id);
+  const p = document.getElementById("dashPanel");
+  let totChats = 0, totAssets = 0, totMem = 0, totPend = 0;
+  const cards = BRANDS.map(b => {
+    const cs = CHATS[b.id] || [];
+    const assets = brandAssets(b).length;
+    let pend = 0;
+    cs.filter(canSee).forEach(c => c.msgs.forEach(m => { if (m.role === "syn" && m.mode !== "image" && !m.verdict && m.rawText) pend++; }));
+    totChats += cs.length; totAssets += assets; totMem += b.memories.length; totPend += pend;
+    return { b, chats: cs.length, assets, pend };
+  });
+  let html = '<div class="panel-head"><div><h2>Portfolio</h2><p class="sub">Every brand in the workspace, one command view. This is the screen a house of brands buys.</p></div></div>';
+  html += '<div class="stat-strip">' +
+    '<div class="stat-tile"><b>' + BRANDS.length + '</b><span>Brands Encoded</span></div>' +
+    '<div class="stat-tile"><b>' + totChats + '</b><span>Active Chats</span></div>' +
+    '<div class="stat-tile"><b>' + totAssets + '</b><span>Assets Produced</span></div>' +
+    '<div class="stat-tile"><b>' + totMem + '</b><span>Memories Held</span></div>' +
+    '<div class="stat-tile"><b>' + APPROVALS.length + '</b><span>Verdicts Logged</span></div></div>';
+  if (!BRANDS.length){
+    html += '<div class="empty-log">No brands encoded yet. ' + (isAdmin() ? "Encode your first brand from the Workspace tab or the + Add button." : "Your Admin can encode the first brand.") + '</div>';
+    p.innerHTML = html; return;
+  }
+  html += '<div class="dash-grid">';
+  cards.forEach(x => {
+    html += '<button class="dash-card" data-act="openBrand" data-bid="' + x.b.id + '" style="--dc-accent:' + esc(x.b.accent) + ';--dc-glow:' + hexToSoft(x.b.accent) + '">' +
+      '<div class="dc-top"><span class="dc-dot"></span><span><span class="dc-name">' + esc(x.b.name) + '</span><br><span class="dc-ind">' + esc(x.b.industry) + '</span></span></div>' +
+      '<div class="dc-stats"><span class="dc-stat"><b>' + x.chats + '</b><span>Chats</span></span>' +
+      '<span class="dc-stat"><b>' + x.assets + '</b><span>Assets</span></span>' +
+      '<span class="dc-stat"><b>' + x.b.memories.length + '</b><span>Memory</span></span></div>' +
+      (x.pend ? '<div class="dc-pending">● ' + x.pend + ' awaiting approval</div>' : '<div class="dc-pending" style="color:var(--faint)">Queue clear</div>') +
+      '</button>';
+  });
+  html += "</div>";
+  p.innerHTML = html;
+}
+
+/* ---------------- BRAND MODAL ---------------- */
+function normHex(v){
+  v = (v || "").trim();
+  if (!v.startsWith("#")) v = "#" + v;
+  return /^#[0-9a-fA-F]{6}$/.test(v) ? v : null;
+}
+function paletteRow(name, hex){
+  const row = document.createElement("div");
+  row.className = "pal-row";
+  row.innerHTML = '<input type="color" class="pr-pick" value="' + esc(normHex(hex) || "#E4C169") + '">' +
+    '<input class="f-input pr-name" placeholder="Color name" value="' + esc(name || "") + '" style="flex:1">' +
+    '<input class="f-input pr-hex" placeholder="#hex" value="' + esc(normHex(hex) || "#E4C169") + '" style="width:110px">' +
+    '<button class="k-del pr-del" type="button" aria-label="Remove">✕</button>';
+  const pick = row.querySelector(".pr-pick"), hx = row.querySelector(".pr-hex");
+  pick.addEventListener("input", () => { hx.value = pick.value.toUpperCase(); });
+  hx.addEventListener("input", () => { const h = normHex(hx.value); if (h) pick.value = h; });
+  row.querySelector(".pr-del").addEventListener("click", () => row.remove());
+  return row;
+}
+function buildPaletteRows(palette){
+  const wrap = document.getElementById("bmPaletteRows");
+  wrap.innerHTML = "";
+  (palette && palette.length ? palette : [{ name:"Primary", hex:"#E4C169" }]).forEach(p => wrap.appendChild(paletteRow(p.name, p.hex)));
+}
+function collectPaletteRows(){
+  const out = [];
+  document.querySelectorAll("#bmPaletteRows .pal-row").forEach(row => {
+    const hex = normHex(row.querySelector(".pr-hex").value) || row.querySelector(".pr-pick").value;
+    out.push({ name: row.querySelector(".pr-name").value.trim() || "Color", hex: hex.toUpperCase() });
+  });
+  return out.length ? out : [{ name:"Primary", hex:"#E4C169" }];
+}
+function openBrandModal(editId){
+  if (!isAdmin()) return;
+  editingBrandId = editId || null;
+  const b = editId ? BRANDS.find(x => x.id === editId) : null;
+  document.getElementById("bmTitle").textContent = b ? "Edit " + b.name : (BRANDS.length ? "Add another brand" : "Set up your brand");
+  document.getElementById("bmSave").textContent = b ? "Save Changes" : "Save Brand";
+  document.getElementById("bmDelete").style.display = b && BRANDS.length > 1 ? "block" : "none";
+  const set = (id, v) => document.getElementById(id).value = v || "";
+  set("bmName", b ? b.name : (!BRANDS.length && ORG ? ORG.name : ""));
+  set("bmInd", b && b.industry);
+  set("bmSite", "");
+  document.getElementById("bmResearchStatus").textContent = "SYN will search the internet for this company and fill everything below. You correct anything it gets wrong.";
+  const accent = b ? b.accent : "#E4C169";
+  set("bmAccent", accent);
+  const ap = document.getElementById("bmAccentPick");
+  ap.value = normHex(accent) || "#E4C169";
+  set("bmVoice", b && b.voice); set("bmAud", b && b.audience);
+  buildPaletteRows(b ? b.palette : null);
+  set("bmProd", b ? b.products.join("\n") : ""); set("bmOk", b ? b.approvedClaims.join("\n") : "");
+  set("bmBan", b ? b.bannedClaims.join("\n") : ""); set("bmLegal", b && b.legal); set("bmImg", b && b.imageStyle);
+  document.getElementById("brandVeil").classList.add("open");
+}
+function saveBrandModal(){
+  const name = document.getElementById("bmName").value.trim();
+  if (!name){ document.getElementById("bmName").focus(); return; }
+  const lines = id => document.getElementById(id).value.split("\n").map(s => s.trim()).filter(Boolean);
+  const paletteLines = collectPaletteRows();
+  const data = {
+    name, industry: document.getElementById("bmInd").value.trim() || "General",
+    accent: normHex(document.getElementById("bmAccent").value) || document.getElementById("bmAccentPick").value || "#E4C169",
+    voice: document.getElementById("bmVoice").value.trim() || "Clear, confident, human.",
+    audience: document.getElementById("bmAud").value.trim() || "The brand's core customers.",
+    palette: paletteLines,
+    products: lines("bmProd").length ? lines("bmProd") : ["Core product line"],
+    approvedClaims: lines("bmOk"), bannedClaims: lines("bmBan"),
+    legal: document.getElementById("bmLegal").value.trim() || "No special constraints recorded yet.",
+    imageStyle: document.getElementById("bmImg").value.trim() || "Clean, premium product-forward photography aligned to the brand palette."
+  };
+  if (editingBrandId){ Object.assign(BRANDS.find(x => x.id === editingBrandId), data); }
+  else {
+    const nb = Object.assign({ id: uid("b"), memories:[], knowledge:[] }, data);
+    BRANDS.push(nb); activeBrandId = nb.id;
+  }
+  saveBrands();
+  document.getElementById("brandVeil").classList.remove("open");
+  selectBrand(editingBrandId || activeBrandId).then(() => renderProfile());
+}
+function deleteBrandNow(){
+  if (!editingBrandId || BRANDS.length <= 1) return;
+  const btn = document.getElementById("bmDelete");
+  if (!btn.dataset.armed){
+    btn.dataset.armed = "1"; btn.textContent = "Click again to permanently delete";
+    setTimeout(() => { btn.dataset.armed = ""; btn.textContent = "Delete brand"; }, 3000);
+    return;
+  }
+  btn.dataset.armed = ""; btn.textContent = "Delete brand";
+  const i = BRANDS.findIndex(x => x.id === editingBrandId);
+  const bid = BRANDS[i].id;
+  BRANDS.splice(i, 1);
+  delete CHATS[bid];
+  sSet(okey("chats:" + bid), []);
+  saveBrands();
+  document.getElementById("brandVeil").classList.remove("open");
+  selectBrand(BRANDS[0].id);
+}
+
+/* ---------------- BRAND RESEARCH AUTO-FILL ---------------- */
+let researching = false;
+async function researchBrand(){
+  if (researching) return;
+  const name = document.getElementById("bmName").value.trim() || (ORG ? ORG.name : "");
+  const site = document.getElementById("bmSite").value.trim();
+  const status = document.getElementById("bmResearchStatus");
+  if (!name){ status.textContent = "Enter the brand name first."; return; }
+  researching = true;
+  const btn = document.getElementById("bmResearch");
+  btn.textContent = "Researching…";
+  status.textContent = "Searching the web for " + name + "…";
+  try{
+    const res = await fetch(apiBase() + "/v1/messages", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        model:"claude-sonnet-4-6", max_tokens:2500,
+        system: "You are a brand researcher. Research the company on the live web and return ONLY a JSON object, no markdown fences, no commentary, with exactly these keys: industry (short string), voice (2-3 sentence brand voice description), audience (1-2 sentences), products (array of strings), approvedClaims (array of strings, verifiable claims from their site), bannedClaims (array of strings, phrases this company should avoid for legal or accuracy reasons), legal (1-3 sentences of legal/regulatory constraints for this industry), imageStyle (2-3 sentences describing photography/visual style fitting the brand), palette (array of up to 5 objects {name, hex} matching the brand's real colors), accent (single hex string, the brand's primary color). If unsure of a field, give a sensible industry-appropriate value. Never invent certifications.",
+        messages: [{ role:"user", content: "Research this company and fill the brand profile. Company: " + name + (site ? (". Website: " + site) : "") }],
+        tools: [{ type:"web_search_20250305", name:"web_search" }]
+      })
+    });
+    const data = await res.json();
+    const txt = (data.content || []).filter(c => c.type === "text").map(c => c.text).join("");
+    const m = txt.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("no json");
+    const j = JSON.parse(m[0]);
+    const set = (id, v) => { if (v) document.getElementById(id).value = String(v); };
+    set("bmInd", j.industry);
+    set("bmVoice", j.voice);
+    set("bmAud", j.audience);
+    set("bmProd", (j.products || []).join("\n"));
+    set("bmOk", (j.approvedClaims || []).join("\n"));
+    set("bmBan", (j.bannedClaims || []).join("\n"));
+    set("bmLegal", j.legal);
+    set("bmImg", j.imageStyle);
+    if (j.accent && normHex(j.accent)){ document.getElementById("bmAccent").value = normHex(j.accent); document.getElementById("bmAccentPick").value = normHex(j.accent); }
+    if (j.palette && j.palette.length) buildPaletteRows(j.palette.map(p => ({ name: p.name, hex: normHex(p.hex) || "#E4C169" })));
+    status.textContent = "Filled from live web research. Review every field and correct anything wrong before saving.";
+    toast("Brand profile drafted from the web.");
+  }catch(e){
+    status.textContent = "Research didn't come back cleanly. You can retry or fill the fields manually.";
+  }
+  researching = false;
+  btn.textContent = "Research & Fill";
+}
+
+/* ---------------- SETTINGS ---------------- */
+let resetUid = null;
+function renderSettings(){
+  const p = document.getElementById("settingsPanel");
+  let html = '<div class="panel-head"><div><h2>Settings</h2><p class="sub">' + esc(ORG ? ORG.name : "") + ' workspace, team, and session controls.</p></div></div>';
+
+  if (isAdmin()){
+    html += '<div class="spec-block"><div class="sb-head">Live Team Code <button class="add-btn" data-act="refreshCode">Refresh</button></div><div class="sb-body">' +
+      '<div class="code-big">' + esc(orgCode(ORG)) + '</div>' +
+      '<div style="text-align:center;margin-bottom:6px"><button class="btn-ghost" data-act="copyCode">Copy code</button></div>' +
+      '<div class="code-sub">Rotates every 30 minutes · ' + codeMinutesLeft() + ' min left on this code</div>' +
+      '<div class="f-hint" style="text-align:center">Give this code to teammates. They pick Join Team on the sign-in screen, enter it, and create their own account in this workspace.</div>' +
+      '</div></div>';
+  }
+
+  html += '<div class="spec-block"><div class="sb-head">Workspace</div><div class="sb-body">' +
+    '<div class="set-row"><div class="set-info"><div class="set-title">Living background</div><div class="set-sub">Aurora motion behind the glass</div></div>' +
+    '<button class="toggle ' + (SETTINGS.motion !== false ? "on" : "") + '" data-act="toggleMotion" aria-label="Toggle motion"></button></div>' +
+    '<div class="set-row"><div class="set-info"><div class="set-title">Workspace storage</div><div class="set-sub">' +
+    (persistMode === "shared" ? "Connected. Accounts, brands, chats, memory, and approvals are saved and shared with your team." : persistMode === "device" ? "Saving to this browser. Everything persists on this device; team-shared sync across devices arrives with SYN Core." : "Unavailable in this environment; running in-session only.") +
+    '</div></div><span class="role-pill">' + (persistMode === "shared" ? "Saved" : persistMode === "device" ? "Device" : "Session") + '</span></div>' +
+    '<div class="set-row"><div class="set-info"><div class="set-title">Workspace backup</div><div class="set-sub">Download everything (brands, chats, memory, approvals) as one JSON file</div></div>' +
+    '<button class="btn-ghost" data-act="backup">Download</button></div>' +
+    '</div></div>';
+
+  html += '<div class="spec-block"><div class="sb-head">Team · ' + esc(ORG ? ORG.name : "") + '</div><div class="sb-body">';
+  TEAM.forEach(m => {
+    html += '<div class="team-row"><div class="avatar">' + esc(m.name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase()) + '</div>' +
+      '<div><div class="k-name">' + esc(m.name) + '</div><div class="k-meta">' + esc(m.email) + '</div></div>';
+    if (isAdmin() && m.id !== currentUser.id){
+      html += '<select class="role-sel" data-act="roleChange" data-uid="' + m.id + '">' +
+        '<option ' + (m.role === "Member" ? "selected" : "") + '>Member</option>' +
+        '<option ' + (m.role === "Admin" ? "selected" : "") + '>Admin</option></select>' +
+        '<button class="c-tool" data-act="resetPw" data-uid="' + m.id + '" title="Reset password" style="margin-left:6px;opacity:1;display:inline">PW</button>' +
+        '<button class="k-del" data-act="delUser" data-uid="' + m.id + '" title="Remove" style="margin-left:2px">✕</button>';
+    } else {
+      html += '<span class="role-pill">' + esc(m.role) + (m.id === currentUser.id ? " · You" : "") + "</span>";
+    }
+    html += "</div>";
+    if (resetUid === m.id){
+      html += '<div class="mini-form" style="margin:4px 0 10px 46px"><input class="f-input" id="rpInput" type="text" placeholder="New temporary password for ' + esc(m.name) + '">' +
+        '<button class="btn-gold" data-act="resetPwSave" data-uid="' + m.id + '">Set</button>' +
+        '<button class="btn-ghost" data-act="resetPwCancel">Cancel</button></div>';
+    }
+  });
+  html += '<div class="f-hint" style="margin-top:12px">Teammates join with the live team code. Admins manage roles and reset passwords here. Email reset links arrive with SYN Core.</div>';
+  html += "</div></div>";
+
+  if (isAdmin() && !BRANDS.length){
+    html += '<div class="spec-block"><div class="sb-head">Demo</div><div class="sb-body">' +
+      '<div class="set-row"><div class="set-info"><div class="set-title">Load Syntrex demo brands</div><div class="set-sub">Seed HALT Fire, Doughbrik&#39;s Wavers, and Karlo Financial into this workspace for a demo</div></div>' +
+      '<button class="btn-ghost" data-act="loadDemo">Load</button></div></div></div>';
+  }
+
+  html += '<div class="spec-block"><div class="sb-head">Session</div><div class="sb-body">' +
+    '<div class="set-row"><div class="set-info"><div class="set-title">Signed in as ' + esc(currentUser.name) + '</div><div class="set-sub">' + esc(currentUser.email) + " · " + esc(currentUser.role) + '</div></div>' +
+    '<button class="btn-ghost" data-act="signout">Sign out</button></div></div></div>';
+  p.innerHTML = html;
+}
+
+/* ---------------- VIEWS ---------------- */
+function setView(v){
+  document.querySelectorAll(".view").forEach(el => el.classList.remove("active"));
+  document.getElementById("view-" + v).classList.add("active");
+  document.querySelectorAll(".nav-btn").forEach(el => el.classList.toggle("active", el.dataset.view === v));
+  if (v === "approvals") renderApprovals();
+  if (v === "team") renderTeamChat();
+  if (v === "profile") renderProfile();
+  if (v === "settings") renderSettings();
+  if (v === "assets") renderAssets();
+  if (v === "dashboard") renderDashboard();
+  if (window.innerWidth <= 900) document.getElementById("sidebar").classList.remove("open");
+}
+
+/* ---------------- VOICE ---------------- */
+let recog = null, recording = false;
+function toggleMic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById("micBtn");
+  if (!SR){ toast("Voice dictation isn't supported in this browser."); return; }
+  if (recording){ recog.stop(); return; }
+  recog = new SR();
+  recog.continuous = true; recog.interimResults = true; recog.lang = "en-US";
+  const input = document.getElementById("input");
+  const base = input.value;
+  recog.onresult = e => {
+    let txt = "";
+    for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript;
+    input.value = (base ? base + " " : "") + txt;
+  };
+  recog.onend = () => { recording = false; btn.classList.remove("rec"); };
+  recog.onerror = () => { recording = false; btn.classList.remove("rec"); };
+  recog.start(); recording = true; btn.classList.add("rec");
+}
+
+/* ---------------- TEAM CHAT ---------------- */
+let TEAMCHAT = [], teamSeen = 0, teamPollTimer = null;
+async function loadTeamChat(){ TEAMCHAT = (await sGet(okey("teamchat"))) || []; }
+function renderTeamChat(){
+  const inner = document.getElementById("teamInner");
+  if (!TEAMCHAT.length){
+    inner.innerHTML = '<div class="empty-log" style="margin-top:8vh">Team chat for ' + esc(ORG ? ORG.name : "") + '. Talk next to the work: hand off tasks, flag approvals, share wins. Visible to your whole workspace.</div>';
+  } else {
+    inner.innerHTML = TEAMCHAT.map(m => {
+      const mine = currentUser && m.byId === currentUser.id;
+      return '<div class="tmsg' + (mine ? " me" : "") + '"><div class="avatar">' + esc((m.by || "?").split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase()) + '</div>' +
+        '<div class="tmsg-b"><div class="tmsg-h">' + esc(m.by || "") + " · " + esc(fmtTime(m.at)) + '</div><div class="tmsg-t">' + esc(m.text) + "</div></div></div>";
+    }).join("");
+  }
+  const sc = document.getElementById("teamScroll");
+  requestAnimationFrame(() => { sc.scrollTop = sc.scrollHeight; });
+  teamSeen = TEAMCHAT.length;
+  const b = document.getElementById("teamBadge");
+  b.style.display = "none";
+}
+async function sendTeamMsg(){
+  const inp = document.getElementById("teamInput");
+  const v = inp.value.trim();
+  if (!v || !ORG) return;
+  inp.value = ""; inp.style.height = "auto";
+  const list = (await sGet(okey("teamchat"))) || [];
+  list.push({ id: uid("tm"), by: currentUser.name, byId: currentUser.id, at: new Date().toISOString(), text: v });
+  if (list.length > 500) list.splice(0, list.length - 500);
+  TEAMCHAT = list;
+  await sSet(okey("teamchat"), list);
+  renderTeamChat();
+}
+function startTeamPoll(){
+  clearInterval(teamPollTimer);
+  teamPollTimer = setInterval(async () => {
+    if (!ORG || document.hidden) return;
+    const list = (await sGet(okey("teamchat"))) || [];
+    const changed = list.length !== TEAMCHAT.length;
+    TEAMCHAT = list;
+    const inView = document.getElementById("view-team").classList.contains("active");
+    if (inView){ if (changed) renderTeamChat(); }
+    else {
+      const unread = TEAMCHAT.length - teamSeen;
+      const b = document.getElementById("teamBadge");
+      b.style.display = unread > 0 ? "inline-block" : "none";
+      b.textContent = unread;
+    }
+  }, 8000);
+}
+
+/* ---------------- EXPORT & BACKUP ---------------- */
+function exportChat(){
+  if (!brand()){ toast("Encode a brand first."); return; }
+  const t = thread();
+  if (!t.msgs.length){ toast("This chat is empty."); return; }
+  let md = "# " + brand().name + " · " + t.name + "\n\nExported from SYN · " + new Date().toLocaleString() + "\n\n---\n\n";
+  t.msgs.forEach(m => {
+    if (m.mode === "image"){ md += "**Imagery request**\n\n```\n" + (m.text || "") + "\n```\n\n"; return; }
+    md += "**" + (m.role === "user" ? (m.by || "Teammate") : "SYN") + ":**\n\n" + (m.displayText || m.text || "") + "\n\n";
+    (m.files || []).forEach(f => { md += "*Generated file: " + f.name + "*\n\n"; });
+    md += "---\n\n";
+  });
+  doDownload({ name: (brand().name + " - " + t.name).replace(/[^\w\- ]/g, "").trim() + ".md", content: md });
+}
+async function backupWorkspace(){
+  for (const b of BRANDS) await loadChats(b.id);
+  const data = {
+    exportedAt: new Date().toISOString(), platform: "SYN v5", workspace: ORG ? ORG.name : "",
+    teamChat: TEAMCHAT,
+    team: TEAM.map(t => ({ name:t.name, email:t.email, role:t.role })),
+    brands: BRANDS.map(b => ({ ...b, knowledge: b.knowledge.filter(k => !k.tooBig) })),
+    chats: CHATS, approvals: APPROVALS, settings: SETTINGS
+  };
+  doDownload({ name: "SYN_Workspace_Backup.json", content: JSON.stringify(data, null, 2) });
+}
+
+/* ---------------- EVENT WIRING ---------------- */
+document.addEventListener("click", e => {
+  const closer = e.target.closest("[data-close]");
+  if (closer){ document.getElementById(closer.dataset.close).classList.remove("open"); if (closer.dataset.close === "prevVeil") document.getElementById("prevFrame").srcdoc = ""; return; }
+  const veil = e.target.classList && e.target.classList.contains("modal-veil");
+  if (veil){ e.target.classList.remove("open"); if (e.target.id === "prevVeil") document.getElementById("prevFrame").srcdoc = ""; return; }
+
+  const bi = e.target.closest(".brand-item");
+  if (bi){ selectBrand(bi.dataset.bid); return; }
+
+  const ct = e.target.closest(".c-tool");
+  if (ct && ct.closest(".chat-item")){
+    e.stopPropagation();
+    const tid = ct.closest(".chat-item").dataset.tid;
+    const t = chats().find(x => x.id === tid);
+    if (ct.dataset.act === "vis"){
+      if (t.ownerId !== currentUser.id && !isAdmin()){ toast("Only the chat owner can change this."); return; }
+      t.visibility = t.visibility === "private" ? "team" : "private";
+      if (t.visibility === "private") t.ownerId = t.ownerId || currentUser.id;
+      saveChats(activeBrandId); renderChatList();
+      toast(t.visibility === "private" ? "Chat is now private to " + (t.ownerId === currentUser.id ? "you" : esc(t.ownerName || "its owner")) + "." : "Chat is now visible to the whole team.");
+    }
+    else if (ct.dataset.act === "pin"){ t.pinned = !t.pinned; saveChats(activeBrandId); renderChatList(); }
+    else if (ct.dataset.act === "rename"){ startRename(tid); }
+    else if (ct.dataset.act === "delchat"){
+      if (!ct.dataset.armed){
+        ct.dataset.armed = "1"; ct.textContent = "?"; ct.style.color = "var(--bad)";
+        setTimeout(() => { ct.dataset.armed = ""; ct.textContent = "\u2715"; ct.style.color = ""; }, 2600);
+      } else {
+        CHATS[activeBrandId] = chats().filter(x => x.id !== tid);
+        if (brand() && brand()._activeThread === tid) brand()._activeThread = null;
+        saveChats(activeBrandId); renderChatList(); renderThread(); updatePendBadge();
+        toast("Chat deleted.");
+      }
+    }
+    return;
+  }
+  const ci = e.target.closest(".chat-item");
+  if (ci){ brand()._activeThread = ci.dataset.tid; renderChatList(); renderThread(); setView("chat"); return; }
+
+  const act = e.target.closest("[data-act]");
+  if (!act) return;
+  const a = act.dataset.act;
+  if (a === "approve") setVerdict(+act.dataset.idx, true);
+  else if (a === "reject") setVerdict(+act.dataset.idx, false);
+  else if (a === "copy"){ const m = thread().msgs[+act.dataset.idx]; copyText(m.displayText || m.text || ""); act.textContent = "Copied"; setTimeout(() => act.textContent = "Copy", 1400); }
+  else if (a === "regen") regenerate();
+  else if (a === "preview"){ const m = thread().msgs[+act.dataset.idx]; doPreview(m.files[+act.dataset.fi]); }
+  else if (a === "download"){ const m = thread().msgs[+act.dataset.idx]; doDownload(m.files[+act.dataset.fi]); }
+  else if (a === "unatt"){ pendingAtts.splice(+act.dataset.i, 1); renderPending(); }
+  else if (a === "editBrand") openBrandModal(activeBrandId);
+  else if (a === "upKnow") document.getElementById("kInput").click();
+  else if (a === "delKnow"){ brand().knowledge.splice(+act.dataset.i, 1); saveBrands(); renderProfile(); }
+  else if (a === "delMem"){ const b = brand(); b.memories = b.memories.filter(m => m.id !== act.dataset.mid); saveBrands(); renderProfile(); }
+  else if (a === "apprTab"){ apprTab = act.dataset.tab; renderApprovals(); }
+  else if (a === "qApprove") queueVerdict(+act.dataset.n, true);
+  else if (a === "qReject") queueVerdict(+act.dataset.n, false);
+  else if (a === "exportAppr") exportApprovals();
+  else if (a === "aPrev"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; doPreview(x.f); }
+  else if (a === "aDl"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; doDownload(x.f); }
+  else if (a === "openBrand"){ selectBrand(act.dataset.bid); }
+  else if (a === "toggleMotion"){ SETTINGS.motion = SETTINGS.motion === false ? true : false; document.body.classList.toggle("no-motion", SETTINGS.motion === false); saveSettings(); renderSettings(); }
+  else if (a === "signout") signOut();
+  else if (a === "backup") backupWorkspace();
+  else if (a === "refreshCode") renderSettings();
+  else if (a === "copyCode"){ copyText(orgCode(ORG)); toast("Team code copied."); }
+  else if (a === "resetPw"){ resetUid = act.dataset.uid; renderSettings(); }
+  else if (a === "resetPwCancel"){ resetUid = null; renderSettings(); }
+  else if (a === "resetPwSave"){
+    (async () => {
+      const u = TEAM.find(t => t.id === act.dataset.uid);
+      const v = (document.getElementById("rpInput") || {}).value || "";
+      if (!u || v.length < 4){ toast("Temporary password needs at least 4 characters."); return; }
+      u.pwHash = await hashPw(v, u.email);
+      saveTeam(); resetUid = null; renderSettings();
+      toast("Password reset for " + u.name + ". Tell them the temporary password.");
+    })();
+  }
+  else if (a === "loadDemo"){
+    defaultBrands().forEach(b => { b.id = uid("b"); BRANDS.push(b); });
+    saveBrands();
+    selectBrand(BRANDS[0].id);
+  }
+  else if (a === "delUser"){
+    if (!act.dataset.armed){
+      act.dataset.armed = "1"; act.textContent = "?";
+      setTimeout(() => { act.dataset.armed = ""; act.textContent = "\u2715"; }, 2600);
+    } else { TEAM = TEAM.filter(t => t.id !== act.dataset.uid); saveTeam(); renderSettings(); toast("Teammate removed."); }
+  }
+});
+document.addEventListener("change", e => {
+  const el = e.target.closest("[data-act='roleChange']");
+  if (el){ const u = TEAM.find(t => t.id === el.dataset.uid); if (u){ u.role = el.value; saveTeam(); } }
+});
+
+document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
+document.getElementById("newChatBtn").addEventListener("click", newChat);
+document.getElementById("addBrandBtn").addEventListener("click", () => openBrandModal());
+document.getElementById("bmSave").addEventListener("click", saveBrandModal);
+document.getElementById("bmDelete").addEventListener("click", deleteBrandNow);
+document.getElementById("menuBtn").addEventListener("click", () => document.getElementById("sidebar").classList.toggle("open"));
+document.getElementById("setBtn").addEventListener("click", () => setView("settings"));
+document.getElementById("exportChatBtn").addEventListener("click", exportChat);
+document.getElementById("obAddBrand").addEventListener("click", () => openBrandModal());
+document.getElementById("bmResearch").addEventListener("click", researchBrand);
+document.getElementById("bmAddColor").addEventListener("click", () => document.getElementById("bmPaletteRows").appendChild(paletteRow("", "#E4C169")));
+document.getElementById("bmAccentPick").addEventListener("input", function(){ document.getElementById("bmAccent").value = this.value.toUpperCase(); });
+document.getElementById("bmAccent").addEventListener("input", function(){ const h = normHex(this.value); if (h) document.getElementById("bmAccentPick").value = h; });
+document.getElementById("teamSendBtn").addEventListener("click", sendTeamMsg);
+const teamInputEl = document.getElementById("teamInput");
+teamInputEl.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendTeamMsg(); } });
+teamInputEl.addEventListener("input", function(){ this.style.height = "auto"; this.style.height = Math.min(this.scrollHeight, 170) + "px"; });
+document.getElementById("guardChip").addEventListener("click", () => setView("profile"));
+document.getElementById("modeCopy").addEventListener("click", () => setMode("copy"));
+document.getElementById("modeImage").addEventListener("click", () => setMode("image"));
+document.getElementById("mSmart").addEventListener("click", () => setModel("smart"));
+document.getElementById("mFast").addEventListener("click", () => setModel("fast"));
+document.getElementById("attachBtn").addEventListener("click", () => document.getElementById("fileInput").click());
+document.getElementById("micBtn").addEventListener("click", toggleMic);
+document.getElementById("fileInput").addEventListener("change", function(){ handleFiles(this.files); this.value = ""; });
+document.getElementById("chatSearch").addEventListener("input", renderChatList);
+document.getElementById("sendBtn").addEventListener("click", () => { if (busy && abortCtl){ abortCtl.abort(); } else send(); });
+const inputEl = document.getElementById("input");
+inputEl.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); } });
+inputEl.addEventListener("input", function(){ this.style.height = "auto"; this.style.height = Math.min(this.scrollHeight, 170) + "px"; });
+
+const stageEl = document.getElementById("stage");
+["dragenter","dragover"].forEach(ev => stageEl.addEventListener(ev, e => { e.preventDefault(); stageEl.classList.add("dragging"); }));
+["dragleave","drop"].forEach(ev => stageEl.addEventListener(ev, e => { e.preventDefault(); if (ev === "drop" || e.target === stageEl) stageEl.classList.remove("dragging"); }));
+stageEl.addEventListener("drop", e => { stageEl.classList.remove("dragging"); if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+boot();
+</script>
+</body>
+</html>
