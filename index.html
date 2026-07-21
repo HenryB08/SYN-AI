@@ -759,6 +759,121 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
   .bubble,.img-card,.file-card,.status-line,.mem-flag{max-width:95%}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ============================================================
+   PUBLIC MARKETING SITE (logged-out visitors) — dark glass,
+   design feel matched to syntrexio.com, SYN identity kept.
+   ============================================================ */
+.site{position:fixed;inset:0;z-index:40;overflow-y:auto;overflow-x:hidden;display:none;scroll-behavior:smooth}
+.site.on{display:block}
+.site-page{display:none}
+.site-page.on{display:block}
+.site-wrap{max-width:1160px;margin:0 auto;padding:0 32px}
+/* nav */
+.site-nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);background:rgba(5,4,9,.62);border-bottom:1px solid var(--glass-border-soft)}
+.site-nav-inner{max-width:1160px;margin:0 auto;padding:15px 32px;display:flex;align-items:center;gap:22px}
+.site-brand{display:flex;align-items:center;gap:12px;cursor:pointer}
+.site-brand .logo-orb{width:40px;height:40px;min-width:40px;border-radius:13px}
+.site-brand .logo-orb img{width:24px;height:24px}
+.site-brand .wm{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:19px;letter-spacing:.22em}
+.site-brand .wm small{display:block;font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:.24em;color:var(--faint);text-transform:uppercase;margin-top:1px;letter-spacing:.2em}
+.site-links{display:flex;gap:26px;margin-left:14px}
+.site-links a{font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:color .18s}
+.site-links a:hover{color:var(--text)}
+.site-nav-cta{margin-left:auto;display:flex;gap:10px;align-items:center}
+.site-btn{font-size:13px;font-weight:700;padding:10px 20px;border-radius:var(--r-full);transition:all .2s;white-space:nowrap;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.site-btn.ghost{border:1px solid var(--glass-border);color:var(--muted);background:rgba(255,255,255,.03)}
+.site-btn.ghost:hover{color:var(--text);border-color:rgba(228,193,105,.4)}
+.site-btn.gold{background:linear-gradient(120deg,var(--gold),#F0D48A);color:#141210;box-shadow:0 8px 26px rgba(228,193,105,.32)}
+.site-btn.gold:hover{transform:translateY(-2px)}
+.site-menu-btn{display:none;font-size:20px;color:var(--muted);background:none;padding:4px 8px}
+/* hero */
+.grad{background:linear-gradient(100deg,var(--gold),#F6E4B0 60%,#fff 150%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.site-hero{position:relative;padding:78px 0 60px;text-align:center}
+.sh-badge{display:inline-flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 16px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);margin-bottom:26px}
+.sh-badge .d{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px var(--gold)}
+.sh-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);margin-bottom:20px}
+.sh-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(34px,5.6vw,66px);line-height:1.04;letter-spacing:-.02em;max-width:15ch;margin:0 auto 22px}
+.sh-sub{font-size:clamp(15px,1.7vw,18.5px);line-height:1.7;color:var(--muted);max-width:640px;margin:0 auto 32px}
+.sh-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.site-btn.lg{font-size:14.5px;padding:15px 30px}
+.sh-points{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:40px}
+.sh-point{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;color:var(--muted);padding:9px 17px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.035)}
+.sh-point .c{color:var(--good);font-size:12px}
+/* sections */
+.site-sec{padding:76px 0;position:relative}
+.site-sec.alt{border-top:1px solid var(--glass-border-soft)}
+.sec-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.sec-eyebrow.c{justify-content:center}
+.sec-eyebrow span.line{width:30px;height:2px;background:rgba(228,193,105,.5)}
+.sec-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(26px,3.4vw,42px);letter-spacing:-.01em;line-height:1.12;max-width:20ch}
+.sec-title.c{margin-left:auto;margin-right:auto;text-align:center}
+.sec-sub{color:var(--muted);font-size:16px;line-height:1.75;max-width:620px;margin-top:16px}
+.sec-sub.c{margin-left:auto;margin-right:auto;text-align:center}
+/* differentiators */
+.diff-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:44px}
+.diff-card{border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border-soft);backdrop-filter:blur(16px);padding:30px}
+.diff-card .n{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--gold);margin-bottom:16px}
+.diff-card h3{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;margin-bottom:10px}
+.diff-card p{font-size:14.5px;line-height:1.72;color:var(--muted)}
+/* features */
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
+.feat-card{border-radius:var(--r-md);background:rgba(255,255,255,.045);border:1px solid var(--glass-border-soft);backdrop-filter:blur(14px);padding:26px;transition:transform .18s,border-color .18s,box-shadow .18s}
+.feat-card:hover{transform:translateY(-3px);border-color:var(--glass-border);box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.feat-ico{width:44px;height:44px;border-radius:13px;background:var(--accent-soft);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:16px}
+.feat-card h3{font-family:'Space Grotesk',sans-serif;font-size:16.5px;font-weight:600;margin-bottom:8px}
+.feat-card p{font-size:13.5px;line-height:1.68;color:var(--muted)}
+/* pricing */
+.price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:46px;align-items:stretch}
+.price-card{border-radius:var(--r-lg);background:var(--glass);border:1px solid var(--glass-border-soft);backdrop-filter:blur(18px);padding:32px 28px;display:flex;flex-direction:column}
+.price-card.core{border-color:rgba(228,193,105,.5);box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 34px var(--accent-soft);position:relative}
+.price-tag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#141210;background:linear-gradient(120deg,var(--gold),#F0D48A);padding:5px 14px;border-radius:var(--r-full)}
+.price-name{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600}
+.price-for{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-top:4px}
+.price-amt{margin:20px 0 6px;font-size:14px;color:var(--muted)}
+.price-amt b{font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.price-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px;min-height:38px}
+.price-feat{list-style:none;display:flex;flex-direction:column;gap:11px;margin:0 0 24px;flex:1}
+.price-feat li{font-size:13.5px;color:var(--text);display:flex;gap:10px;align-items:flex-start;line-height:1.5}
+.price-feat li::before{content:"✓";color:var(--good);font-weight:800;flex-shrink:0}
+.price-feat li.muted{color:var(--muted)}
+.price-note{text-align:center;color:var(--faint);font-size:12.5px;margin-top:24px}
+/* cta band */
+.site-cta-band{margin:20px 0 0;border-radius:var(--r-lg);background:linear-gradient(135deg,rgba(228,193,105,.12),rgba(255,255,255,.03));border:1px solid var(--glass-border);backdrop-filter:blur(18px);padding:56px 40px;text-align:center}
+.site-cta-band h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(24px,3vw,38px);letter-spacing:-.01em;margin-bottom:22px}
+/* footer */
+.site-foot{border-top:1px solid var(--glass-border-soft);padding:52px 0 40px;margin-top:76px}
+.site-foot-top{display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;margin-bottom:36px}
+.site-foot .fcol h4{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.site-foot .fcol a{display:block;font-size:13px;color:var(--muted);cursor:pointer;padding:5px 0;transition:color .16s}
+.site-foot .fcol a:hover{color:var(--gold)}
+.site-foot .fbrand{max-width:300px}
+.site-foot .fbrand p{font-size:13px;color:var(--muted);line-height:1.7;margin:12px 0}
+.site-foot .fbrand .backlink{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--gold);border-bottom:1px solid rgba(228,193,105,.35);padding-bottom:2px;text-decoration:none}
+.site-foot-bar{border-top:1px solid var(--glass-border-soft);padding-top:22px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.site-foot-bar a{color:var(--muted);text-decoration:none;cursor:pointer}
+.site-foot-bar a:hover{color:var(--gold)}
+/* legal pages */
+.legal{max-width:820px;margin:0 auto;padding:40px 0 20px}
+.legal .backlink{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:pointer;margin-bottom:26px}
+.legal .backlink:hover{color:var(--gold)}
+.legal h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,4vw,40px);font-weight:600;letter-spacing:-.01em;margin-bottom:8px}
+.legal-meta{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+.legal-note{border-radius:var(--r-md);border:1px solid rgba(228,193,105,.3);background:var(--accent-soft);padding:14px 18px;font-size:12.5px;color:var(--gold);line-height:1.6;margin-bottom:30px}
+.legal h2{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;margin:30px 0 10px;color:var(--text)}
+.legal p,.legal li{font-size:14.5px;line-height:1.78;color:var(--muted)}
+.legal p{margin-bottom:14px}
+.legal ul{margin:0 0 14px 22px}
+.legal li{margin-bottom:8px}
+.legal strong{color:var(--text);font-weight:700}
+.auth-back{margin-top:14px;font-size:12px;color:var(--muted);cursor:pointer;display:inline-block}
+.auth-back:hover{color:var(--gold)}
+@media(max-width:860px){
+  .site-links{display:none}
+  .diff-grid,.feat-grid,.price-grid{grid-template-columns:1fr}
+  .site-wrap,.site-nav-inner{padding-left:20px;padding-right:20px}
+  .price-card.core{order:-1}
+}
 </style>
 </head>
 <body>
@@ -788,6 +903,213 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     <div class="auth-err" id="authErr"></div>
     <div class="auth-switch" id="authSwitch"></div>
     <div class="auth-note">Each company workspace is private to its team<br>Powered by Syntrex Brand Intelligence</div>
+    <span class="auth-back" onclick="backToSite()">← Back to site</span>
+  </div>
+</div>
+
+<!-- ============ PUBLIC MARKETING SITE ============ -->
+<div class="site" id="site">
+  <nav class="site-nav">
+    <div class="site-nav-inner">
+      <div class="site-brand" onclick="goSite('home')">
+        <div class="logo-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="SYN"></div>
+        <div class="wm">SYN<small>Brand Intelligence</small></div>
+      </div>
+      <div class="site-links">
+        <a onclick="goSite('home','features')">Product</a>
+        <a onclick="goSite('home','pricing')">Pricing</a>
+        <a onclick="goSite('terms')">Legal</a>
+      </div>
+      <div class="site-nav-cta">
+        <button class="site-btn ghost" onclick="siteAuth('signin')">Sign In</button>
+        <button class="site-btn gold" onclick="siteAuth('create')">Get Started</button>
+      </div>
+    </div>
+  </nav>
+
+  <div id="siteMain">
+    <!-- HOME -->
+    <div class="site-page on" id="sp-home">
+      <section class="site-hero"><div class="site-wrap">
+        <div class="sh-badge"><span class="d"></span>Syntrex · Brand Intelligence Platform</div>
+        <div class="sh-eyebrow">One brain · every surface</div>
+        <h1 class="sh-title">The AI workspace that <span class="grad">already knows your brand.</span></h1>
+        <p class="sh-sub">SYN is a full team operating system with your brand's voice, rules, and memory built in. Tasks, calendar, spaces, docs, approvals, and a compliance-aware AI, one brain across every surface your team works on.</p>
+        <div class="sh-cta">
+          <button class="site-btn gold lg" onclick="siteAuth('create')">Get Started</button>
+          <button class="site-btn ghost lg" onclick="siteAuth('signin')">Sign In</button>
+        </div>
+        <div class="sh-points">
+          <span class="sh-point"><span class="c">◆</span>Brand-aware</span>
+          <span class="sh-point"><span class="c">◆</span>Compliance-safe</span>
+          <span class="sh-point"><span class="c">◆</span>Full team OS</span>
+          <span class="sh-point"><span class="c">◆</span>One brain, every surface</span>
+        </div>
+      </div></section>
+
+      <section class="site-sec alt"><div class="site-wrap">
+        <div class="sec-eyebrow"><span class="line"></span>What SYN is</div>
+        <h2 class="sec-title">Your brand, encoded once. Enforced everywhere.</h2>
+        <p class="sec-sub">Most teams bolt AI onto a pile of disconnected tools, then police the output by hand. SYN flips it: encode your brand's voice, colors, approved and banned claims, and legal guardrails one time. From then on every task, message, document, and AI response your team produces ships on-brand, and nothing ships without a verdict.</p>
+      </div></section>
+
+      <section class="site-sec"><div class="site-wrap">
+        <div class="sec-eyebrow"><span class="line"></span>Why SYN is different</div>
+        <h2 class="sec-title">Not another silo. The brain your whole team shares.</h2>
+        <div class="diff-grid">
+          <div class="diff-card"><div class="n">01</div><h3>Brand-aware by default</h3><p>Voice, palette, products, and approved claims live in the platform. Every output, human or AI, ships in your brand's language, not a generic template.</p></div>
+          <div class="diff-card"><div class="n">02</div><h3>Compliance-safe</h3><p>Banned claims and legal constraints are enforced before anything leaves the building. Every generation carries an approval verdict and a timestamped audit trail.</p></div>
+          <div class="diff-card"><div class="n">03</div><h3>A full team operating system</h3><p>Tasks and projects, a real calendar, channels and DMs, approvals, a people directory, and brand assets. The work and the brand intelligence live in one place.</p></div>
+          <div class="diff-card"><div class="n">04</div><h3>One brain, every surface</h3><p>The same brand memory powers your chat, your planning, your spaces, and your day. Tell SYN something once and it carries forward across the workspace.</p></div>
+        </div>
+      </div></section>
+
+      <section class="site-sec alt" id="site-features"><div class="site-wrap">
+        <div class="sec-eyebrow c"><span class="line"></span>The platform<span class="line"></span></div>
+        <h2 class="sec-title c">Everything a team needs, in one dark, fast, on-brand workspace.</h2>
+        <div class="feat-grid">
+          <div class="feat-card"><div class="feat-ico">☀</div><h3>My Day</h3><p>A personal home that greets each teammate with what's due, what's next, unread threads, and a one-line Ask SYN box.</p></div>
+          <div class="feat-card"><div class="feat-ico">▣</div><h3>Tasks & Projects</h3><p>Kanban, list, and My Tasks views. Assignees, subtasks, labels, comments, priorities, and projects. Drag, filter, and quick-add.</p></div>
+          <div class="feat-card"><div class="feat-ico">◷</div><h3>Calendar</h3><p>Month, week, and agenda views with recurring events, tasks-with-due-dates, Add-to-Google-Calendar, and .ics export.</p></div>
+          <div class="feat-card"><div class="feat-ico">◎</div><h3>Spaces & DMs</h3><p>Team channels, direct messages, @mentions, reactions, and AI spaces where the whole team talks to SYN together.</p></div>
+          <div class="feat-card"><div class="feat-ico">✓</div><h3>Approvals & audit</h3><p>Nothing ships without a verdict. Every generation, approver, and decision is logged and exportable, forever.</p></div>
+          <div class="feat-card"><div class="feat-ico">⬡</div><h3>Brand memory</h3><p>Voice, guardrails, palette, products, a knowledge library, and permanent memory that SYN draws on in every chat.</p></div>
+          <div class="feat-card"><div class="feat-ico">✦</div><h3>Integrations</h3><p>Slack, Microsoft Teams, Zoom, and generic webhooks fire on assignments, approvals, events, and mentions. Meeting links join in one click.</p></div>
+          <div class="feat-card"><div class="feat-ico">⬢</div><h3>People & personalization</h3><p>A team directory, per-user avatars and display names, and a personal accent that themes each teammate's own home.</p></div>
+        </div>
+      </div></section>
+
+      <section class="site-sec" id="site-pricing"><div class="site-wrap">
+        <div class="sec-eyebrow c"><span class="line"></span>Pricing<span class="line"></span></div>
+        <h2 class="sec-title c">Priced by the size of your company, not padded per seat.</h2>
+        <p class="sec-sub c">Start small and grow into the whole platform. Pricing scales with your team and how many brands you run.</p>
+        <div class="price-grid">
+          <div class="price-card">
+            <div class="price-name">Starter</div><div class="price-for">Small team · one brand</div>
+            <div class="price-amt">Starting at <b>$—</b></div>
+            <div class="price-desc">Get one brand and the core workspace running for a small, focused team.</div>
+            <ul class="price-feat">
+              <li>One encoded brand</li><li>Core workspace: tasks, calendar</li><li>Spaces, DMs & mentions</li><li>Approvals & audit trail</li><li>My Day + People directory</li>
+            </ul>
+            <button class="site-btn ghost" onclick="siteAuth('create')">Get Started</button>
+          </div>
+          <div class="price-card core">
+            <div class="price-tag">The core</div>
+            <div class="price-name">Team</div><div class="price-for">Whole company</div>
+            <div class="price-amt">Starting at <b>$—</b></div>
+            <div class="price-desc">The full platform for an entire company working on one brand together.</div>
+            <ul class="price-feat">
+              <li>Everything in Starter</li><li>Your whole team, not a seat cap</li><li>AI spaces & brand-aware chat</li><li>Integrations: Slack, Teams, Zoom, webhooks</li><li>Full brand memory & knowledge library</li>
+            </ul>
+            <button class="site-btn gold" onclick="siteAuth('create')">Get Started</button>
+          </div>
+          <div class="price-card">
+            <div class="price-name">Portfolio</div><div class="price-for">Agencies · multi-brand</div>
+            <div class="price-amt">Starting at <b>$—</b></div>
+            <div class="price-desc">For agencies and houses of brands running many brands from one command view.</div>
+            <ul class="price-feat">
+              <li>Everything in Team</li><li>Multiple brands, one workspace</li><li>Portfolio dashboard across brands</li><li>Per-brand voice & guardrails</li><li>Priority support</li>
+            </ul>
+            <button class="site-btn ghost" onclick="siteAuth('create')">Get Started</button>
+          </div>
+        </div>
+        <p class="price-note">Final pricing and self-serve billing activate with SYN Core (Stripe). Starting-at figures are set at launch; talk to us for a workspace today.</p>
+      </div></section>
+
+      <section class="site-sec"><div class="site-wrap">
+        <div class="site-cta-band">
+          <h2>Encode your brand once. Ship on-brand everywhere.</h2>
+          <div class="sh-cta"><button class="site-btn gold lg" onclick="siteAuth('create')">Get Started</button><button class="site-btn ghost lg" onclick="siteAuth('signin')">Sign In</button></div>
+        </div>
+      </div></section>
+
+      <footer class="site-foot"><div class="site-wrap">
+        <div class="site-foot-top">
+          <div class="fbrand">
+            <div class="site-brand" onclick="goSite('home')"><div class="logo-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="SYN"></div><div class="wm">SYN</div></div>
+            <p>A Syntrex product. The brand intelligence workspace: one brain across every surface your team works on.</p>
+            <a class="backlink" href="https://syntrexio.com" target="_blank" rel="noopener">← Back to Syntrex</a>
+          </div>
+          <div class="fcol"><h4>Product</h4><a onclick="goSite('home','features')">Features</a><a onclick="goSite('home','pricing')">Pricing</a><a onclick="siteAuth('create')">Get Started</a><a onclick="siteAuth('signin')">Sign In</a></div>
+          <div class="fcol"><h4>Legal</h4><a onclick="goSite('terms')">Terms of Service</a><a onclick="goSite('privacy')">Privacy Policy</a><a onclick="goSite('acceptable-use')">Acceptable Use</a></div>
+          <div class="fcol"><h4>Company</h4><a href="https://syntrexio.com" target="_blank" rel="noopener">Syntrex</a><a href="mailto:henry@syntrexio.com">Contact</a></div>
+        </div>
+        <div class="site-foot-bar">
+          <span>© 2026 Syntrex LLC · Windermere, FL</span>
+          <span><a onclick="goSite('terms')">Terms</a> · <a onclick="goSite('privacy')">Privacy</a> · <a onclick="goSite('acceptable-use')">Acceptable Use</a></span>
+        </div>
+      </div></footer>
+    </div>
+
+    <!-- LEGAL: TERMS -->
+    <div class="site-page" id="sp-terms"><div class="site-wrap"><div class="legal">
+      <span class="backlink" onclick="goSite('home')">← Back to home</span>
+      <h1>Terms of Service</h1>
+      <div class="legal-meta">SYN by Syntrex LLC · Baseline v1</div>
+      <div class="legal-note">Placeholder baseline for legal review before launch. Not legal advice; have counsel review and adapt before relying on it.</div>
+      <p>These Terms of Service ("Terms") govern access to and use of the SYN workspace application and related services ("Service"), provided by <strong>Syntrex LLC</strong> ("Syntrex", "we", "us"), 513 Main Street, Windermere, FL 34786. By creating a workspace or using the Service, you agree to these Terms on behalf of yourself and any organization you represent ("you").</p>
+      <h2>1. The Service</h2><p>SYN is a team workspace and brand-intelligence platform. Features, including AI-assisted generation, may change, and some capabilities depend on third-party or backend services that may be added over time.</p>
+      <h2>2. Accounts and workspaces</h2><p>You are responsible for the accuracy of your account information, for maintaining the confidentiality of your credentials and workspace join codes, and for all activity under your workspace. Workspace administrators control membership and roles.</p>
+      <h2>3. Your content</h2><p>You retain all rights to the brands, files, messages, and other content you and your team put into the Service ("Customer Content"). You grant Syntrex a limited license to host, process, and display Customer Content solely to operate and improve the Service for you.</p>
+      <h2>4. Acceptable use</h2><p>Your use of the Service is subject to our Acceptable Use Policy. You are responsible for how your team uses the Service and for the content you create with it.</p>
+      <h2>5. AI output requires human review</h2><p><strong>AI-generated output may be inaccurate, incomplete, or non-compliant, and must be reviewed and approved by a qualified human before it is published, sent, or otherwise relied upon.</strong> Syntrex does not warrant that AI output is accurate, on-brand, or compliant with any law or regulation. You are solely responsible for verifying output before use.</p>
+      <h2>6. Your compliance responsibility</h2><p>You are solely responsible for ensuring that your content, claims, and use of the Service comply with all laws and regulations that apply to your business, including advertising, marketing, industry, and data-protection rules. Brand guardrail features are aids, not a guarantee of compliance.</p>
+      <h2>7. Third-party services</h2><p>The Service may connect to third-party tools you configure (for example, webhooks to Slack, Microsoft Teams, or Zoom). Those services are governed by their own terms, and Syntrex is not responsible for them.</p>
+      <h2>8. Fees</h2><p>Paid plans and billing terms will be presented at the point of purchase. Where figures are shown as "starting at", final pricing is confirmed before any charge.</p>
+      <h2>9. Warranty disclaimer</h2><p><strong>The Service is provided "as is" and "as available", without warranties of any kind, express or implied,</strong> including merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that the Service will be uninterrupted, error-free, or secure.</p>
+      <h2>10. Limitation of liability</h2><p><strong>To the maximum extent permitted by law, Syntrex will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for lost profits, revenue, data, or goodwill. Syntrex's total liability arising out of or relating to the Service is limited to the amounts you paid to Syntrex for the Service in the three months before the event giving rise to the claim.</strong></p>
+      <h2>11. Termination</h2><p>You may stop using the Service at any time. We may suspend or terminate access for breach of these Terms or the Acceptable Use Policy. On termination you may request an export of your Customer Content where reasonably practicable.</p>
+      <h2>12. Governing law</h2><p>These Terms are governed by the laws of the State of Florida, without regard to conflict-of-law rules. Venue for disputes lies in Orange County, Florida.</p>
+      <h2>13. Changes</h2><p>We may update these Terms. Material changes will be communicated through the Service or by email. Continued use after changes take effect constitutes acceptance.</p>
+      <h2>Contact</h2><p>Questions about these Terms: <strong>henry@syntrexio.com</strong> · Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
+    </div></div></div>
+
+    <!-- LEGAL: PRIVACY -->
+    <div class="site-page" id="sp-privacy"><div class="site-wrap"><div class="legal">
+      <span class="backlink" onclick="goSite('home')">← Back to home</span>
+      <h1>Privacy Policy</h1>
+      <div class="legal-meta">SYN by Syntrex LLC · Baseline v1</div>
+      <div class="legal-note">Placeholder baseline for legal review before launch. Confirm this reflects your actual data flows and obligations before relying on it.</div>
+      <p>This Privacy Policy explains how <strong>Syntrex LLC</strong> ("Syntrex", "we") handles information in connection with the SYN workspace ("Service"). Syntrex LLC is located at 513 Main Street, Windermere, FL 34786.</p>
+      <h2>1. Information we handle</h2><ul>
+        <li><strong>Account data</strong> you provide: name, work email, workspace name, role, and (optionally) an avatar and display name.</li>
+        <li><strong>Customer Content</strong> your team creates: brands, tasks, events, messages, files, approvals, and related workspace data.</li>
+        <li><strong>Usage and technical data</strong> needed to operate the Service, such as storage and basic diagnostics.</li>
+      </ul>
+      <h2>2. How we use it</h2><p>We use information to provide, secure, and improve the Service, to enable collaboration within your workspace, and to power features you use, including AI-assisted generation.</p>
+      <h2>3. AI processing</h2><p>When you use AI features, the relevant prompt and context may be sent to an AI provider to generate a response. Do not enter information into AI features that you are not permitted to share. AI output must be reviewed by a human before use.</p>
+      <h2>4. Storage and sharing within your workspace</h2><p>Workspace data is shared with members of your workspace according to the visibility settings you choose (team vs. private). Administrators can manage members and roles. We do not sell your personal information.</p>
+      <h2>5. Third-party integrations</h2><p>If you configure integrations (for example Slack, Microsoft Teams, Zoom, or generic webhooks), the notifications you enable are sent to the endpoint you provide. Those third parties handle that data under their own policies.</p>
+      <h2>6. Retention</h2><p>We retain Customer Content for as long as your workspace is active or as needed to provide the Service, and for a reasonable period afterward unless you request deletion, subject to legal and operational requirements.</p>
+      <h2>7. Your choices and rights</h2><p>Depending on your location, you may have rights to access, correct, export, or delete personal data. Workspace admins can manage most data directly in the app; for other requests contact us.</p>
+      <h2>8. Security</h2><p>We take reasonable measures to protect information, but no system is perfectly secure. You are responsible for safeguarding your credentials and workspace join codes.</p>
+      <h2>9. Children</h2><p>The Service is intended for business use and is not directed to children under 13.</p>
+      <h2>10. Changes</h2><p>We may update this Policy and will communicate material changes through the Service or by email.</p>
+      <h2>Contact</h2><p>Privacy questions: <strong>henry@syntrexio.com</strong> · Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
+    </div></div></div>
+
+    <!-- LEGAL: ACCEPTABLE USE -->
+    <div class="site-page" id="sp-acceptable-use"><div class="site-wrap"><div class="legal">
+      <span class="backlink" onclick="goSite('home')">← Back to home</span>
+      <h1>Acceptable Use & Disclaimer</h1>
+      <div class="legal-meta">SYN by Syntrex LLC · Baseline v1</div>
+      <div class="legal-note">Placeholder baseline for legal review before launch. Tailor prohibited-use and disclaimer language to your risk profile before relying on it.</div>
+      <p>This Acceptable Use Policy applies to everyone who uses the SYN workspace ("Service") provided by <strong>Syntrex LLC</strong>. It supplements the Terms of Service.</p>
+      <h2>1. You are responsible for your content</h2><p>You are solely responsible for the content your team creates, uploads, generates, or sends with the Service, and for ensuring you have the rights to use it. Syntrex does not pre-screen Customer Content.</p>
+      <h2>2. Human review before use</h2><p><strong>AI-assisted output is a draft aid, not a finished, verified deliverable. Every AI output must be reviewed and approved by a qualified human before it is published, sent to a customer, filed, or otherwise relied upon.</strong> Brand guardrails and approval steps are aids and do not guarantee accuracy or compliance.</p>
+      <h2>3. Regulatory compliance is yours</h2><p>You are responsible for complying with all laws and regulations that apply to your business and content, including advertising and marketing rules, industry-specific requirements (for example financial, health, or safety claims), intellectual-property rights, and data-protection law. Do not use the Service to produce claims you are not authorized or able to substantiate.</p>
+      <h2>4. Prohibited uses</h2><p>Do not use the Service to:</p><ul>
+        <li>Break the law or infringe others' rights, including IP, privacy, and publicity rights.</li>
+        <li>Create or distribute unlawful, deceptive, harassing, hateful, or harmful content.</li>
+        <li>Generate false or misleading claims, or impersonate a person or organization.</li>
+        <li>Upload malware, attempt to breach security, or disrupt or overload the Service.</li>
+        <li>Reverse engineer the Service or resell it except as expressly permitted.</li>
+      </ul>
+      <h2>5. No professional advice</h2><p>The Service and its AI features do not provide legal, financial, medical, or other professional advice. Consult a qualified professional for such matters.</p>
+      <h2>6. "As is"; no warranty</h2><p><strong>The Service is provided "as is" without warranty of any kind. Syntrex does not warrant that output is accurate, on-brand, lawful, or fit for any purpose.</strong> See the Terms of Service for the full warranty disclaimer and limitation of liability.</p>
+      <h2>7. Enforcement</h2><p>We may investigate suspected violations and may suspend or terminate access for conduct that breaches this Policy or the Terms.</p>
+      <h2>Contact</h2><p>Report misuse or ask questions: <strong>henry@syntrexio.com</strong> · Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
+    </div></div></div>
   </div>
 </div>
 
@@ -1232,6 +1554,36 @@ async function loadChats(brandId){
 }
 
 /* ---------------- BOOT ---------------- */
+/* ---------------- PUBLIC MARKETING SITE ROUTING ---------------- */
+const SITE_PAGES = ["home","terms","privacy","acceptable-use"];
+let _skipHash = false;
+function appIsOn(){ return document.getElementById("app").classList.contains("on"); }
+function showSite(){ document.getElementById("site").classList.add("on"); document.getElementById("authScreen").classList.remove("on"); document.getElementById("app").classList.remove("on"); }
+function hideSite(){ document.getElementById("site").classList.remove("on"); }
+function showSitePage(page, anchor){
+  if (!SITE_PAGES.includes(page)) page = "home";
+  document.getElementById("site").classList.add("on");
+  document.querySelectorAll(".site-page").forEach(p => p.classList.remove("on"));
+  (document.getElementById("sp-" + page) || document.getElementById("sp-home")).classList.add("on");
+  const site = document.getElementById("site");
+  if (anchor){ const a = document.getElementById("site-" + anchor); requestAnimationFrame(() => { if (a) a.scrollIntoView({ behavior:"smooth", block:"start" }); }); }
+  else site.scrollTop = 0;
+}
+function goSite(page, anchor){
+  if (!SITE_PAGES.includes(page)) page = "home";
+  showSitePage(page, anchor);
+  const target = page === "home" ? "/" : "/" + page;
+  if (location.hash.replace(/^#/, "") !== target){ _skipHash = true; location.hash = target; }
+}
+function routeSite(){
+  if (appIsOn()) return;
+  const h = (location.hash || "").replace(/^#\/?/, "");
+  showSitePage(SITE_PAGES.includes(h) ? h : "home");
+}
+function siteAuth(mode){ hideSite(); showAuth(mode); }
+function backToSite(){ document.getElementById("authScreen").classList.remove("on"); showSite(); routeSite(); }
+window.addEventListener("hashchange", () => { if (appIsOn()) return; if (_skipHash){ _skipHash = false; return; } routeSite(); });
+
 async function boot(){
   persistMode = window.storage ? "shared" : (lsOk() ? "device" : "memory");
   persistOk = persistMode !== "memory";
@@ -1254,7 +1606,7 @@ async function boot(){
       if (u){ await enterOrg(org, u); return; }
     }
   }
-  showAuth(ORGS.length ? "signin" : "create");
+  showSite(); routeSite();     // logged-out visitors land on the public marketing site
 }
 
 /* ---------------- WORKSPACE JOIN CODES (rotate every 30 min) ---------------- */
@@ -1375,6 +1727,7 @@ async function enterOrg(org, u){
   document.body.classList.toggle("no-motion", SETTINGS.motion === false);
 
   document.getElementById("authScreen").classList.remove("on");
+  hideSite();
   document.getElementById("app").classList.add("on");
   document.getElementById("orgName").textContent = org.name;
   document.getElementById("obOrg").textContent = org.name;
