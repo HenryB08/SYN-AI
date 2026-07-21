@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SYN · Brand Intelligence Platform · Syntrex</title>
+<script>/* defined early so image onerror handlers never fire before it exists */
+function logoFail(img){ const p = img && img.parentElement; if (p) p.innerHTML = '<span style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:22px;color:#E4C169">S</span>'; }</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
@@ -585,6 +587,9 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .space-nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .space-ai-tag{font-family:'IBM Plex Mono',monospace;font-size:7px;letter-spacing:.12em;padding:2px 5px;border-radius:var(--r-full);border:1px solid rgba(228,193,105,.4);color:var(--gold)}
 .space-unread{min-width:18px;height:18px;padding:0 5px;border-radius:var(--r-full);background:var(--gold);color:#141210;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.space-item.has-mention{box-shadow:inset 3px 0 0 var(--gold)}
+.space-item.has-mention .space-nm{color:var(--text)}
+.space-mention{min-width:18px;height:18px;padding:0 5px;border-radius:var(--r-full);background:var(--accent-soft);border:1px solid var(--gold);color:var(--gold);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
 .space-empty-rail{color:var(--faint);font-size:11.5px;padding:12px 16px;line-height:1.6}
 .space-main{flex:1;display:flex;flex-direction:column;min-width:0}
 .space-head{padding:15px 22px;display:flex;align-items:center;gap:13px;border-bottom:1px solid var(--glass-border-soft)}
@@ -628,6 +633,44 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .icon-pick button.on{border-color:rgba(228,193,105,.6);background:var(--accent-soft)}
 .dm-pick-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--r-md);background:rgba(255,255,255,.045);border:1px solid var(--glass-border-soft);margin-bottom:7px;cursor:pointer;transition:all .16s;width:100%;text-align:left}
 .dm-pick-row:hover{background:rgba(255,255,255,.07)}
+
+/* --- my day --- */
+.md-greet{display:flex;align-items:center;gap:16px;padding:24px 26px;margin-bottom:14px;flex-wrap:wrap}
+.md-greet h2{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600}
+.md-greet .sub{color:var(--muted);font-size:13.5px;margin-top:3px;font-family:'IBM Plex Mono',monospace;letter-spacing:.06em}
+.md-greet .head-btn{margin-left:auto}
+.md-ask{display:flex;gap:9px;margin-bottom:16px}
+.md-ask input{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:var(--r-full);color:var(--text);font-family:'Manrope',sans-serif;font-size:14px;padding:13px 20px;outline:none;transition:all .2s}
+.md-ask input:focus{border-color:rgba(228,193,105,.45);box-shadow:0 0 18px var(--accent-soft)}
+.md-plan-out{margin-bottom:16px}
+.md-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.md-card .sb-body{padding-top:6px;padding-bottom:6px}
+.md-row{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--glass-border-soft);cursor:pointer;transition:background .15s;border-radius:8px}
+.md-row:last-child{border-bottom:none}
+.md-row:hover{background:rgba(255,255,255,.04)}
+.md-row .r-dot{width:9px;height:9px;min-width:9px;border-radius:50%;background:var(--rd,var(--gold))}
+.md-row .r-ico{width:30px;height:30px;min-width:30px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:'IBM Plex Mono',monospace}
+.md-row .r-main{flex:1;min-width:0}
+.md-row .r-title{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.md-row .r-sub{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:2px}
+.md-row .r-when{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap}
+.md-row .r-when.red{color:var(--bad)}
+.md-row .r-when.amber{color:var(--gold)}
+.md-empty-row{color:var(--faint);font-size:12.5px;padding:10px 2px}
+.md-act-line{font-size:12.5px;padding:8px 2px;border-bottom:1px solid var(--glass-border-soft);color:var(--muted)}
+.md-act-line:last-child{border-bottom:none}
+.md-act-line b{color:var(--text);font-weight:700}
+.md-act-line .t{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-left:6px}
+
+/* --- people --- */
+.people-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.person-card{display:flex;gap:14px;align-items:flex-start;border-radius:var(--r-md);background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);backdrop-filter:blur(12px);padding:18px}
+.person-card .avatar{width:46px;height:46px;min-width:46px;font-size:16px}
+.person-card .p-info{flex:1;min-width:0}
+.person-card .p-name{font-size:14.5px;font-weight:700}
+.person-card .p-meta{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.person-card .p-role{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-top:6px}
+.person-card .p-acts{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
 
 /* event modal export row */
 .ev-export{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
@@ -703,12 +746,14 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     </div>
 
     <div class="side-nav">
+      <button class="nav-btn active" data-view="myday"><span class="glyph">☀</span> My Day</button>
       <button class="nav-btn" data-view="dashboard"><span class="glyph">▦</span> Portfolio</button>
-      <button class="nav-btn active" data-view="chat"><span class="glyph">◈</span> Workspace</button>
+      <button class="nav-btn" data-view="chat"><span class="glyph">◈</span> Workspace</button>
       <button class="nav-btn" data-view="tasks"><span class="glyph">▣</span> Tasks <span class="badge" id="tasksBadge" style="display:none">0</span></button>
       <div class="proj-nav" id="projNav"></div>
       <button class="nav-btn" data-view="calendar"><span class="glyph">◷</span> Calendar</button>
       <button class="nav-btn" data-view="spaces"><span class="glyph">◎</span> Spaces <span class="badge" id="spacesBadge" style="display:none">0</span></button>
+      <button class="nav-btn" data-view="people"><span class="glyph">⬢</span> People</button>
       <button class="nav-btn" data-view="profile"><span class="glyph">⬡</span> Brand Profile</button>
       <button class="nav-btn" data-view="assets"><span class="glyph">▤</span> Assets</button>
       <button class="nav-btn" data-view="approvals"><span class="glyph">✓</span> Approvals <span class="badge" id="pendBadge" style="display:none">0</span></button>
@@ -739,11 +784,14 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     </div>
 
     <div class="stage glass" id="stage">
+      <!-- MY DAY -->
+      <div class="view active" id="view-myday"><div class="panel-scroll"><div class="panel-inner" id="mydayPanel"></div></div></div>
+
       <!-- DASHBOARD -->
       <div class="view" id="view-dashboard"><div class="panel-scroll"><div class="panel-inner" id="dashPanel"></div></div></div>
 
       <!-- CHAT -->
-      <div class="view active" id="view-chat">
+      <div class="view" id="view-chat">
         <div class="chat-scroll" id="chatScroll">
           <div class="empty-state" id="onboardState" style="display:none">
             <div class="empty-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt=""></div>
@@ -794,6 +842,9 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 
       <!-- CALENDAR -->
       <div class="view" id="view-calendar"><div class="cal-wrap" id="calWrap"></div></div>
+
+      <!-- PEOPLE -->
+      <div class="view" id="view-people"><div class="panel-scroll"><div class="panel-inner" id="peoplePanel"></div></div></div>
 
       <!-- PROFILE -->
       <div class="view" id="view-profile"><div class="panel-scroll"><div class="panel-inner" id="profilePanel"></div></div></div>
@@ -1057,10 +1108,7 @@ function hexToSoft(hex){ try{ const n = parseInt(hex.slice(1),16); return "rgba(
 function fmtSize(b){ return b > 1048576 ? (b/1048576).toFixed(1)+" MB" : Math.max(1,Math.round(b/1024))+" KB"; }
 function extOf(name){ const i = name.lastIndexOf("."); return i < 0 ? "" : name.slice(i+1).toLowerCase(); }
 function fmtTime(iso){ const d = new Date(iso); return d.toLocaleDateString([], {month:"short",day:"numeric"}) + " · " + d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}); }
-function logoFail(img){
-  const p = img.parentElement;
-  if (p) p.innerHTML = '<span style="font-family:Space Grotesk,sans-serif;font-weight:700;font-size:22px;color:var(--gold)">S</span>';
-}
+/* logoFail is defined in <head> so it exists before any image onerror fires */
 async function hashPw(pw, salt){
   const s = salt.toLowerCase() + "::" + pw;
   if (window.crypto && crypto.subtle){
@@ -1273,7 +1321,8 @@ async function enterOrg(org, u){
 
   refreshFraming();
   if (BRANDS.length){ activeBrandId = BRANDS[0].id; await selectBrand(activeBrandId); }
-  else { activeBrandId = null; renderBrands(); renderChatList(); renderThread(); setView("chat"); }
+  else { activeBrandId = null; renderBrands(); renderChatList(); renderThread(); }
+  setView("myday");
 }
 
 /* ---------------- THREADS ---------------- */
@@ -2213,6 +2262,8 @@ function setView(v){
   document.getElementById("view-" + v).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach(el => el.classList.toggle("active", el.dataset.view === v));
   if (v === "approvals") renderApprovals();
+  if (v === "myday") renderMyDay();
+  if (v === "people") renderPeople();
   if (v === "tasks") renderTasks();
   if (v === "calendar") renderCalendar();
   if (v === "spaces") renderSpaces();
@@ -3203,6 +3254,149 @@ function ingestAIEvents(lines){
 }
 
 /* =====================================================================
+   STAGE 4 · MY DAY (per-user home) + PEOPLE directory
+   ===================================================================== */
+function greetWord(){ const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; }
+function myUpcomingEvents(days){
+  const start = todayISO(), end = fmtISO(new Date(Date.now() + (days || 7) * 86400000));
+  const map = calItemsByDay(start, end), out = [];
+  Object.keys(map).sort().forEach(iso => map[iso].forEach(it => {
+    if (it.kind === "event" && it.isStart){ const ev = it.ev; if ((ev.attendees || []).includes(currentUser.id) || ev.createdBy === currentUser.id || !(ev.attendees || []).length) out.push({ iso, ev }); }
+  }));
+  return out;
+}
+function myUnreadThreads(){
+  const out = [];
+  Spaces.list(s => isMember(s) && !s.archived).forEach(s => { const un = unreadFor("space", s.id), men = hasUnreadMention(s.id); if (un > 0 || men) out.push({ kind:"space", rec:s, un, men }); });
+  DMs.list(d => Array.isArray(d.members) && d.members.includes(currentUser.id)).forEach(d => { const un = unreadFor("dm", d.id); if (un > 0) out.push({ kind:"dm", rec:d, un, men:false }); });
+  return out;
+}
+function renderMyDay(){
+  const p = document.getElementById("mydayPanel"); if (!p) return;
+  const first = currentUser.name.split(" ")[0];
+  const dateStr = new Date().toLocaleDateString([], { weekday:"long", month:"long", day:"numeric" });
+  const soon = fmtISO(new Date(Date.now() + 2 * 86400000));
+  const myDue = Tasks.list(t => canSeeTask(t) && t.status !== "done" && (t.assignees || []).includes(currentUser.id) && t.dueDate && t.dueDate <= soon).sort((a,b) => a.dueDate < b.dueDate ? -1 : 1);
+  const noDue = Tasks.list(t => canSeeTask(t) && t.status !== "done" && (t.assignees || []).includes(currentUser.id) && !t.dueDate);
+  const events = myUpcomingEvents(7);
+  const threads = myUnreadThreads();
+  const acts = recentActivity(10);
+  const pend = pendingCount();
+
+  let h = '<div class="md-greet spec-block"><div><h2>' + greetWord() + ', ' + esc(first) + '</h2><div class="sub">' + esc(dateStr) + '</div></div>' +
+    (aiReady() ? '<button class="head-btn md-plan" data-wact="planMyDay" id="mdPlanBtn">✦ Plan my day</button>' : '') + '</div>';
+  h += '<div class="md-ask"><input id="mdAsk" placeholder="Ask SYN anything…"><button class="btn-gold" data-wact="mdAsk">Ask</button></div>';
+  h += '<div class="md-plan-out" id="mdPlanOut" style="display:none"></div>';
+  h += '<div class="md-grid">';
+
+  // Tasks due
+  h += '<div class="spec-block md-card"><div class="sb-head">Your tasks · due today & soon <span style="color:var(--faint)">' + myDue.length + '</span></div><div class="sb-body">';
+  if (!myDue.length) h += '<div class="md-empty-row">Nothing due in the next 2 days. ' + (noDue.length ? noDue.length + ' open task' + (noDue.length > 1 ? 's' : '') + ' with no due date.' : 'You are all clear.') + '</div>';
+  else myDue.forEach(t => { const ds = taskDueState(t); const pri = T_PRI[t.priority] || T_PRI.med;
+    h += '<div class="md-row" data-wact="openTask" data-tid="' + t.id + '"><span class="r-dot" style="--rd:' + pri.color + '"></span><div class="r-main"><div class="r-title">' + esc(t.title || "Untitled") + '</div><div class="r-sub">' + pri.label + (t.projectId && projectById(t.projectId) ? ' · ' + esc(projectById(t.projectId).name) : '') + '</div></div><span class="r-when ' + ds + '">' + (ds === "red" ? "Overdue" : fmtDay(t.dueDate)) + '</span></div>';
+  });
+  h += '</div></div>';
+
+  // Events
+  h += '<div class="spec-block md-card"><div class="sb-head">Upcoming events <span style="color:var(--faint)">' + events.length + '</span></div><div class="sb-body">';
+  if (!events.length) h += '<div class="md-empty-row">No events in the next 7 days.</div>';
+  else events.slice(0, 8).forEach(x => { const ev = x.ev;
+    h += '<div class="md-row" data-wact="mdEvent" data-eid="' + ev.id + '"><span class="r-dot" style="--rd:' + esc(ev.color) + '"></span><div class="r-main"><div class="r-title">' + esc(ev.title || "Event") + '</div><div class="r-sub">' + (x.iso === todayISO() ? "Today" : dparse(x.iso).toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" })) + (ev.allDay ? " · All day" : " · " + esc(ev.startTime || "")) + '</div></div></div>';
+  });
+  h += '</div></div>';
+
+  // Unread messages
+  h += '<div class="spec-block md-card"><div class="sb-head">Unread messages <span style="color:var(--faint)">' + threads.length + '</span></div><div class="sb-body">';
+  if (!threads.length) h += '<div class="md-empty-row">You are caught up across spaces and DMs.</div>';
+  else threads.forEach(x => { const name = x.kind === "dm" ? dmName(x.rec) : x.rec.name;
+    h += '<div class="md-row" data-wact="mdThread" data-kind="' + x.kind + '" data-id="' + x.rec.id + '"><span class="r-ico">' + (x.kind === "dm" ? esc(initials(name)) : esc(x.rec.icon || "◆")) + '</span><div class="r-main"><div class="r-title">' + esc(name) + '</div><div class="r-sub">' + (x.kind === "dm" ? "Direct message" : "Space") + (x.men ? ' · mentioned you' : '') + '</div></div>' + (x.un ? '<span class="space-unread">' + x.un + '</span>' : (x.men ? '<span class="space-mention">@</span>' : '')) + '</div>';
+  });
+  h += '</div></div>';
+
+  // Approvals (approvers = admins)
+  if (isAdmin() && pend){
+    h += '<div class="spec-block md-card"><div class="sb-head">Pending approvals <span style="color:var(--faint)">' + pend + '</span></div><div class="sb-body">' +
+      '<div class="md-row" data-wact="mdApprovals"><span class="r-ico">✓</span><div class="r-main"><div class="r-title">' + pend + ' item' + (pend > 1 ? 's' : '') + ' awaiting a verdict</div><div class="r-sub">Review in Approvals</div></div></div></div></div>';
+  }
+
+  // Activity
+  h += '<div class="spec-block md-card"><div class="sb-head">Recent activity</div><div class="sb-body">';
+  if (!acts.length) h += '<div class="md-empty-row">Nothing yet. Activity from your team shows here.</div>';
+  else acts.forEach(a => h += '<div class="md-act-line">' + esc(a.text) + '<span class="t">' + esc(fmtTime(a.createdAt)) + '</span></div>');
+  h += '</div></div>';
+
+  h += '</div>';
+  p.innerHTML = h;
+  const ask = document.getElementById("mdAsk");
+  if (ask) ask.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); myDayAsk(); } });
+}
+function myDayAsk(){
+  const inp = document.getElementById("mdAsk"); if (!inp) return;
+  const v = (inp.value || "").trim(); if (!v) return;
+  if (!brand()){ toast("Encode a brand first to chat with SYN."); setView("chat"); return; }
+  inp.value = "";
+  setView("chat");
+  const ci = document.getElementById("input"); if (ci){ ci.value = v; send(); }
+}
+async function planMyDay(){
+  const btn = document.getElementById("mdPlanBtn"), out = document.getElementById("mdPlanOut");
+  if (!out) return;
+  out.style.display = "block";
+  out.innerHTML = '<div class="spec-block"><div class="sb-body"><div class="status-line"><span class="s-dot"></span><span class="s-txt">SYN is drafting your day…</span></div></div></div>';
+  if (btn){ btn.disabled = true; btn.textContent = "Planning…"; }
+  const myTasks = Tasks.list(t => canSeeTask(t) && t.status !== "done" && (t.assignees || []).includes(currentUser.id));
+  const events = myUpcomingEvents(2);
+  const tLines = myTasks.map(t => "- " + t.title + (t.dueDate ? " (due " + t.dueDate + ")" : "") + " [" + (T_PRI[t.priority] || T_PRI.med).label + "]").join("\n") || "None";
+  const eLines = events.map(x => "- " + x.ev.title + " on " + x.iso + (x.ev.allDay ? " (all day)" : " at " + (x.ev.startTime || ""))).join("\n") || "None";
+  const summary = "My open tasks:\n" + tLines + "\n\nMy events (next 2 days):\n" + eLines + "\n\nDraft a focused, prioritized plan for today.";
+  try{
+    const res = await fetch(apiBase() + "/v1/messages", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ model: MODELS.smart, max_tokens:1200,
+        system: "You are SYN, a sharp chief-of-staff. Given a teammate's open tasks and events, write a concise, prioritized plan for their day: a short opening line, then an ordered list of what to focus on and when, grouping around their meetings. Flag anything overdue first. Clean markdown, no preamble, no em dashes. Today is " + todayISO() + ".",
+        messages:[{ role:"user", content: summary }] })
+    });
+    const data = await res.json();
+    const txt = (data.content || []).filter(c => c.type === "text").map(c => c.text).join("").trim();
+    out.innerHTML = '<div class="spec-block"><div class="sb-head">Your plan for today <button class="add-btn" data-wact="mdPlanClose">Dismiss</button></div><div class="sb-body md">' + (txt ? renderMD(txt) : "SYN did not return a plan. Try again.") + '</div></div>';
+  }catch(e){
+    out.innerHTML = '<div class="spec-block"><div class="sb-body"><div class="md-empty-row">SYN is offline right now. Plan-my-day needs SYN Core connected. Your tasks and events above still work.</div></div></div>';
+  }
+  if (btn){ btn.disabled = false; btn.textContent = "✦ Plan my day"; }
+}
+
+/* people directory */
+function openTaskCount(uid2){ return Tasks.list(t => t.status !== "done" && (t.assignees || []).includes(uid2)).length; }
+function renderPeople(){
+  const p = document.getElementById("peoplePanel"); if (!p) return;
+  let h = '<div class="panel-head"><div><h2>People</h2><p class="sub">Everyone in ' + esc(ORG ? ORG.name : "") + '. Message a teammate or see what they are working on.</p></div></div>';
+  h += '<div class="people-grid">';
+  TEAM.forEach(u => { const oc = openTaskCount(u.id);
+    h += '<div class="person-card"><div class="avatar">' + esc(initials(u.name)) + '</div><div class="p-info">' +
+      '<div class="p-name">' + esc(u.name) + (u.id === currentUser.id ? ' <span style="color:var(--faint);font-size:11px;font-weight:600">You</span>' : '') + '</div>' +
+      '<div class="p-meta">' + esc(u.email) + '</div><div class="p-role">' + esc(u.role) + ' · ' + oc + ' open task' + (oc === 1 ? '' : 's') + '</div>' +
+      '<div class="p-acts">' + (u.id !== currentUser.id ? '<button class="mode-btn" data-wact="pDM" data-uid="' + u.id + '">Message</button>' : '') +
+      '<button class="mode-btn" data-wact="pTasks" data-uid="' + u.id + '">View tasks</button></div></div></div>';
+  });
+  h += '</div>';
+  p.innerHTML = h;
+}
+
+/* my day + people click delegation */
+document.addEventListener("click", e => {
+  const w = e.target.closest("[data-wact]"); if (!w) return;
+  const a = w.dataset.wact;
+  if (a === "mdAsk"){ myDayAsk(); return; }
+  if (a === "planMyDay"){ planMyDay(); return; }
+  if (a === "mdPlanClose"){ const o = document.getElementById("mdPlanOut"); if (o){ o.style.display = "none"; o.innerHTML = ""; } return; }
+  if (a === "mdEvent"){ setView("calendar"); if (Events.get(w.dataset.eid)) openEventModal(w.dataset.eid); return; }
+  if (a === "mdThread"){ setView("spaces"); openThread(w.dataset.kind, w.dataset.id); return; }
+  if (a === "mdApprovals"){ setView("approvals"); return; }
+  if (a === "pDM"){ setView("spaces"); startDM(w.dataset.uid); return; }
+  if (a === "pTasks"){ taskFilter = { project:"", assignee:w.dataset.uid, priority:"", label:"", sort:"manual" }; taskView = "list"; setView("tasks"); return; }
+});
+
+/* =====================================================================
    STAGE 3 · SPACES (channels) + DIRECT MESSAGES + AI SPACES
    ===================================================================== */
 let activeSpaceKind = null;                 // "space" | "dm"
@@ -3230,6 +3424,12 @@ function saveSeen(){ saveSoon(okey("seen:" + currentUser.id), () => SEEN, false)
 function recFor(kind, id){ return kind === "space" ? Spaces.get(id) : DMs.get(id); }
 function unreadFor(kind, id){ const rec = recFor(kind, id); const total = rec ? (rec.msgCount || 0) : 0; return Math.max(0, total - (SEEN[kind + ":" + id] || 0)); }
 function markSeen(kind, id){ const rec = recFor(kind, id); const total = Math.max(rec ? (rec.msgCount || 0) : 0, threadMsgs(kind, id).length); SEEN[kind + ":" + id] = total; saveSeen(); }
+function hasUnreadMention(spaceId){ return Notifs.list(n => n.forUserId === currentUser.id && n.type === "mention" && !n.read && n.link && n.link.space === spaceId).length > 0; }
+function clearSpaceMentions(spaceId){
+  let changed = false;
+  collAll("notifications").forEach(n => { if (n.forUserId === currentUser.id && n.type === "mention" && !n.read && n.link && n.link.space === spaceId){ n.read = true; changed = true; } });
+  if (changed){ collSave("notifications"); BUS.emit("change:notifications", {}); renderBell(); }
+}
 function updateSpacesBadge(){
   const badge = document.getElementById("spacesBadge"); if (!badge || !currentUser) return;
   let n = 0;
@@ -3238,14 +3438,15 @@ function updateSpacesBadge(){
   badge.style.display = n ? "inline-block" : "none"; badge.textContent = n > 99 ? "99+" : n;
 }
 
-/* seed a default General space and migrate legacy team chat (once) */
+/* ensure every workspace has a default General space; migrate legacy team chat once */
 async function initSpaces(){
-  if (SETTINGS.spacesInit || Spaces.list().length) return;
-  const gen = Spaces.create({ name:"General", icon:"◆", color:"#E4C169", description:"Workspace-wide team chat", type:"team", members:"all" });
+  if (Spaces.list().length) return;                      // never leave the workspace without a space
+  const legacy = (!SETTINGS.spacesInit && TEAMCHAT && TEAMCHAT.length) ? TEAMCHAT : [];
+  const gen = Spaces.create({ name:"General", icon:"◆", color:"#E4C169", description:"Workspace-wide team chat, open to everyone", type:"team", members:"all" });
   const key = msgKey("space", gen.id); await collLoad(key);
-  coll(key).cache = (TEAMCHAT || []).map(m => ({ id: m.id || uid("m"), by:m.by, byId:m.byId, at:m.at, text:m.text, atts:[], reactions:{} }));
+  coll(key).cache = legacy.map(m => ({ id: m.id || uid("m"), by:m.by, byId:m.byId, at:m.at, text:m.text, atts:[], reactions:{} }));
   collSave(key);
-  Spaces.update(gen.id, { msgCount:(TEAMCHAT || []).length, lastMsgAt:(TEAMCHAT && TEAMCHAT.length) ? TEAMCHAT[TEAMCHAT.length-1].at : null });
+  Spaces.update(gen.id, { msgCount: legacy.length, lastMsgAt: legacy.length ? legacy[legacy.length-1].at : null });
   SETTINGS.spacesInit = true; saveSettings();
 }
 
@@ -3268,10 +3469,12 @@ function renderSpaceRail(){
   const dms = DMs.list(d => Array.isArray(d.members) && d.members.includes(currentUser.id)).sort((a,b) => new Date(b.lastMsgAt || b.createdAt) - new Date(a.lastMsgAt || a.createdAt));
   let h = '<div class="space-sec"><span class="space-sec-lbl">Spaces</span>' + (isAdmin() ? '<button class="add-btn" data-wact="newSpace">+ New</button>' : "") + '</div><div class="space-list">';
   if (!spaces.length) h += '<div class="space-empty-rail">No spaces yet.' + (isAdmin() ? " Create one with + New." : " An admin can create the first space.") + '</div>';
-  spaces.forEach(s => { const un = unreadFor("space", s.id);
-    h += '<button class="space-item' + (activeSpaceKind === "space" && activeSpaceId === s.id ? " active" : "") + (s.archived ? " arch" : "") + '" data-wact="openSpace" data-id="' + s.id + '">' +
+  spaces.forEach(s => { const un = unreadFor("space", s.id); const men = hasUnreadMention(s.id);
+    h += '<button class="space-item' + (activeSpaceKind === "space" && activeSpaceId === s.id ? " active" : "") + (s.archived ? " arch" : "") + (men ? " has-mention" : "") + '" data-wact="openSpace" data-id="' + s.id + '">' +
       '<span class="space-ico" style="--si:' + esc(s.color) + ';--si-soft:' + hexToSoft(s.color) + '">' + esc(s.icon || "◆") + '</span><span class="space-nm">' + esc(s.name) + '</span>' +
-      (s.type === "ai" ? '<span class="space-ai-tag">AI</span>' : "") + (un ? '<span class="space-unread">' + un + '</span>' : "") + '</button>';
+      (s.type === "ai" ? '<span class="space-ai-tag">AI</span>' : "") +
+      (men ? '<span class="space-mention" title="You were mentioned">@</span>' : "") +
+      (un ? '<span class="space-unread">' + un + '</span>' : "") + '</button>';
   });
   h += '</div><div class="space-sec"><span class="space-sec-lbl">Direct Messages</span><button class="add-btn" data-wact="newDM">+ New</button></div><div class="space-list">';
   if (!dms.length) h += '<div class="space-empty-rail">No direct messages yet.</div>';
@@ -3381,6 +3584,7 @@ async function openThread(kind, id){
   activeSpaceKind = kind; activeSpaceId = id; spacePending = [];
   await loadThreadMsgs(kind, id);
   markSeen(kind, id);
+  if (kind === "space") clearSpaceMentions(id);
   renderSpaceMain(); renderSpaceRail(); updateSpacesBadge();
   if (window.innerWidth <= 900) document.getElementById("sidebar").classList.remove("open");
 }
@@ -3678,7 +3882,8 @@ function wireWorkspaceBus(){
   BUS.on("change:events", () => { if (viewIs("calendar")) renderCalendar(); });
   BUS.on("change:spaces", () => { if (viewIs("spaces")) renderSpaceRail(); updateSpacesBadge(); });
   BUS.on("change:dms", () => { if (viewIs("spaces")) renderSpaceRail(); updateSpacesBadge(); });
-  BUS.on("change:notifications", () => renderBell());
+  BUS.on("change:notifications", () => { renderBell(); if (viewIs("spaces")) renderSpaceRail(); });
+  ["tasks","events","spaces","dms","notifications","activity","projects"].forEach(k => BUS.on("change:" + k, () => { if (viewIs("myday")) renderMyDay(); if (viewIs("people") && (k === "tasks")) renderPeople(); }));
   BUS.on("notif:new", () => renderBell());
 }
 function updateTasksBadge(){
