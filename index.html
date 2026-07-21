@@ -837,7 +837,13 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .price-feat li{font-size:13.5px;color:var(--text);display:flex;gap:10px;align-items:flex-start;line-height:1.5}
 .price-feat li::before{content:"✓";color:var(--good);font-weight:800;flex-shrink:0}
 .price-feat li.muted{color:var(--muted)}
-.price-note{text-align:center;color:var(--faint);font-size:12.5px;margin-top:24px}
+.price-amt span{font-size:15px;color:var(--muted);font-weight:600}
+.price-cap{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.price-plus{font-size:12px;color:var(--gold);margin:2px 0 0}
+.price-feat li.onb{color:var(--muted)}
+.price-feat li.onb::before{content:"+";color:var(--gold)}
+.price-annual{text-align:center;color:var(--gold);font-size:13px;font-weight:600;margin-top:26px}
+.price-note{text-align:center;color:var(--faint);font-size:12.5px;margin-top:8px}
 /* cta band */
 .site-cta-band{margin:20px 0 0;border-radius:var(--r-lg);background:linear-gradient(135deg,rgba(228,193,105,.12),rgba(255,255,255,.03));border:1px solid var(--glass-border);backdrop-filter:blur(18px);padding:56px 40px;text-align:center}
 .site-cta-band h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(24px,3vw,38px);letter-spacing:-.01em;margin-bottom:22px}
@@ -985,35 +991,49 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
         <p class="sec-sub c">Start small and grow into the whole platform. Pricing scales with your team and how many brands you run.</p>
         <div class="price-grid">
           <div class="price-card">
-            <div class="price-name">Starter</div><div class="price-for">Small team · one brand</div>
-            <div class="price-amt">Starting at <b>$—</b></div>
-            <div class="price-desc">Get one brand and the core workspace running for a small, focused team.</div>
+            <div class="price-name">Starter</div><div class="price-for">Small team, one brand.</div>
+            <div class="price-amt"><b>$199</b> <span>/mo</span></div>
+            <div class="price-cap">Up to 5 people · 1 brand · standard AI allowance</div>
             <ul class="price-feat">
-              <li>One encoded brand</li><li>Core workspace: tasks, calendar</li><li>Spaces, DMs & mentions</li><li>Approvals & audit trail</li><li>My Day + People directory</li>
+              <li>One encoded brand</li>
+              <li>Core workspace: tasks, calendar, spaces, DMs, approvals</li>
+              <li>My Day + People directory</li>
+              <li class="onb">$500 one-time onboarding</li>
             </ul>
             <button class="site-btn ghost" onclick="siteAuth('create')">Get Started</button>
           </div>
           <div class="price-card core">
-            <div class="price-tag">The core</div>
-            <div class="price-name">Team</div><div class="price-for">Whole company</div>
-            <div class="price-amt">Starting at <b>$—</b></div>
-            <div class="price-desc">The full platform for an entire company working on one brand together.</div>
+            <div class="price-tag">The core · most popular</div>
+            <div class="price-name">Team</div><div class="price-for">Your whole company, one brand.</div>
+            <div class="price-amt"><b>$499</b> <span>/mo</span></div>
+            <div class="price-cap">Unlimited people · 1 brand · large AI allowance</div>
             <ul class="price-feat">
-              <li>Everything in Starter</li><li>Your whole team, not a seat cap</li><li>AI spaces & brand-aware chat</li><li>Integrations: Slack, Teams, Zoom, webhooks</li><li>Full brand memory & knowledge library</li>
+              <li>Everything in Starter, plus:</li>
+              <li>AI brand chat &amp; AI spaces</li>
+              <li>Integrations: Slack, Teams, Zoom, webhooks</li>
+              <li>Full brand memory &amp; knowledge library</li>
+              <li>On-site brand assistant</li>
+              <li class="onb">$1,500 one-time onboarding</li>
             </ul>
             <button class="site-btn gold" onclick="siteAuth('create')">Get Started</button>
           </div>
           <div class="price-card">
-            <div class="price-name">Portfolio</div><div class="price-for">Agencies · multi-brand</div>
-            <div class="price-amt">Starting at <b>$—</b></div>
-            <div class="price-desc">For agencies and houses of brands running many brands from one command view.</div>
+            <div class="price-name">Portfolio</div><div class="price-for">Agencies &amp; houses of brands.</div>
+            <div class="price-amt"><b>$1,299</b> <span>/mo</span></div>
+            <div class="price-plus">+$299 per extra brand</div>
+            <div class="price-cap">Unlimited people · up to 5 brands · highest AI allowance</div>
             <ul class="price-feat">
-              <li>Everything in Team</li><li>Multiple brands, one workspace</li><li>Portfolio dashboard across brands</li><li>Per-brand voice & guardrails</li><li>Priority support</li>
+              <li>Everything in Team, plus:</li>
+              <li>Portfolio dashboard across brands</li>
+              <li>Per-brand voice &amp; guardrails</li>
+              <li>Priority support</li>
+              <li class="onb">Dedicated onboarding ($2,500 one-time)</li>
             </ul>
             <button class="site-btn ghost" onclick="siteAuth('create')">Get Started</button>
           </div>
         </div>
-        <p class="price-note">Final pricing and self-serve billing activate with SYN Core (Stripe). Starting-at figures are set at launch; talk to us for a workspace today.</p>
+        <p class="price-annual">Save two months with annual billing.</p>
+        <p class="price-note">Final billing activates with SYN Core (Stripe). Every Get Started routes into workspace creation now.</p>
       </div></section>
 
       <section class="site-sec"><div class="site-wrap">
@@ -1045,70 +1065,56 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     <div class="site-page" id="sp-terms"><div class="site-wrap"><div class="legal">
       <span class="backlink" onclick="goSite('home')">← Back to home</span>
       <h1>Terms of Service</h1>
-      <div class="legal-meta">SYN by Syntrex LLC · Baseline v1</div>
-      <div class="legal-note">Placeholder baseline for legal review before launch. Not legal advice; have counsel review and adapt before relying on it.</div>
-      <p>These Terms of Service ("Terms") govern access to and use of the SYN workspace application and related services ("Service"), provided by <strong>Syntrex LLC</strong> ("Syntrex", "we", "us"), 513 Main Street, Windermere, FL 34786. By creating a workspace or using the Service, you agree to these Terms on behalf of yourself and any organization you represent ("you").</p>
-      <h2>1. The Service</h2><p>SYN is a team workspace and brand-intelligence platform. Features, including AI-assisted generation, may change, and some capabilities depend on third-party or backend services that may be added over time.</p>
-      <h2>2. Accounts and workspaces</h2><p>You are responsible for the accuracy of your account information, for maintaining the confidentiality of your credentials and workspace join codes, and for all activity under your workspace. Workspace administrators control membership and roles.</p>
-      <h2>3. Your content</h2><p>You retain all rights to the brands, files, messages, and other content you and your team put into the Service ("Customer Content"). You grant Syntrex a limited license to host, process, and display Customer Content solely to operate and improve the Service for you.</p>
-      <h2>4. Acceptable use</h2><p>Your use of the Service is subject to our Acceptable Use Policy. You are responsible for how your team uses the Service and for the content you create with it.</p>
-      <h2>5. AI output requires human review</h2><p><strong>AI-generated output may be inaccurate, incomplete, or non-compliant, and must be reviewed and approved by a qualified human before it is published, sent, or otherwise relied upon.</strong> Syntrex does not warrant that AI output is accurate, on-brand, or compliant with any law or regulation. You are solely responsible for verifying output before use.</p>
-      <h2>6. Your compliance responsibility</h2><p>You are solely responsible for ensuring that your content, claims, and use of the Service comply with all laws and regulations that apply to your business, including advertising, marketing, industry, and data-protection rules. Brand guardrail features are aids, not a guarantee of compliance.</p>
-      <h2>7. Third-party services</h2><p>The Service may connect to third-party tools you configure (for example, webhooks to Slack, Microsoft Teams, or Zoom). Those services are governed by their own terms, and Syntrex is not responsible for them.</p>
-      <h2>8. Fees</h2><p>Paid plans and billing terms will be presented at the point of purchase. Where figures are shown as "starting at", final pricing is confirmed before any charge.</p>
-      <h2>9. Warranty disclaimer</h2><p><strong>The Service is provided "as is" and "as available", without warranties of any kind, express or implied,</strong> including merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that the Service will be uninterrupted, error-free, or secure.</p>
-      <h2>10. Limitation of liability</h2><p><strong>To the maximum extent permitted by law, Syntrex will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for lost profits, revenue, data, or goodwill. Syntrex's total liability arising out of or relating to the Service is limited to the amounts you paid to Syntrex for the Service in the three months before the event giving rise to the claim.</strong></p>
-      <h2>11. Termination</h2><p>You may stop using the Service at any time. We may suspend or terminate access for breach of these Terms or the Acceptable Use Policy. On termination you may request an export of your Customer Content where reasonably practicable.</p>
-      <h2>12. Governing law</h2><p>These Terms are governed by the laws of the State of Florida, without regard to conflict-of-law rules. Venue for disputes lies in Orange County, Florida.</p>
-      <h2>13. Changes</h2><p>We may update these Terms. Material changes will be communicated through the Service or by email. Continued use after changes take effect constitutes acceptance.</p>
-      <h2>Contact</h2><p>Questions about these Terms: <strong>henry@syntrexio.com</strong> · Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
+      <div class="legal-meta">Effective date: July 21, 2026 · Syntrex LLC</div>
+      <p>These Terms of Service govern your access to and use of the SYN platform and related services ("Service"), provided by <strong>Syntrex LLC</strong> ("Syntrex," "we," "us"), 513 Main Street, Windermere, FL 34786. By creating a workspace or using the Service, you agree to these Terms on behalf of yourself and any organization you represent ("you").</p>
+      <h2>1. The Service</h2><p>SYN is a team workspace and brand-intelligence platform. Features, including AI-assisted generation, may change, and some capabilities depend on third-party services. We may modify, suspend, or discontinue any part of the Service at any time.</p>
+      <h2>2. Accounts and workspaces</h2><p>You are responsible for the accuracy of your account information, for keeping your credentials and workspace join codes confidential, and for all activity in your workspace. Workspace administrators control membership and roles. You must be at least 18 years old and able to form a binding contract.</p>
+      <h2>3. Your content</h2><p>You retain all rights to the brands, files, messages, and other content you and your team put into the Service ("Customer Content"). You grant Syntrex a limited license to host, process, and display Customer Content solely to operate and improve the Service for you. You are solely responsible for your Customer Content and for having the rights to use it.</p>
+      <h2>4. AI output</h2><p>The Service uses artificial intelligence to generate text, images, and other output. AI output may be inaccurate, incomplete, or unsuitable, and is not professional, legal, medical, or financial advice. You are responsible for reviewing all AI output before use or publication and for ensuring it complies with all laws, regulations, and third-party rights that apply to you and your industry. Syntrex does not guarantee the accuracy, compliance, or fitness of any AI output.</p>
+      <h2>5. Acceptable use</h2><p>You agree to the Acceptable Use Policy. We may suspend or terminate accounts that violate it.</p>
+      <h2>6. Fees</h2><p>Paid plans are billed in advance on a recurring basis. Fees are non-refundable except where required by law. We may change pricing with notice; changes apply to the next billing cycle. You are responsible for applicable taxes.</p>
+      <h2>7. Third-party services</h2><p>The Service integrates with third-party tools (for example messaging, calendar, and AI providers). Your use of those tools is governed by their own terms, and we are not responsible for them.</p>
+      <h2>8. Intellectual property</h2><p>Syntrex and its licensors own the Service, including its software, design, and trademarks. These Terms grant you no rights in them except the limited right to use the Service.</p>
+      <h2>9. Disclaimers</h2><p><strong>THE SERVICE AND ALL OUTPUT ARE PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.</strong> We do not warrant that the Service will be uninterrupted, secure, or error-free.</p>
+      <h2>10. Limitation of liability</h2><p><strong>TO THE MAXIMUM EXTENT PERMITTED BY LAW, SYNTREX WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, DATA, OR GOODWILL. OUR TOTAL LIABILITY FOR ANY CLAIM RELATING TO THE SERVICE WILL NOT EXCEED THE AMOUNT YOU PAID US FOR THE SERVICE IN THE THREE MONTHS BEFORE THE CLAIM.</strong></p>
+      <h2>11. Indemnification</h2><p>You will indemnify and hold Syntrex harmless from claims arising out of your Customer Content, your use of the Service, or your violation of these Terms or applicable law.</p>
+      <h2>12. Termination</h2><p>You may stop using the Service at any time. We may suspend or terminate access for violation of these Terms. You may export your workspace data before termination using the in-app backup.</p>
+      <h2>13. Governing law</h2><p>These Terms are governed by the laws of the State of Florida, without regard to conflict-of-laws rules. Disputes will be resolved in the state or federal courts located in Orange County, Florida.</p>
+      <h2>14. Changes</h2><p>We may update these Terms; material changes will be posted here with a new effective date. Continued use means acceptance.</p>
+      <h2>15. Contact</h2><p>Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
     </div></div></div>
 
     <!-- LEGAL: PRIVACY -->
     <div class="site-page" id="sp-privacy"><div class="site-wrap"><div class="legal">
       <span class="backlink" onclick="goSite('home')">← Back to home</span>
       <h1>Privacy Policy</h1>
-      <div class="legal-meta">SYN by Syntrex LLC · Baseline v1</div>
-      <div class="legal-note">Placeholder baseline for legal review before launch. Confirm this reflects your actual data flows and obligations before relying on it.</div>
-      <p>This Privacy Policy explains how <strong>Syntrex LLC</strong> ("Syntrex", "we") handles information in connection with the SYN workspace ("Service"). Syntrex LLC is located at 513 Main Street, Windermere, FL 34786.</p>
-      <h2>1. Information we handle</h2><ul>
-        <li><strong>Account data</strong> you provide: name, work email, workspace name, role, and (optionally) an avatar and display name.</li>
-        <li><strong>Customer Content</strong> your team creates: brands, tasks, events, messages, files, approvals, and related workspace data.</li>
-        <li><strong>Usage and technical data</strong> needed to operate the Service, such as storage and basic diagnostics.</li>
-      </ul>
-      <h2>2. How we use it</h2><p>We use information to provide, secure, and improve the Service, to enable collaboration within your workspace, and to power features you use, including AI-assisted generation.</p>
-      <h2>3. AI processing</h2><p>When you use AI features, the relevant prompt and context may be sent to an AI provider to generate a response. Do not enter information into AI features that you are not permitted to share. AI output must be reviewed by a human before use.</p>
-      <h2>4. Storage and sharing within your workspace</h2><p>Workspace data is shared with members of your workspace according to the visibility settings you choose (team vs. private). Administrators can manage members and roles. We do not sell your personal information.</p>
-      <h2>5. Third-party integrations</h2><p>If you configure integrations (for example Slack, Microsoft Teams, Zoom, or generic webhooks), the notifications you enable are sent to the endpoint you provide. Those third parties handle that data under their own policies.</p>
-      <h2>6. Retention</h2><p>We retain Customer Content for as long as your workspace is active or as needed to provide the Service, and for a reasonable period afterward unless you request deletion, subject to legal and operational requirements.</p>
-      <h2>7. Your choices and rights</h2><p>Depending on your location, you may have rights to access, correct, export, or delete personal data. Workspace admins can manage most data directly in the app; for other requests contact us.</p>
-      <h2>8. Security</h2><p>We take reasonable measures to protect information, but no system is perfectly secure. You are responsible for safeguarding your credentials and workspace join codes.</p>
-      <h2>9. Children</h2><p>The Service is intended for business use and is not directed to children under 13.</p>
-      <h2>10. Changes</h2><p>We may update this Policy and will communicate material changes through the Service or by email.</p>
-      <h2>Contact</h2><p>Privacy questions: <strong>henry@syntrexio.com</strong> · Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
+      <div class="legal-meta">Effective date: July 21, 2026 · Syntrex LLC</div>
+      <p>This Privacy Policy explains how <strong>Syntrex LLC</strong> ("Syntrex," "we," "us") handles information in connection with the SYN platform ("Service").</p>
+      <h2>1. Information we collect</h2><p>Account information (name, email, workspace role) that you provide; Customer Content you and your team create in the Service (brands, files, messages, tasks, events); and basic technical information needed to operate the Service.</p>
+      <h2>2. How we use information</h2><p>To provide, secure, and improve the Service; to authenticate users and workspaces; to process AI requests you initiate; and to communicate with you about the Service.</p>
+      <h2>3. AI processing</h2><p>When you use AI features, the relevant content is sent to third-party AI providers to generate output, and returned to you. We do not sell your Customer Content, and we do not use your Customer Content to train our own or third parties' foundation models except as needed to provide the Service to you.</p>
+      <h2>4. Storage</h2><p>Your workspace data is stored to operate the Service. Until server-side storage is enabled for your workspace, some data may be stored in your browser on your device.</p>
+      <h2>5. Sharing</h2><p>We share information only with service providers that help us run the Service (for example hosting and AI providers), when required by law, or to protect rights and safety. Workspace Content is visible to members of your workspace according to the roles and visibility settings you choose.</p>
+      <h2>6. Your choices</h2><p>You can access, edit, or delete much of your data in the app, and export your full workspace with the in-app backup. You can request deletion of your account by contacting us.</p>
+      <h2>7. Security</h2><p>We use reasonable measures to protect information, but no method of transmission or storage is completely secure.</p>
+      <h2>8. Children</h2><p>The Service is not intended for anyone under 18, and we do not knowingly collect their information.</p>
+      <h2>9. Changes</h2><p>We may update this Policy; changes will be posted here with a new effective date.</p>
+      <h2>10. Contact</h2><p>Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
     </div></div></div>
 
     <!-- LEGAL: ACCEPTABLE USE -->
     <div class="site-page" id="sp-acceptable-use"><div class="site-wrap"><div class="legal">
       <span class="backlink" onclick="goSite('home')">← Back to home</span>
-      <h1>Acceptable Use & Disclaimer</h1>
-      <div class="legal-meta">SYN by Syntrex LLC · Baseline v1</div>
-      <div class="legal-note">Placeholder baseline for legal review before launch. Tailor prohibited-use and disclaimer language to your risk profile before relying on it.</div>
-      <p>This Acceptable Use Policy applies to everyone who uses the SYN workspace ("Service") provided by <strong>Syntrex LLC</strong>. It supplements the Terms of Service.</p>
-      <h2>1. You are responsible for your content</h2><p>You are solely responsible for the content your team creates, uploads, generates, or sends with the Service, and for ensuring you have the rights to use it. Syntrex does not pre-screen Customer Content.</p>
-      <h2>2. Human review before use</h2><p><strong>AI-assisted output is a draft aid, not a finished, verified deliverable. Every AI output must be reviewed and approved by a qualified human before it is published, sent to a customer, filed, or otherwise relied upon.</strong> Brand guardrails and approval steps are aids and do not guarantee accuracy or compliance.</p>
-      <h2>3. Regulatory compliance is yours</h2><p>You are responsible for complying with all laws and regulations that apply to your business and content, including advertising and marketing rules, industry-specific requirements (for example financial, health, or safety claims), intellectual-property rights, and data-protection law. Do not use the Service to produce claims you are not authorized or able to substantiate.</p>
-      <h2>4. Prohibited uses</h2><p>Do not use the Service to:</p><ul>
-        <li>Break the law or infringe others' rights, including IP, privacy, and publicity rights.</li>
-        <li>Create or distribute unlawful, deceptive, harassing, hateful, or harmful content.</li>
-        <li>Generate false or misleading claims, or impersonate a person or organization.</li>
-        <li>Upload malware, attempt to breach security, or disrupt or overload the Service.</li>
-        <li>Reverse engineer the Service or resell it except as expressly permitted.</li>
-      </ul>
-      <h2>5. No professional advice</h2><p>The Service and its AI features do not provide legal, financial, medical, or other professional advice. Consult a qualified professional for such matters.</p>
-      <h2>6. "As is"; no warranty</h2><p><strong>The Service is provided "as is" without warranty of any kind. Syntrex does not warrant that output is accurate, on-brand, lawful, or fit for any purpose.</strong> See the Terms of Service for the full warranty disclaimer and limitation of liability.</p>
-      <h2>7. Enforcement</h2><p>We may investigate suspected violations and may suspend or terminate access for conduct that breaches this Policy or the Terms.</p>
-      <h2>Contact</h2><p>Report misuse or ask questions: <strong>henry@syntrexio.com</strong> · Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
+      <h1>Acceptable Use Policy</h1>
+      <div class="legal-meta">Effective date: July 21, 2026 · Syntrex LLC</div>
+      <p>This Acceptable Use Policy applies to everyone who uses the SYN platform. You agree not to use the Service to:</p>
+      <h2>1. Break the law or infringe rights</h2><p>Break the law or infringe others' rights, including intellectual property, privacy, or publicity rights.</p>
+      <h2>2. Publish false or unauthorized claims</h2><p>Generate or publish content that is false, deceptive, defamatory, or that makes regulated claims you are not authorized to make. You are responsible for the accuracy and legal compliance of everything you publish, including AI-assisted output.</p>
+      <h2>3. Create harmful content</h2><p>Create content that is harmful, harassing, hateful, sexually exploitative, or that endangers others, especially minors.</p>
+      <h2>4. Compromise the Service</h2><p>Attempt to breach security, access other workspaces, reverse-engineer the Service, or overload or disrupt it.</p>
+      <h2>5. Misuse AI features</h2><p>Misuse AI features to produce malware, spam, or content intended to deceive or defraud.</p>
+      <h2>6. Resell without permission</h2><p>Resell or provide the Service to third parties except as expressly permitted by your plan.</p>
+      <h2>Enforcement</h2><p>We may investigate suspected violations and suspend or terminate access. You remain responsible for your team's use of the Service. Questions: Syntrex LLC, 513 Main Street, Windermere, FL 34786.</p>
     </div></div></div>
   </div>
 </div>
@@ -1261,10 +1267,10 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     <div class="m-body">
       <label class="f-label">Auto-fill from the web</label>
       <div class="mini-form" style="margin-top:0">
-        <input class="f-input" id="bmSite" placeholder="Company website (optional)">
+        <input class="f-input" id="bmSite" placeholder="Company name or website URL">
         <button class="btn-gold" id="bmResearch" type="button">Research &amp; Fill</button>
       </div>
-      <div class="f-hint" id="bmResearchStatus">SYN will search the internet for this company and fill everything below. You correct anything it gets wrong.</div>
+      <div class="f-hint" id="bmResearchStatus">Enter your company name or paste your website URL. SYN reads the live web (and that site if you give one) and fills everything below. You correct anything it gets wrong.</div>
       <label class="f-label" for="bmName">Brand name</label><input class="f-input" id="bmName">
       <label class="f-label" for="bmInd">Industry</label><input class="f-input" id="bmInd" placeholder="e.g. Consumer beverage">
       <label class="f-label" for="bmAccent">Accent color</label>
@@ -2526,7 +2532,7 @@ function openBrandModal(editId){
   set("bmName", b ? b.name : (!BRANDS.length && ORG ? ORG.name : ""));
   set("bmInd", b && b.industry);
   set("bmSite", "");
-  document.getElementById("bmResearchStatus").textContent = "SYN will search the internet for this company and fill everything below. You correct anything it gets wrong.";
+  document.getElementById("bmResearchStatus").textContent = "Enter your company name or paste your website URL. SYN reads the live web (and that site if you give one) and fills everything below. You correct anything it gets wrong.";
   const accent = b ? b.accent : "#E4C169";
   set("bmAccent", accent);
   const ap = document.getElementById("bmAccentPick");
@@ -2583,23 +2589,30 @@ function deleteBrandNow(){
 
 /* ---------------- BRAND RESEARCH AUTO-FILL ---------------- */
 let researching = false;
+function looksLikeUrl(v){ return /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/[^\s]*)?$/i.test(v) && !/\s/.test(v); }
+function nameFromUrl(u){ try{ const h = u.replace(/^https?:\/\//i, "").split("/")[0].replace(/^www\./i, ""); const root = h.split(".")[0]; return root ? root.charAt(0).toUpperCase() + root.slice(1) : ""; }catch(e){ return ""; } }
 async function researchBrand(){
   if (researching) return;
-  const name = document.getElementById("bmName").value.trim() || (ORG ? ORG.name : "");
-  const site = document.getElementById("bmSite").value.trim();
+  const raw = document.getElementById("bmSite").value.trim();
+  const nameField = document.getElementById("bmName").value.trim();
   const status = document.getElementById("bmResearchStatus");
-  if (!name){ status.textContent = "Enter the brand name first."; return; }
+  // The auto-fill field accepts EITHER a company name OR a website URL.
+  let site = "", typedName = "";
+  if (raw && looksLikeUrl(raw)){ site = raw.startsWith("http") ? raw : ("https://" + raw); }
+  else { typedName = raw; }
+  const name = typedName || nameField || (site ? nameFromUrl(site) : "") || (ORG ? ORG.name : "");
+  if (!name && !site){ status.textContent = "Enter a company name or a website URL first."; return; }
   researching = true;
   const btn = document.getElementById("bmResearch");
   btn.textContent = "Researching…";
-  status.textContent = "Searching the web for " + name + "…";
+  status.textContent = "Searching the web for " + (site || name) + "…";
   try{
     const res = await fetch(apiBase() + "/v1/messages", {
       method:"POST", headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
         model:"claude-sonnet-4-6", max_tokens:2500,
-        system: "You are a brand researcher. Research the company on the live web and return ONLY a JSON object, no markdown fences, no commentary, with exactly these keys: industry (short string), voice (2-3 sentence brand voice description), audience (1-2 sentences), products (array of strings), approvedClaims (array of strings, verifiable claims from their site), bannedClaims (array of strings, phrases this company should avoid for legal or accuracy reasons), legal (1-3 sentences of legal/regulatory constraints for this industry), imageStyle (2-3 sentences describing photography/visual style fitting the brand), palette (array of up to 5 objects {name, hex} matching the brand's real colors), accent (single hex string, the brand's primary color). If unsure of a field, give a sensible industry-appropriate value. Never invent certifications.",
-        messages: [{ role:"user", content: "Research this company and fill the brand profile. Company: " + name + (site ? (". Website: " + site) : "") }],
+        system: "You are a brand researcher. Research the company on the live web and return ONLY a JSON object, no markdown fences, no commentary, with exactly these keys: name (the company's proper display name), industry (short string), voice (2-3 sentence brand voice description), audience (1-2 sentences), products (array of strings), approvedClaims (array of strings, verifiable claims from their site), bannedClaims (array of strings, phrases this company should avoid for legal or accuracy reasons), legal (1-3 sentences of legal/regulatory constraints for this industry), imageStyle (2-3 sentences describing photography/visual style fitting the brand), palette (array of up to 5 objects {name, hex} matching the brand's real colors), accent (single hex string, the brand's primary color). If unsure of a field, give a sensible industry-appropriate value. Never invent certifications.",
+        messages: [{ role:"user", content: "Research this company from the live web" + (site ? ", reading their website directly at " + site : "") + ", and fill the brand profile. " + (site ? ("Website: " + site + (typedName || nameField ? (" (company: " + (typedName || nameField) + ")") : "")) : ("Company: " + name)) }],
         tools: [{ type:"web_search_20250305", name:"web_search" }]
       })
     });
@@ -2609,6 +2622,7 @@ async function researchBrand(){
     if (!m) throw new Error("no json");
     const j = JSON.parse(m[0]);
     const set = (id, v) => { if (v) document.getElementById(id).value = String(v); };
+    if (!nameField){ const nm = j.name || typedName || (site ? nameFromUrl(site) : ""); if (nm) document.getElementById("bmName").value = String(nm); }
     set("bmInd", j.industry);
     set("bmVoice", j.voice);
     set("bmAud", j.audience);
