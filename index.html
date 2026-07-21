@@ -2245,9 +2245,9 @@ function renderSettings(){
 
   if (isAdmin()){
     html += '<div class="spec-block"><div class="sb-head">Live Team Code <button class="add-btn" data-act="refreshCode">Refresh</button></div><div class="sb-body">' +
-      '<div class="code-big">' + esc(orgCode(ORG)) + '</div>' +
+      '<div class="code-big" id="codeBig">' + esc(orgCode(ORG)) + '</div>' +
       '<div style="text-align:center;margin-bottom:6px"><button class="btn-ghost" data-act="copyCode">Copy code</button></div>' +
-      '<div class="code-sub">Rotates every 30 minutes · ' + codeMinutesLeft() + ' min left on this code</div>' +
+      '<div class="code-sub">Rotates every 30 minutes · <span id="codeMinsLeft">' + codeMinutesLeft() + '</span> min left on this code</div>' +
       '<div class="f-hint" style="text-align:center">Give this code to teammates. They pick Join Team on the sign-in screen, enter it, and create their own account in this workspace.</div>' +
       '</div></div>';
   }
@@ -2340,6 +2340,21 @@ function renderSettings(){
     '<div class="set-row"><div class="set-info"><div class="set-title">Signed in as ' + esc(currentUser.name) + '</div><div class="set-sub">' + esc(currentUser.email) + " · " + esc(currentUser.role) + '</div></div>' +
     '<button class="btn-ghost" data-act="signout">Sign out</button></div></div></div>';
   p.innerHTML = html;
+  startCodeCountdown();
+}
+/* Live team-code counter: ticks the minutes-remaining down and swaps the code
+   in place when it rotates on the half-hour. Rotation logic itself is unchanged. */
+let codeTimer = null;
+function startCodeCountdown(){
+  clearInterval(codeTimer);
+  if (!isAdmin()) return;
+  codeTimer = setInterval(() => {
+    const mins = document.getElementById("codeMinsLeft");
+    if (!mins || !ORG || !viewIs("settings")){ clearInterval(codeTimer); return; }
+    mins.textContent = codeMinutesLeft();
+    const cb = document.getElementById("codeBig");
+    if (cb){ const cur = orgCode(ORG); if (cb.textContent !== cur) cb.textContent = cur; }
+  }, 15000);
 }
 
 /* ---------------- VIEWS ---------------- */
@@ -4140,7 +4155,7 @@ document.addEventListener("click", e => {
   else if (a === "toggleNotif"){ const nt = act.dataset.nt; NOTIF_PREFS[nt] = NOTIF_PREFS[nt] === false ? true : false; savePrefs(); renderSettings(); renderBell(); updateSpacesBadge(); }
   else if (a === "signout") signOut();
   else if (a === "backup") backupWorkspace();
-  else if (a === "refreshCode") renderSettings();
+  else if (a === "refreshCode"){ renderSettings(); toast("Team code re-checked · " + codeMinutesLeft() + " min left before it rotates."); }
   else if (a === "copyCode"){ copyText(orgCode(ORG)); toast("Team code copied."); }
   else if (a === "resetPw"){ resetUid = act.dataset.uid; renderSettings(); }
   else if (a === "resetPwCancel"){ resetUid = null; renderSettings(); }
