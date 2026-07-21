@@ -526,8 +526,62 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .tm-meta-line{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:14px}
 .empty-log.tasks-empty{margin:8vh auto 0;max-width:520px}
 
+/* --- calendar --- */
+.cal-wrap{flex:1;display:flex;flex-direction:column;min-height:0}
+.cal-bar{padding:20px 26px 12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cal-bar h2{font-family:'Space Grotesk',sans-serif;font-size:23px;font-weight:600;min-width:180px}
+.cal-navctl{display:flex;align-items:center;gap:6px}
+.cal-arrow{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);color:var(--muted);font-size:14px;transition:all .18s}
+.cal-arrow:hover{color:var(--gold);border-color:rgba(228,193,105,.4)}
+.cal-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cal-grid-head{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:0 26px 8px}
+.cal-grid-head>div{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);text-align:center}
+.cal-grid{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:8px;padding:0 26px 22px;min-height:0}
+.cal-cell{border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--glass-border-soft);padding:7px 8px;display:flex;flex-direction:column;gap:4px;overflow:hidden;cursor:pointer;transition:background .16s,border-color .16s;min-height:0}
+.cal-cell:hover{background:rgba(255,255,255,.05);border-color:var(--glass-border)}
+.cal-cell.other{opacity:.4}
+.cal-cell.today{border-color:rgba(228,193,105,.55);box-shadow:inset 0 0 0 1px rgba(228,193,105,.3)}
+.cal-daynum{font-family:'Space Grotesk',sans-serif;font-size:12.5px;font-weight:700;color:var(--muted)}
+.cal-cell.today .cal-daynum{color:var(--gold)}
+.cal-evs{display:flex;flex-direction:column;gap:3px;overflow-y:auto;min-height:0}
+.cal-ev{text-align:left;font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--ec-soft,rgba(228,193,105,.14));color:var(--text);border-left:2.5px solid var(--ec,var(--gold));transition:filter .15s}
+.cal-ev:hover{filter:brightness(1.25)}
+.cal-ev.cont{border-left-style:dashed;opacity:.82}
+.cal-ev.task{background:rgba(255,255,255,.05);border-left:2.5px dashed var(--muted);color:var(--muted);font-weight:600}
+.cal-ev.task:hover{color:var(--text)}
+.cal-more{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.06em;color:var(--faint);padding:1px 4px}
+/* week */
+.cal-week{flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:0 26px 22px;min-height:0}
+.cal-daycol{display:flex;flex-direction:column;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--glass-border-soft);overflow:hidden;min-height:0}
+.cal-daycol.today{border-color:rgba(228,193,105,.5)}
+.cal-daycol-head{padding:10px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--glass-border-soft);cursor:pointer}
+.cal-daycol-head b{color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px}
+.cal-daycol.today .cal-daycol-head b{color:var(--gold)}
+.cal-daycol-body{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px}
+.cal-daycol-body .cal-ev{white-space:normal;font-size:11px;padding:5px 9px}
+.cal-daycol-empty{color:var(--faint);font-size:11px;text-align:center;padding:8px 0}
+/* agenda */
+.cal-agenda{flex:1;overflow-y:auto;padding:4px 26px 24px;max-width:820px;width:100%;margin:0 auto}
+.cal-ag-day{margin-bottom:16px}
+.cal-ag-head{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);padding:8px 4px;border-bottom:1px solid var(--glass-border-soft);margin-bottom:8px}
+.cal-ag-row{display:flex;align-items:center;gap:13px;padding:11px 14px;border-radius:var(--r-md);background:rgba(255,255,255,.045);border:1px solid var(--glass-border-soft);margin-bottom:6px;cursor:pointer;transition:background .16s}
+.cal-ag-row:hover{background:rgba(255,255,255,.07)}
+.cal-ag-row.task{border-style:dashed}
+.ag-dot{width:9px;height:9px;min-width:9px;border-radius:50%}
+.ag-time{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:var(--muted);min-width:56px}
+.ag-title{flex:1;font-size:13.5px;font-weight:600}
+/* event modal export row */
+.ev-export{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.ev-export button{flex:1;min-width:150px;font-size:11.5px;font-weight:700;padding:10px 14px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);color:var(--muted);transition:all .18s}
+.ev-export button:hover{color:var(--gold);border-color:rgba(228,193,105,.4)}
+.ev-allday{display:flex;align-items:center;gap:12px;margin-top:6px}
+
 @media(max-width:900px){
   .app{padding:11px;gap:11px}
+  .cal-grid,.cal-grid-head{gap:4px;padding-left:11px;padding-right:11px}
+  .cal-week{grid-template-columns:1fr;gap:6px;overflow-y:auto}
+  .cal-ev{font-size:10px}
+  .cal-bar{padding:14px 14px 10px}
   .sidebar{position:fixed;top:11px;left:11px;bottom:11px;z-index:50;transform:translateX(calc(-100% - 22px))}
   .sidebar.open{transform:none}
   .menu-btn{display:block}
@@ -590,6 +644,7 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <button class="nav-btn active" data-view="chat"><span class="glyph">◈</span> Workspace</button>
       <button class="nav-btn" data-view="tasks"><span class="glyph">▣</span> Tasks <span class="badge" id="tasksBadge" style="display:none">0</span></button>
       <div class="proj-nav" id="projNav"></div>
+      <button class="nav-btn" data-view="calendar"><span class="glyph">◷</span> Calendar</button>
       <button class="nav-btn" data-view="team"><span class="glyph">◎</span> Team Chat <span class="badge" id="teamBadge" style="display:none">0</span></button>
       <button class="nav-btn" data-view="profile"><span class="glyph">⬡</span> Brand Profile</button>
       <button class="nav-btn" data-view="assets"><span class="glyph">▤</span> Assets</button>
@@ -677,6 +732,9 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <!-- TASKS -->
       <div class="view" id="view-tasks"><div class="tasks-wrap" id="tasksWrap"></div></div>
 
+      <!-- CALENDAR -->
+      <div class="view" id="view-calendar"><div class="cal-wrap" id="calWrap"></div></div>
+
       <!-- PROFILE -->
       <div class="view" id="view-profile"><div class="panel-scroll"><div class="panel-inner" id="profilePanel"></div></div></div>
       <!-- ASSETS -->
@@ -757,6 +815,19 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     <div class="m-foot">
       <button class="btn-ghost" data-close="planVeil">Cancel</button>
       <button class="btn-gold" id="planRun">Plan it</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT MODAL -->
+<div class="modal-veil" id="eventVeil">
+  <div class="modal">
+    <div class="m-head"><h3 id="evTitle">Event</h3><button class="m-close" data-close="eventVeil" aria-label="Close">✕</button></div>
+    <div class="m-body" id="evBody"></div>
+    <div class="m-foot">
+      <button class="btn-danger" id="evDelete" style="display:none;margin-right:auto">Delete</button>
+      <button class="btn-ghost" data-close="eventVeil">Cancel</button>
+      <button class="btn-gold" id="evSave">Save Event</button>
     </div>
   </div>
 </div>
@@ -1235,8 +1306,9 @@ function buildSystemPrompt(b){
     "Default documents to a fully designed, self-contained .html file in the brand's colors and typography, editorial-quality, print-ready. Use .csv for sheets/calendars/data (header row first). Use .doc only when Word is requested, built from SIMPLE Word-compatible HTML (h1, h2, p, table, short inline styles, no grid/flex/webfonts). Use .md or .txt only when plain text is requested. Keep files lean. Never mention the markers.",
     "3. MEMORY: when the user states a lasting fact, decision, preference, or correction about the brand or how they work (not small talk), save it by emitting on its own line: [[REMEMBER: the fact, under 25 words]] . Maximum 2 per response, only genuinely durable facts. It is stored permanently and silently.",
     "4. TASKS: when the user asks you to plan, organize, launch, or break down a project or effort, decompose it into concrete tasks and emit each on its own line EXACTLY as: [[TASK: title | assignee | YYYY-MM-DD | priority | project]] . Assignee is a team member's name or blank. Priority is one of low, med, high, urgent. Project is a short project name (reuse the same name for all tasks in one plan). Date is optional but realistic. Each of these lines creates a real task on the team board, so make titles action-oriented and specific. Team members: " + TEAM.map(u => u.name).join(", ") + ".",
-    "5. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
-    "6. Never use em dashes.");
+    "5. EVENTS: when the user asks you to schedule, book, or set up a meeting, call, or calendar item, emit each on its own line EXACTLY as: [[EVENT: title | YYYY-MM-DD | HH:MM | attendees]] . Time is 24-hour and optional (omit for all-day; still keep the empty slot with the surrounding pipes). Attendees is a comma-separated list of team member names or blank. Each line creates a real event on the team calendar. Today is " + (typeof todayISO === "function" ? todayISO() : "") + ".",
+    "6. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
+    "7. Never use em dashes.");
   return sp.join("\n");
 }
 function buildImagePrompt(b, scene){
@@ -1418,7 +1490,7 @@ function renderPending(){
 
 /* ---------------- GENERATED FILES ---------------- */
 function parseSpecial(raw){
-  const files = [], memories = [], aiTasks = [];
+  const files = [], memories = [], aiTasks = [], aiEvents = [];
   let clean = raw.replace(/\[\[FILE:([^\]]+)\]\]([\s\S]*?)\[\[\/FILE\]\]/g, (m, name, content) => {
     files.push({ name: name.trim(), content: content.replace(/^\n+|\n+$/g, "") }); return "";
   });
@@ -1426,10 +1498,11 @@ function parseSpecial(raw){
   if (open){ files.push({ name: open[1].trim(), content: open[2].replace(/^\n+/, "") }); clean = clean.slice(0, open.index); }
   clean = clean.replace(/\[\[REMEMBER:\s*([\s\S]*?)\]\]/g, (m, fact) => { memories.push(fact.trim()); return ""; });
   clean = clean.replace(/\[\[TASK:\s*([^\]]+?)\]\]/g, (m, body) => { aiTasks.push(body.trim()); return ""; });
-  return { clean: clean.trim(), files, memories, aiTasks };
+  clean = clean.replace(/\[\[EVENT:\s*([^\]]+?)\]\]/g, (m, body) => { aiEvents.push(body.trim()); return ""; });
+  return { clean: clean.trim(), files, memories, aiTasks, aiEvents };
 }
 function mimeFor(ext){
-  return { csv:"text/csv", html:"text/html", htm:"text/html", md:"text/markdown", txt:"text/plain", doc:"application/msword", json:"application/json" }[ext] || "text/plain";
+  return { csv:"text/csv", html:"text/html", htm:"text/html", md:"text/markdown", txt:"text/plain", doc:"application/msword", json:"application/json", ics:"text/calendar" }[ext] || "text/plain";
 }
 function doDownload(f){
   const ext = extOf(f.name);
@@ -1629,25 +1702,27 @@ function finishSyn(raw, errKind){
   if (errKind === "stopped" && !(raw && raw.trim())){
     t.msgs.push({ role:"syn", text:"Stopped.", displayText:"Stopped.", rawText:"Stopped.", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
   } else if (errKind === "stopped"){
-    const { clean, files, memories, aiTasks } = parseSpecial(raw);
-    const madeS = ingestAITasks(aiTasks);
-    const display = (clean || (files.length ? "Your file is ready." : (madeS ? "Tasks added to the board." : raw))) + "\n\n*(stopped early)*";
+    const { clean, files, memories, aiTasks, aiEvents } = parseSpecial(raw);
+    const madeS = ingestAITasks(aiTasks); const madeES = ingestAIEvents(aiEvents);
+    const display = (clean || (files.length ? "Your file is ready." : ((madeS || madeES) ? "Added to your workspace." : raw))) + "\n\n*(stopped early)*";
     t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
     if (madeS) toast("SYN created " + madeS + " task" + (madeS > 1 ? "s" : "") + ".");
+    if (madeES) toast("SYN scheduled " + madeES + " event" + (madeES > 1 ? "s" : "") + ".");
   } else if (errKind === "net"){
     t.msgs.push({ role:"syn", text:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", displayText:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", rawText:"", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
   } else if (!raw){
     t.msgs.push({ role:"syn", text:"SYN returned an empty response. Try rephrasing.", displayText:"SYN returned an empty response. Try rephrasing.", rawText:"", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
   } else {
-    const { clean, files, memories, aiTasks } = parseSpecial(raw);
+    const { clean, files, memories, aiTasks, aiEvents } = parseSpecial(raw);
     if (memories.length){
       memories.forEach(mm => b.memories.push({ id: uid("m"), text: mm, by: currentUser.name, at: new Date().toISOString() }));
       saveBrands();
     }
-    const made = ingestAITasks(aiTasks);
-    const display = clean || (files.length ? "Your file is ready." : (made ? "Tasks added to the board." : raw));
+    const made = ingestAITasks(aiTasks); const madeE = ingestAIEvents(aiEvents);
+    const display = clean || (files.length ? "Your file is ready." : ((made || madeE) ? "Added to your workspace." : raw));
     t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
     if (made) toast("SYN created " + made + " task" + (made > 1 ? "s" : "") + ".");
+    if (madeE) toast("SYN scheduled " + madeE + " event" + (madeE > 1 ? "s" : "") + ".");
   }
   t.updatedAt = new Date().toISOString();
   saveChats(activeBrandId);
@@ -2004,6 +2079,15 @@ function renderSettings(){
     '<button class="btn-ghost" data-act="backup">Download</button></div>' +
     '</div></div>';
 
+  html += '<div class="spec-block"><div class="sb-head">Calendar</div><div class="sb-body">' +
+    '<div class="set-row"><div class="set-info"><div class="set-title">Show tasks on the calendar</div><div class="set-sub">Tasks with due dates appear read-only on the calendar</div></div>' +
+    '<button class="toggle ' + (SETTINGS.calShowTasks !== false ? "on" : "") + '" data-act="toggleCalTasks" aria-label="Toggle tasks on calendar"></button></div>' +
+    '<div class="set-row"><div class="set-info"><div class="set-title">Export calendar</div><div class="set-sub">Download the whole workspace calendar as a standard .ics file</div></div>' +
+    '<button class="btn-ghost" data-act="exportIcs">Export .ics</button></div>' +
+    '<div class="set-row"><div class="set-info"><div class="set-title">Google Calendar</div><div class="set-sub">Per-event "Add to Google Calendar" and .ics export work now. Live two-way Google sync arrives with SYN Core.</div></div>' +
+    '<span class="role-pill">Coming with SYN Core</span></div>' +
+    '</div></div>';
+
   html += '<div class="spec-block"><div class="sb-head">Team · ' + esc(ORG ? ORG.name : "") + '</div><div class="sb-body">';
   TEAM.forEach(m => {
     html += '<div class="team-row"><div class="avatar">' + esc(m.name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase()) + '</div>' +
@@ -2046,6 +2130,7 @@ function setView(v){
   document.querySelectorAll(".nav-btn").forEach(el => el.classList.toggle("active", el.dataset.view === v));
   if (v === "approvals") renderApprovals();
   if (v === "tasks") renderTasks();
+  if (v === "calendar") renderCalendar();
   if (v === "team") renderTeamChat();
   if (v === "profile") renderProfile();
   if (v === "settings") renderSettings();
@@ -2224,7 +2309,7 @@ function entity(name, defaults){
 
 const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees:[], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"team", order: Date.now() }));
 const Projects = entity("projects", () => ({ name:"", color:"#E4C169", description:"" }));
-const Events   = entity("events", () => ({ title:"", start:null, end:null, allDay:true, description:"", location:"", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, visibility:"team" }));
+const Events   = entity("events", () => ({ title:"", description:"", location:"", startDate:null, endDate:null, allDay:true, startTime:"09:00", endTime:"10:00", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, visibility:"team" }));
 const Spaces   = entity("spaces", () => ({ name:"", icon:"◆", color:"#E4C169", description:"", type:"team", members:"all", archived:false }));
 const DMs      = entity("dms", () => ({ members:[], lastAt:null }));
 const Notifs   = entity("notifications", () => ({ forUserId:null, type:"", text:"", link:null, read:false }));
@@ -2272,6 +2357,7 @@ function openNotification(id){
   closeBell();
   const link = n.link || {};
   if (link.view === "tasks"){ setView("tasks"); if (link.taskId && Tasks.get(link.taskId)) openTaskModal(link.taskId); }
+  else if (link.view === "calendar"){ setView("calendar"); if (link.eventId && Events.get(link.eventId)) openEventModal(link.eventId); }
   else if (link.view){ setView(link.view); }
   renderBell();
 }
@@ -2803,6 +2889,299 @@ function openPlanModal(){
   document.getElementById("planVeil").classList.add("open");
 }
 
+/* =====================================================================
+   STAGE 2 · CALENDAR (month / week / agenda, events, recurrence, ICS)
+   ===================================================================== */
+let calView = "month";                                  // month | week | agenda
+let calCursor = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+let evDraft = null, editingEventId = null;
+const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const EV_COLORS = ["#E4C169","#5FD4B0","#A78BFF","#5FA8FF","#FF7A6B","#EE9A5B","#7FD99A"];
+
+function dparse(s){ return new Date(s + "T00:00:00"); }
+function fmtISO(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function todayISO(){ return fmtISO(new Date()); }
+function stepRecur(d, freq){ const n = new Date(d); if (freq === "weekly") n.setDate(n.getDate()+7); else if (freq === "monthly") n.setMonth(n.getMonth()+1); else n.setDate(n.getDate()+1); return n; }
+function canSeeEvent(ev){ return ev.visibility !== "private" || (currentUser && ev.createdBy === currentUser.id); }
+function monthGridStart(c){ const d = new Date(c.getFullYear(), c.getMonth(), 1); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; }
+function weekStart(c){ const d = new Date(c); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; }
+function fmtRange(a, b){
+  const sameMonth = a.getMonth() === b.getMonth();
+  const opt = { month:"short", day:"numeric" };
+  return a.toLocaleDateString([], opt) + " – " + (sameMonth ? b.getDate() : b.toLocaleDateString([], opt)) + ", " + b.getFullYear();
+}
+
+/* expand events into per-day items across [startStr, endStr] */
+function calItemsByDay(startStr, endStr){
+  const map = {};
+  const push = (iso, item) => { (map[iso] = map[iso] || []).push(item); };
+  const rs = dparse(startStr), re = dparse(endStr);
+  Events.list(canSeeEvent).forEach(ev => {
+    if (!ev.startDate) return;
+    const base = dparse(ev.startDate);
+    const spanMs = Math.max(0, (ev.endDate ? dparse(ev.endDate) : base) - base);
+    const occs = [];
+    if (ev.recur && ev.recur.freq){
+      const until = ev.recur.until ? dparse(ev.recur.until) : re;
+      let cur = new Date(base), guard = 0;
+      while (cur <= re && cur <= until && guard++ < 800){ occs.push(new Date(cur)); cur = stepRecur(cur, ev.recur.freq); }
+    } else occs.push(base);
+    occs.forEach(oStart => {
+      const oEnd = new Date(oStart.getTime() + spanMs);
+      if (oEnd < rs || oStart > re) return;
+      const startISO = fmtISO(oStart), endISO = fmtISO(oEnd);
+      let cur = new Date(oStart), g = 0;
+      while (cur <= oEnd && g++ < 90){
+        const iso = fmtISO(cur);
+        if (iso >= startStr && iso <= endStr) push(iso, { kind:"event", ev, isStart: iso === startISO, isEnd: iso === endISO });
+        cur = new Date(cur.getTime() + 86400000);
+      }
+    });
+  });
+  if (SETTINGS.calShowTasks !== false){
+    Tasks.list(t => canSeeTask(t) && t.dueDate && t.dueDate >= startStr && t.dueDate <= endStr).forEach(t => push(t.dueDate, { kind:"task", task:t }));
+  }
+  const sortKey = it => it.kind === "task" ? "3" : (it.ev.allDay ? "0" : "1" + (it.ev.startTime || "99:99"));
+  Object.keys(map).forEach(k => map[k].sort((a,b) => sortKey(a).localeCompare(sortKey(b))));
+  return map;
+}
+function calChipHtml(item){
+  if (item.kind === "task"){ const t = item.task; return '<button class="cal-ev task" data-wact="openTaskCal" data-tid="' + t.id + '" title="Task due: ' + esc(t.title) + '">✓ ' + esc(t.title || "Task") + '</button>'; }
+  const ev = item.ev;
+  const tm = (!ev.allDay && item.isStart && ev.startTime) ? ev.startTime + " " : "";
+  return '<button class="cal-ev' + (item.isStart ? "" : " cont") + '" style="--ec:' + esc(ev.color || "#E4C169") + ';--ec-soft:' + hexToSoft(ev.color || "#E4C169") + '" data-wact="openEvent" data-eid="' + ev.id + '" title="' + esc(ev.title) + '">' + (item.isStart ? esc(tm) : "↳ ") + esc(ev.title || "Event") + '</button>';
+}
+
+function renderCalendar(){
+  const wrap = document.getElementById("calWrap"); if (!wrap) return;
+  let label, body;
+  if (calView === "month"){ label = calCursor.toLocaleDateString([], { month:"long", year:"numeric" }); body = renderMonth(); }
+  else if (calView === "week"){ const ws = weekStart(calCursor); label = fmtRange(ws, new Date(ws.getTime() + 6*86400000)); body = renderWeek(); }
+  else { label = "Agenda · next 45 days"; body = renderAgenda(); }
+  const seg = (v, l) => '<button class="mode-btn' + (calView === v ? " active" : "") + '" data-wact="calView" data-v="' + v + '">' + l + '</button>';
+  const bar = '<div class="cal-bar"><h2>' + esc(label) + '</h2>' +
+    '<div class="cal-navctl"><button class="cal-arrow" data-wact="calNav" data-dir="-1" aria-label="Previous">‹</button>' +
+    '<button class="mode-btn" data-wact="calToday">Today</button>' +
+    '<button class="cal-arrow" data-wact="calNav" data-dir="1" aria-label="Next">›</button></div>' +
+    '<div class="cal-actions">' + seg("month","Month") + seg("week","Week") + seg("agenda","Agenda") +
+    '<button class="head-btn ghost" data-wact="exportAllIcs" style="padding:8px 15px">⤓ Export .ics</button>' +
+    '<button class="head-btn" data-wact="newEvent" style="padding:8px 17px">+ New Event</button></div></div>';
+  wrap.innerHTML = bar + body;
+}
+function renderMonth(){
+  const start = monthGridStart(calCursor);
+  const map = calItemsByDay(fmtISO(start), fmtISO(new Date(start.getTime() + 41*86400000)));
+  const today = todayISO(), curMonth = calCursor.getMonth();
+  let h = '<div class="cal-grid-head">' + WD.map(d => '<div>' + d + '</div>').join("") + '</div><div class="cal-grid">';
+  for (let i = 0; i < 42; i++){
+    const d = new Date(start.getTime() + i*86400000), iso = fmtISO(d);
+    const items = map[iso] || [], shown = items.slice(0, 3);
+    h += '<div class="cal-cell' + (d.getMonth() !== curMonth ? " other" : "") + (iso === today ? " today" : "") + '" data-wact="calDay" data-d="' + iso + '">' +
+      '<div class="cal-daynum">' + d.getDate() + '</div><div class="cal-evs">' +
+      shown.map(calChipHtml).join("") + (items.length > 3 ? '<div class="cal-more">+' + (items.length - 3) + ' more</div>' : "") +
+      '</div></div>';
+  }
+  return h + '</div>';
+}
+function renderWeek(){
+  const ws = weekStart(calCursor);
+  const map = calItemsByDay(fmtISO(ws), fmtISO(new Date(ws.getTime() + 6*86400000)));
+  const today = todayISO();
+  let h = '<div class="cal-week">';
+  for (let i = 0; i < 7; i++){
+    const d = new Date(ws.getTime() + i*86400000), iso = fmtISO(d), items = map[iso] || [];
+    h += '<div class="cal-daycol' + (iso === today ? " today" : "") + '"><div class="cal-daycol-head" data-wact="calDay" data-d="' + iso + '"><b>' + WD[d.getDay()] + '</b> ' + d.getDate() + '</div>' +
+      '<div class="cal-daycol-body">' + (items.length ? items.map(calChipHtml).join("") : '<div class="cal-daycol-empty">—</div>') + '</div></div>';
+  }
+  return h + '</div>';
+}
+function renderAgenda(){
+  const start = new Date(calCursor);
+  const map = calItemsByDay(fmtISO(start), fmtISO(new Date(start.getTime() + 44*86400000)));
+  const days = Object.keys(map).sort();
+  if (!days.length) return '<div class="empty-log tasks-empty">Nothing scheduled in the next 45 days. Add an event with <b>+ New Event</b>, or ask SYN to schedule one.</div>';
+  let h = '<div class="cal-agenda">';
+  days.forEach(iso => {
+    const d = dparse(iso);
+    h += '<div class="cal-ag-day"><div class="cal-ag-head">' + d.toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" }) + (iso === todayISO() ? " · Today" : "") + '</div>';
+    map[iso].forEach(item => {
+      if (item.kind === "task"){ const t = item.task; h += '<div class="cal-ag-row task" data-wact="openTaskCal" data-tid="' + t.id + '"><span class="ag-dot" style="background:var(--muted)"></span><span class="ag-time">Task</span><span class="ag-title">' + esc(t.title || "Task") + '</span></div>'; }
+      else { const ev = item.ev; h += '<div class="cal-ag-row" data-wact="openEvent" data-eid="' + ev.id + '"><span class="ag-dot" style="background:' + esc(ev.color) + '"></span><span class="ag-time">' + (ev.allDay ? "All day" : esc(ev.startTime || "")) + '</span><span class="ag-title">' + esc(ev.title || "Event") + (item.isStart ? "" : " (cont.)") + '</span></div>'; }
+    });
+    h += '</div>';
+  });
+  return h + '</div>';
+}
+
+/* ----- event modal ----- */
+function blankEvent(dateISO){ return { title:"", description:"", location:"", startDate:dateISO, endDate:dateISO, allDay:true, startTime:"09:00", endTime:"10:00", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, visibility:"team" }; }
+function openEventModal(id, prefill){
+  const ev = id ? Events.get(id) : null;
+  editingEventId = id && ev ? id : null;
+  evDraft = ev ? JSON.parse(JSON.stringify(ev)) : blankEvent(prefill || todayISO());
+  document.getElementById("evTitle").textContent = ev ? "Edit event" : "New event";
+  document.getElementById("evDelete").style.display = ev ? "block" : "none";
+  document.getElementById("evDelete").dataset.armed = "";
+  document.getElementById("evDelete").textContent = "Delete";
+  renderEventModal();
+  document.getElementById("eventVeil").classList.add("open");
+}
+function syncEventHeader(){
+  if (!evDraft) return;
+  const g = id => { const el = document.getElementById(id); return el ? el.value : undefined; };
+  if (g("evName") !== undefined) evDraft.title = g("evName");
+  if (g("evDesc") !== undefined) evDraft.description = g("evDesc");
+  if (g("evLoc") !== undefined) evDraft.location = g("evLoc");
+  if (g("evStart") !== undefined) evDraft.startDate = g("evStart") || evDraft.startDate;
+  if (g("evEnd") !== undefined) evDraft.endDate = g("evEnd") || evDraft.startDate;
+  if (g("evStartT") !== undefined) evDraft.startTime = g("evStartT");
+  if (g("evEndT") !== undefined) evDraft.endTime = g("evEndT");
+  if (g("evColor") !== undefined){ const h = normHex(g("evColor")); if (h) evDraft.color = h; }
+  const rf = g("evRecur"); if (rf !== undefined){ evDraft.recur = (rf === "none") ? null : { freq: rf, until: (g("evUntil") || null) }; }
+  const tk = g("evTask"); if (tk !== undefined) evDraft.taskId = tk || null;
+  const pj = g("evProj"); if (pj !== undefined) evDraft.projectId = pj || null;
+  const rm = g("evRemind"); if (rm !== undefined) evDraft.reminder = +rm || 0;
+  const vs = g("evVis"); if (vs !== undefined) evDraft.visibility = vs;
+}
+function renderEventModal(){
+  const ev = evDraft; if (!ev) return;
+  const body = document.getElementById("evBody");
+  const opt = (v, cur, l) => '<option value="' + v + '"' + (v === cur ? " selected" : "") + '>' + l + '</option>';
+  let h = '';
+  h += '<label class="f-label" for="evName">Title</label><input class="f-input" id="evName" value="' + esc(ev.title) + '">';
+  h += '<div class="ev-allday"><button type="button" class="toggle ' + (ev.allDay ? "on" : "") + '" data-wact="evAllDay" aria-label="All day"></button><span class="set-title">All-day event</span></div>';
+  h += '<div class="tm-grid"><div><label class="f-label" for="evStart">Start date</label><input class="f-input" id="evStart" type="date" value="' + esc(ev.startDate || "") + '"></div>' +
+    '<div><label class="f-label" for="evEnd">End date</label><input class="f-input" id="evEnd" type="date" value="' + esc(ev.endDate || ev.startDate || "") + '"></div></div>';
+  if (!ev.allDay) h += '<div class="tm-grid"><div><label class="f-label" for="evStartT">Start time</label><input class="f-input" id="evStartT" type="time" value="' + esc(ev.startTime || "09:00") + '"></div>' +
+    '<div><label class="f-label" for="evEndT">End time</label><input class="f-input" id="evEndT" type="time" value="' + esc(ev.endTime || "10:00") + '"></div></div>';
+  h += '<label class="f-label" for="evLoc">Location</label><input class="f-input" id="evLoc" value="' + esc(ev.location || "") + '">';
+  h += '<label class="f-label" for="evDesc">Description</label><textarea class="f-area" id="evDesc">' + esc(ev.description || "") + '</textarea>';
+  h += '<label class="f-label">Attendees</label><div class="tm-assignees">' +
+    TEAM.map(u => { const on = (ev.attendees || []).includes(u.id); return '<button type="button" class="assign-chip' + (on ? " on" : "") + '" data-wact="evAttend" data-uid="' + u.id + '">' + avatarHtml(u.id) + esc(u.name.split(" ")[0]) + '</button>'; }).join("") + '</div>';
+  h += '<div class="tm-grid"><div><label class="f-label" for="evColor">Color</label><div class="color-row"><input type="color" id="evColorPick" value="' + (normHex(ev.color) || "#E4C169") + '"><input class="f-input" id="evColor" value="' + esc(ev.color || "#E4C169") + '" style="flex:1"></div></div>' +
+    '<div><label class="f-label" for="evVis">Visibility</label><select class="f-input" id="evVis">' + opt("team", ev.visibility, "Team") + opt("private", ev.visibility, "Private to me") + '</select></div></div>';
+  h += '<div class="tm-grid"><div><label class="f-label" for="evRecur">Repeat</label><select class="f-input" id="evRecur">' +
+    opt("none", ev.recur ? ev.recur.freq : "none", "Does not repeat") + opt("daily", ev.recur ? ev.recur.freq : "", "Daily") + opt("weekly", ev.recur ? ev.recur.freq : "", "Weekly") + opt("monthly", ev.recur ? ev.recur.freq : "", "Monthly") + '</select></div>' +
+    '<div><label class="f-label" for="evUntil">Repeat until</label><input class="f-input" id="evUntil" type="date" value="' + esc(ev.recur && ev.recur.until ? ev.recur.until : "") + '"' + (ev.recur ? "" : " disabled") + '></div></div>';
+  h += '<div class="tm-grid"><div><label class="f-label" for="evTask">Link to task</label><select class="f-input" id="evTask"><option value="">None</option>' + Tasks.list(canSeeTask).map(t => opt(t.id, ev.taskId || "", t.title || "Untitled")).join("") + '</select></div>' +
+    '<div><label class="f-label" for="evProj">Link to project</label><select class="f-input" id="evProj"><option value="">None</option>' + Projects.list().map(p => opt(p.id, ev.projectId || "", p.name)).join("") + '</select></div></div>';
+  h += '<label class="f-label" for="evRemind">Reminder (display only)</label><select class="f-input" id="evRemind">' +
+    opt("0", String(ev.reminder || 0), "None") + opt("10", String(ev.reminder || 0), "10 minutes before") + opt("60", String(ev.reminder || 0), "1 hour before") + opt("1440", String(ev.reminder || 0), "1 day before") + '</select>';
+  h += '<div class="ev-export"><button data-wact="evGoogle">↗ Add to Google Calendar</button><button data-wact="evIcs">⤓ Export this .ics</button></div>';
+  body.innerHTML = h;
+  const cp = document.getElementById("evColorPick"), ct = document.getElementById("evColor");
+  if (cp && ct){
+    cp.addEventListener("input", () => { ct.value = cp.value.toUpperCase(); evDraft.color = ct.value; });
+    ct.addEventListener("input", () => { const hh = normHex(ct.value); if (hh){ cp.value = hh; evDraft.color = hh; } });
+  }
+  const rc = document.getElementById("evRecur");
+  if (rc) rc.addEventListener("change", () => { syncEventHeader(); renderEventModal(); });
+}
+function saveEventModal(){
+  syncEventHeader();
+  if (!evDraft.title.trim()){ document.getElementById("evName").focus(); toast("Give the event a title."); return; }
+  if (evDraft.endDate < evDraft.startDate) evDraft.endDate = evDraft.startDate;
+  const prevAtt = editingEventId ? ((Events.get(editingEventId) || {}).attendees || []) : [];
+  const saved = editingEventId ? Events.update(editingEventId, evDraft) : Events.create(evDraft);
+  (saved.attendees || []).forEach(uid2 => { if (uid2 !== currentUser.id && !prevAtt.includes(uid2)) notify(uid2, "event", currentUser.name + " invited you: " + saved.title + " (" + fmtDay(saved.startDate) + ")", { view:"calendar", eventId:saved.id }); });
+  logActivity("event", currentUser.name + (editingEventId ? " updated " : " scheduled ") + "“" + saved.title + "”", "event", saved.id);
+  document.getElementById("eventVeil").classList.remove("open");
+  if (viewIs("calendar")) renderCalendar();
+  toast("Event saved.");
+}
+function deleteEventNow(){
+  const btn = document.getElementById("evDelete");
+  if (!btn.dataset.armed){ btn.dataset.armed = "1"; btn.textContent = "Click again to delete"; setTimeout(() => { btn.dataset.armed = ""; btn.textContent = "Delete"; }, 3000); return; }
+  if (editingEventId) Events.remove(editingEventId);
+  document.getElementById("eventVeil").classList.remove("open");
+  if (viewIs("calendar")) renderCalendar();
+  toast("Event deleted.");
+}
+
+/* ----- Google Calendar + ICS ----- */
+function gcalDates(ev){
+  if (ev.allDay){
+    const s = ev.startDate.replace(/-/g,"");
+    const e = fmtISO(new Date(dparse(ev.endDate || ev.startDate).getTime() + 86400000)).replace(/-/g,"");
+    return s + "/" + e;
+  }
+  const s = ev.startDate.replace(/-/g,"") + "T" + (ev.startTime || "09:00").replace(":","") + "00";
+  const e = (ev.endDate || ev.startDate).replace(/-/g,"") + "T" + (ev.endTime || ev.startTime || "10:00").replace(":","") + "00";
+  return s + "/" + e;
+}
+function googleUrl(ev){
+  const p = new URLSearchParams({ action:"TEMPLATE", text: ev.title || "Event", dates: gcalDates(ev), details: ev.description || "", location: ev.location || "" });
+  let u = "https://calendar.google.com/calendar/render?" + p.toString();
+  if (ev.recur && ev.recur.freq){ let r = "RRULE:FREQ=" + ev.recur.freq.toUpperCase(); if (ev.recur.until) r += ";UNTIL=" + ev.recur.until.replace(/-/g,"") + (ev.allDay ? "" : "T235959Z"); u += "&recur=" + encodeURIComponent(r); }
+  return u;
+}
+function icsEscape(s){ return String(s || "").replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n"); }
+function icsEvent(ev){
+  const L = ["BEGIN:VEVENT", "UID:" + ev.id + "@syn", "SUMMARY:" + icsEscape(ev.title)];
+  if (ev.allDay){
+    L.push("DTSTART;VALUE=DATE:" + ev.startDate.replace(/-/g,""));
+    L.push("DTEND;VALUE=DATE:" + fmtISO(new Date(dparse(ev.endDate || ev.startDate).getTime() + 86400000)).replace(/-/g,""));
+  } else {
+    L.push("DTSTART:" + ev.startDate.replace(/-/g,"") + "T" + (ev.startTime || "09:00").replace(":","") + "00");
+    L.push("DTEND:" + (ev.endDate || ev.startDate).replace(/-/g,"") + "T" + (ev.endTime || ev.startTime || "10:00").replace(":","") + "00");
+  }
+  if (ev.recur && ev.recur.freq){ let r = "RRULE:FREQ=" + ev.recur.freq.toUpperCase(); if (ev.recur.until) r += ";UNTIL=" + ev.recur.until.replace(/-/g,"") + (ev.allDay ? "" : "T235959Z"); L.push(r); }
+  if (ev.location) L.push("LOCATION:" + icsEscape(ev.location));
+  if (ev.description) L.push("DESCRIPTION:" + icsEscape(ev.description));
+  L.push("END:VEVENT");
+  return L.join("\r\n");
+}
+function icsDoc(events, name){
+  return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Syntrex//SYN Workspace//EN","CALSCALE:GREGORIAN","X-WR-CALNAME:" + icsEscape(name)]
+    .concat(events.map(icsEvent)).concat(["END:VCALENDAR"]).join("\r\n");
+}
+function exportEventIcs(ev){ doDownload({ name: (ev.title || "event").replace(/[^\w\- ]/g,"").trim() + ".ics", content: icsDoc([ev], ev.title || "Event") }); toast(".ics downloaded."); }
+function exportAllIcs(){ const evs = Events.list(canSeeEvent); if (!evs.length){ toast("No events to export yet."); return; } doDownload({ name: (ORG ? ORG.name : "SYN").replace(/[^\w\- ]/g,"").trim() + "_Calendar.ics", content: icsDoc(evs, (ORG ? ORG.name : "SYN") + " Calendar") }); toast("Workspace calendar exported (" + evs.length + " events)."); }
+
+/* ----- AI event ingestion ([[EVENT:]]) ----- */
+function ingestAIEvents(lines){
+  if (!lines || !lines.length) return 0;
+  let made = 0;
+  lines.forEach(line => {
+    const parts = line.split("|").map(s => s.trim());
+    const title = parts[0]; if (!title) return;
+    const dateStr = parts[1] || "";
+    const timeStr = parts[2] || "";
+    const attStr = parts[3] || "";
+    const startDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : todayISO();
+    const hasTime = /^\d{1,2}:\d{2}$/.test(timeStr);
+    const startTime = hasTime ? (timeStr.length === 4 ? "0" + timeStr : timeStr) : "09:00";
+    const attendees = attStr.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+      .map(nm => TEAM.find(u => u.name.toLowerCase() === nm.toLowerCase() || u.name.toLowerCase().split(" ")[0] === nm.toLowerCase()))
+      .filter(Boolean).map(u => u.id);
+    const color = EV_COLORS[made % EV_COLORS.length];
+    const ev = Events.create({ title, startDate, endDate:startDate, allDay: !hasTime, startTime, endTime:"10:00", attendees, color });
+    attendees.forEach(id => { if (id !== currentUser.id) notify(id, "event", currentUser.name + " (via SYN) invited you: " + title + " (" + fmtDay(startDate) + ")", { view:"calendar", eventId:ev.id }); });
+    made++;
+  });
+  if (made){ logActivity("event", currentUser.name + " used SYN to schedule " + made + " event" + (made > 1 ? "s" : ""), "event", null); if (viewIs("calendar")) renderCalendar(); }
+  return made;
+}
+
+/* ---------- workspace click delegation (data-wact) ---------- */
+document.addEventListener("click", e => {
+  const w = e.target.closest("[data-wact]");
+  if (!w) return;
+  const a = w.dataset.wact;
+  if (a === "calView"){ calView = w.dataset.v; renderCalendar(); return; }
+  if (a === "calNav"){ const dir = +w.dataset.dir; if (calView === "month") calCursor.setMonth(calCursor.getMonth() + dir); else calCursor.setDate(calCursor.getDate() + dir * (calView === "week" ? 7 : 7)); renderCalendar(); return; }
+  if (a === "calToday"){ calCursor = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })(); renderCalendar(); return; }
+  if (a === "calDay"){ openEventModal(null, w.dataset.d); return; }
+  if (a === "openEvent"){ openEventModal(w.dataset.eid); return; }
+  if (a === "openTaskCal"){ openTaskModal(w.dataset.tid); return; }
+  if (a === "newEvent"){ openEventModal(null, todayISO()); return; }
+  if (a === "exportAllIcs"){ exportAllIcs(); return; }
+  if (a === "evAllDay"){ syncEventHeader(); evDraft.allDay = !evDraft.allDay; renderEventModal(); return; }
+  if (a === "evAttend"){ syncEventHeader(); const id = w.dataset.uid; const has = (evDraft.attendees || []).includes(id); evDraft.attendees = has ? evDraft.attendees.filter(x => x !== id) : (evDraft.attendees || []).concat(id); renderEventModal(); return; }
+  if (a === "evGoogle"){ syncEventHeader(); if (!evDraft.title.trim()){ toast("Give the event a title first."); return; } window.open(googleUrl(evDraft), "_blank", "noopener"); return; }
+  if (a === "evIcs"){ syncEventHeader(); if (!evDraft.title.trim()){ toast("Give the event a title first."); return; } exportEventIcs(evDraft); return; }
+});
+
 /* ---------- workspace click delegation (data-wact) ---------- */
 document.addEventListener("click", e => {
   const w = e.target.closest("[data-wact]");
@@ -2844,8 +3223,9 @@ document.addEventListener("change", e => {
 let busWired = false;
 function wireWorkspaceBus(){
   if (busWired) return; busWired = true;
-  BUS.on("change:tasks", () => { if (viewIs("tasks")) renderTasks(); renderProjectsNav(); updateTasksBadge(); });
+  BUS.on("change:tasks", () => { if (viewIs("tasks")) renderTasks(); if (viewIs("calendar")) renderCalendar(); renderProjectsNav(); updateTasksBadge(); });
   BUS.on("change:projects", () => { renderProjectsNav(); if (viewIs("tasks")) renderTasks(); });
+  BUS.on("change:events", () => { if (viewIs("calendar")) renderCalendar(); });
   BUS.on("change:notifications", () => renderBell());
   BUS.on("notif:new", () => renderBell());
 }
@@ -2919,6 +3299,8 @@ document.addEventListener("click", e => {
   else if (a === "aDl"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; doDownload(x.f); }
   else if (a === "openBrand"){ selectBrand(act.dataset.bid); }
   else if (a === "toggleMotion"){ SETTINGS.motion = SETTINGS.motion === false ? true : false; document.body.classList.toggle("no-motion", SETTINGS.motion === false); saveSettings(); renderSettings(); }
+  else if (a === "toggleCalTasks"){ SETTINGS.calShowTasks = SETTINGS.calShowTasks === false ? true : false; saveSettings(); renderSettings(); if (viewIs("calendar")) renderCalendar(); }
+  else if (a === "exportIcs"){ exportAllIcs(); }
   else if (a === "signout") signOut();
   else if (a === "backup") backupWorkspace();
   else if (a === "refreshCode") renderSettings();
@@ -2999,6 +3381,8 @@ document.getElementById("pmDelete").addEventListener("click", deleteProjectNow);
 document.getElementById("pmColorPick").addEventListener("input", function(){ document.getElementById("pmColor").value = this.value.toUpperCase(); });
 document.getElementById("pmColor").addEventListener("input", function(){ const h = normHex(this.value); if (h) document.getElementById("pmColorPick").value = h; });
 document.getElementById("planRun").addEventListener("click", planWithSYN);
+document.getElementById("evSave").addEventListener("click", saveEventModal);
+document.getElementById("evDelete").addEventListener("click", deleteEventNow);
 
 boot();
 </script>
