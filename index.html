@@ -2503,6 +2503,8 @@ function notifAllowed(type){ return NOTIF_PREFS[type] !== false; }
 function notify(forUserId, type, text, link){
   if (!forUserId) return null;
   const n = Notifs.create({ forUserId, type, text, link: link || null, read:false });
+  const c = coll("notifications");                 // keep the org-wide notification log bounded
+  if (c.cache && c.cache.length > 1000){ c.cache.splice(0, c.cache.length - 800); collSave("notifications"); }
   BUS.emit("notif:new", { forUserId });
   return n;
 }
