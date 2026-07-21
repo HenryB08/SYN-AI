@@ -1406,7 +1406,7 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
    e.g. "https://syn-core.henrybello.workers.dev"
    In the Claude preview this is not needed. On a live site it is required
    for chat and research to work. */
-const SYN_CORE_URL = "PASTE_YOUR_WORKER_URL_HERE";
+const SYN_CORE_URL = "https://syn-core.henrybello.workers.dev";
 function apiBase(){
   return (SYN_CORE_URL && SYN_CORE_URL.startsWith("http")) ? SYN_CORE_URL : "https://api.anthropic.com";
 }
