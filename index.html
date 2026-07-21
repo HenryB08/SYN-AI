@@ -671,6 +671,36 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .person-card .p-meta{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .person-card .p-role{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-top:6px}
 .person-card .p-acts{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.md-empty-hero{text-align:center;padding:46px 26px 40px}
+.md-empty-hero .empty-orb{margin:0 auto 20px}
+.md-empty-hero h3{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600;margin-bottom:8px}
+.md-empty-hero p{color:var(--muted);max-width:440px;margin:0 auto 20px;font-size:13.5px}
+.md-empty-hero .starter-row{justify-content:center}
+
+/* --- quick-add menu --- */
+.newmenu-btn{white-space:nowrap}
+.newmenu{width:210px;padding:8px}
+.qa-item{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:600;color:var(--text);transition:background .15s}
+.qa-item:hover{background:rgba(255,255,255,.06)}
+.qa-item .qa-ico{width:26px;height:26px;min-width:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px}
+
+/* --- global search --- */
+.search-modal{max-width:620px;padding:0;overflow:hidden}
+.search-bar{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--glass-border-soft)}
+.search-bar .search-ico{font-size:18px;color:var(--muted)}
+.search-bar input{flex:1;background:none;border:none;color:var(--text);font-family:'Manrope',sans-serif;font-size:16px;outline:none}
+.search-bar input::placeholder{color:var(--faint)}
+.search-bar .search-hint{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);border:1px solid var(--glass-border-soft);border-radius:7px;padding:3px 7px}
+.search-results{max-height:min(60vh,460px);overflow-y:auto;padding:8px}
+.search-group-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:12px 12px 6px}
+.search-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer;transition:background .12s}
+.search-item:hover,.search-item.sel{background:rgba(255,255,255,.07)}
+.search-item.sel{box-shadow:inset 0 0 0 1px rgba(228,193,105,.4)}
+.search-item .si-ico{width:30px;height:30px;min-width:30px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:'IBM Plex Mono',monospace}
+.search-item .si-main{flex:1;min-width:0}
+.search-item .si-title{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-item .si-sub{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:2px}
+.search-empty{padding:36px 20px;text-align:center;color:var(--muted);font-size:13px}
 
 /* event modal export row */
 .ev-export{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
@@ -771,6 +801,17 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <div class="lock-chip"><span class="chip-dot"></span>Locked to <b id="lockName">—</b></div>
       <div class="top-right">
         <button class="guard-chip" id="guardChip"><span class="g-lbl">Guardrails</span><span class="g-count" id="guardCount">0</span></button>
+        <button class="icon-btn" id="searchBtn" title="Search (Ctrl/⌘ K)" aria-label="Search">⌕</button>
+        <div class="bell-wrap">
+          <button class="head-btn newmenu-btn" id="newBtn" title="Create" style="padding:8px 15px">+ New</button>
+          <div class="notif-panel newmenu" id="quickAddMenu">
+            <button class="qa-item" data-wact="qaTask"><span class="qa-ico">▣</span> Task</button>
+            <button class="qa-item" data-wact="qaEvent"><span class="qa-ico">◷</span> Event</button>
+            <button class="qa-item" data-wact="qaSpace"><span class="qa-ico">◎</span> Space</button>
+            <button class="qa-item" data-wact="qaChat"><span class="qa-ico">◈</span> Chat</button>
+            <button class="qa-item" data-wact="qaInvite"><span class="qa-ico">✦</span> Invite teammate</button>
+          </div>
+        </div>
         <div class="bell-wrap">
           <button class="icon-btn" id="bellBtn" title="Notifications" aria-label="Notifications">◔<span class="bell-badge" id="bellBadge">0</span></button>
           <div class="notif-panel" id="notifPanel">
@@ -898,6 +939,14 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
   <div class="modal preview-modal">
     <div class="m-head"><h3 id="prevTitle">Preview</h3><button class="m-close" data-close="prevVeil" aria-label="Close">✕</button></div>
     <iframe class="preview-frame" id="prevFrame" sandbox="" title="File preview"></iframe>
+  </div>
+</div>
+
+<!-- SEARCH MODAL -->
+<div class="modal-veil" id="searchVeil">
+  <div class="modal search-modal">
+    <div class="search-bar"><span class="search-ico">⌕</span><input id="searchInput" placeholder="Search tasks, events, spaces, people, chats…" autocomplete="off"><span class="search-hint">Esc</span></div>
+    <div class="search-results" id="searchResults"></div>
   </div>
 </div>
 
@@ -1309,6 +1358,7 @@ async function enterOrg(org, u){
 
   await loadWorkspaceData();
   await loadSeen();
+  await loadPrefs();
   await initSpaces();
   wireWorkspaceBus();
   renderProjectsNav();
@@ -2221,6 +2271,42 @@ function renderSettings(){
     '<span class="role-pill">Coming with SYN Core</span></div>' +
     '</div></div>';
 
+  // Projects management
+  html += '<div class="spec-block"><div class="sb-head">Projects <button class="add-btn" data-wact="newProject">+ New project</button></div><div class="sb-body">';
+  const projs = Projects.list();
+  if (!projs.length) html += '<div class="k-empty">No projects yet. Group tasks under a project from here or the Tasks sidebar.</div>';
+  else projs.forEach(pr => { const n = Tasks.list(t => canSeeTask(t) && t.projectId === pr.id).length;
+    html += '<div class="k-row"><div class="k-ico" style="background:' + hexToSoft(pr.color) + ';color:' + esc(pr.color) + '">◆</div>' +
+      '<div style="flex:1"><div class="k-name">' + esc(pr.name) + '</div><div class="k-meta">' + n + ' task' + (n === 1 ? '' : 's') + (pr.description ? ' · ' + esc(pr.description) : '') + '</div></div>' +
+      '<button class="c-tool" data-wact="editProject" data-id="' + pr.id + '" title="Edit" style="opacity:1;display:inline">✎</button></div>';
+  });
+  html += '</div></div>';
+
+  // Spaces management (admins)
+  if (isAdmin()){
+    html += '<div class="spec-block"><div class="sb-head">Spaces <button class="add-btn" data-wact="newSpace">+ New space</button></div><div class="sb-body">';
+    const sps = Spaces.list().sort((a,b) => (a.createdAt < b.createdAt ? -1 : 1));
+    if (!sps.length) html += '<div class="k-empty">No spaces yet.</div>';
+    else sps.forEach(s => { const mem = s.members === "all" ? "Whole workspace" : (Array.isArray(s.members) ? s.members.length + " members" : "");
+      html += '<div class="k-row"><div class="k-ico" style="background:' + hexToSoft(s.color) + ';color:' + esc(s.color) + '">' + esc(s.icon || "◆") + '</div>' +
+        '<div style="flex:1"><div class="k-name">' + esc(s.name) + (s.type === "ai" ? ' <span class="space-ai-tag">AI</span>' : '') + (s.archived ? ' <span class="k-meta" style="display:inline">· archived</span>' : '') + '</div><div class="k-meta">' + (s.type === "ai" ? "AI space" : "Team space") + ' · ' + mem + '</div></div>' +
+        '<button class="c-tool" data-wact="editSpace" data-id="' + s.id + '" title="Manage" style="opacity:1;display:inline">✎</button></div>';
+    });
+    html += '</div></div>';
+  }
+
+  // Notification preferences (per-user)
+  const npref = (type, title, sub) => '<div class="set-row"><div class="set-info"><div class="set-title">' + title + '</div><div class="set-sub">' + sub + '</div></div>' +
+    '<button class="toggle ' + (NOTIF_PREFS[type] !== false ? "on" : "") + '" data-act="toggleNotif" data-nt="' + type + '" aria-label="Toggle"></button></div>';
+  html += '<div class="spec-block"><div class="sb-head">Notification preferences</div><div class="sb-body">' +
+    npref("assigned", "Task assignments", "When a task is assigned to you") +
+    npref("mention", "Mentions", "When a teammate @mentions you in a space") +
+    npref("dm", "Direct messages", "When you get a new DM") +
+    npref("task-due", "Due-soon tasks", "When your tasks are due within 48 hours") +
+    npref("event", "Event invites", "When you are added to an event") +
+    npref("comment", "Task comments", "When someone comments on a task you are on") +
+    '<div class="f-hint" style="margin-top:10px">Preferences are personal to you and apply on this device.</div></div></div>';
+
   html += '<div class="spec-block"><div class="sb-head">Team · ' + esc(ORG ? ORG.name : "") + '</div><div class="sb-body">';
   TEAM.forEach(m => {
     html += '<div class="team-row"><div class="avatar">' + esc(m.name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase()) + '</div>' +
@@ -2409,13 +2495,18 @@ async function loadWorkspaceData(){ await Promise.all(WS_KEYS.map(k => collLoad(
 
 /* ---------- notifications ---------- */
 const N_ICON = { assigned:"◎", "task-due":"⏰", mention:"@", dm:"✉", approval:"✓", event:"◷", comment:"❝", system:"◈" };
+/* per-user notification preferences (device-local); recipients hide muted types */
+let NOTIF_PREFS = {};
+async function loadPrefs(){ NOTIF_PREFS = (await sGet(okey("prefs:" + currentUser.id), false)) || {}; }
+function savePrefs(){ saveSoon(okey("prefs:" + currentUser.id), () => NOTIF_PREFS, false); }
+function notifAllowed(type){ return NOTIF_PREFS[type] !== false; }
 function notify(forUserId, type, text, link){
   if (!forUserId) return null;
   const n = Notifs.create({ forUserId, type, text, link: link || null, read:false });
   BUS.emit("notif:new", { forUserId });
   return n;
 }
-function myNotifs(){ return Notifs.list(n => n.forUserId === (currentUser && currentUser.id)).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)); }
+function myNotifs(){ return Notifs.list(n => n.forUserId === (currentUser && currentUser.id) && notifAllowed(n.type)).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)); }
 function renderBell(){
   if (!currentUser) return;
   const list = myNotifs();
@@ -2462,7 +2553,7 @@ function recentActivity(n){ return Activity.list().sort((a,b) => new Date(b.crea
 
 /* ---------- due-soon scan (per-client, deduped) ---------- */
 function checkDueSoon(){
-  if (!currentUser) return;
+  if (!currentUser || !notifAllowed("task-due")) return;
   const now = Date.now(), soon = now + 48 * 3600 * 1000;
   Tasks.list(t => t.status !== "done" && t.dueDate && (t.assignees || []).includes(currentUser.id)).forEach(t => {
     const due = new Date(t.dueDate + "T23:59:59").getTime();
@@ -3254,6 +3345,74 @@ function ingestAIEvents(lines){
 }
 
 /* =====================================================================
+   STAGE 5 · GLOBAL SEARCH (Cmd/Ctrl-K) + UNIVERSAL QUICK-ADD
+   ===================================================================== */
+let searchItems = [], searchSel = 0;
+const S_ICON = { task:"▣", event:"◷", space:"◎", dm:"✉", person:"⬢", chat:"◈" };
+async function openSearch(){
+  for (const b of BRANDS) await loadChats(b.id);
+  document.getElementById("searchVeil").classList.add("open");
+  const inp = document.getElementById("searchInput");
+  inp.value = ""; searchItems = []; searchSel = 0;
+  document.getElementById("searchResults").innerHTML = '<div class="search-empty">Search across tasks, events, spaces, DMs, people, and chats.</div>';
+  setTimeout(() => inp.focus(), 30);
+}
+function closeSearch(){ document.getElementById("searchVeil").classList.remove("open"); }
+function searchAll(q){
+  q = q.toLowerCase().trim(); const items = [];
+  if (!q) return items;
+  const inc = s => (s || "").toLowerCase().includes(q);
+  Tasks.list(canSeeTask).forEach(t => { if (inc(t.title) || inc(t.description) || (t.labels || []).some(inc)) items.push({ type:"task", id:t.id, title:t.title || "Untitled", sub:(T_PRI[t.priority] || T_PRI.med).label + (t.dueDate ? " · due " + fmtDay(t.dueDate) : "") }); });
+  Events.list(canSeeEvent).forEach(ev => { if (inc(ev.title) || inc(ev.description) || inc(ev.location)) items.push({ type:"event", id:ev.id, title:ev.title || "Event", sub:fmtDay(ev.startDate) + (ev.allDay ? " · all day" : " · " + (ev.startTime || "")) }); });
+  Spaces.list(s => isMember(s)).forEach(s => { if (inc(s.name) || inc(s.description)) items.push({ type:"space", id:s.id, title:s.name, sub:(s.type === "ai" ? "AI space" : "Space") + (s.archived ? " · archived" : "") }); });
+  DMs.list(d => Array.isArray(d.members) && d.members.includes(currentUser.id)).forEach(d => { if (inc(teamName(dmOther(d)))) items.push({ type:"dm", id:d.id, title:dmName(d), sub:"Direct message" }); });
+  TEAM.forEach(u => { if (inc(u.name) || inc(u.email)) items.push({ type:"person", id:u.id, title:u.name, sub:u.role + " · " + u.email }); });
+  BRANDS.forEach(b => { (CHATS[b.id] || []).filter(canSee).forEach(c => { if (inc(c.name) || c.msgs.some(m => inc(m.text))) items.push({ type:"chat", id:c.id, brandId:b.id, title:c.name || "Chat", sub:b.name + " · chat" }); }); });
+  return items;
+}
+function doSearch(){ const q = document.getElementById("searchInput").value; searchItems = searchAll(q); searchSel = 0; renderSearchList(q); }
+function renderSearchList(q){
+  const el = document.getElementById("searchResults");
+  if (!q.trim()){ el.innerHTML = '<div class="search-empty">Search across tasks, events, spaces, DMs, people, and chats.</div>'; return; }
+  if (!searchItems.length){ el.innerHTML = '<div class="search-empty">No matches for “' + esc(q) + '”.</div>'; return; }
+  const groups = [["task","Tasks"],["event","Events"],["space","Spaces"],["dm","Direct messages"],["person","People"],["chat","Chats"]];
+  let html = "";
+  groups.forEach(g => { const list = searchItems.filter(x => x.type === g[0]); if (!list.length) return;
+    html += '<div class="search-group-lbl">' + g[1] + '</div>';
+    list.forEach(it => { const i = searchItems.indexOf(it); html += '<button class="search-item' + (i === searchSel ? " sel" : "") + '" data-wact="searchJump" data-i="' + i + '"><span class="si-ico">' + (S_ICON[it.type] || "◈") + '</span><div class="si-main"><div class="si-title">' + esc(it.title) + '</div><div class="si-sub">' + esc(it.sub) + '</div></div></button>'; });
+  });
+  el.innerHTML = html;
+  const sel = el.querySelector(".search-item.sel"); if (sel) sel.scrollIntoView({ block:"nearest" });
+}
+function searchMove(d){ if (!searchItems.length) return; searchSel = (searchSel + d + searchItems.length) % searchItems.length; renderSearchList(document.getElementById("searchInput").value); }
+function searchJump(i){
+  const it = searchItems[i]; if (!it) return; closeSearch();
+  if (it.type === "task"){ setView("tasks"); if (Tasks.get(it.id)) openTaskModal(it.id); }
+  else if (it.type === "event"){ setView("calendar"); if (Events.get(it.id)) openEventModal(it.id); }
+  else if (it.type === "space"){ setView("spaces"); openThread("space", it.id); }
+  else if (it.type === "dm"){ setView("spaces"); openThread("dm", it.id); }
+  else if (it.type === "person"){ setView("people"); }
+  else if (it.type === "chat"){ selectBrand(it.brandId).then(() => { const b = brand(); if (b){ b._activeThread = it.id; renderChatList(); renderThread(); setView("chat"); } }); }
+}
+
+/* universal quick-add menu */
+function toggleQuickAdd(){ document.getElementById("quickAddMenu").classList.toggle("open"); }
+function closeQuickAdd(){ const m = document.getElementById("quickAddMenu"); if (m) m.classList.remove("open"); }
+
+/* stage 5 click delegation */
+document.addEventListener("click", e => {
+  const w = e.target.closest("[data-wact]"); if (!w) return;
+  const a = w.dataset.wact;
+  if (a === "searchJump"){ searchJump(+w.dataset.i); return; }
+  if (a === "editProject"){ openProjectModal(w.dataset.id); return; }
+  if (a === "qaTask"){ closeQuickAdd(); const t = Tasks.create({ title:"", status:"todo" }); setView("tasks"); openTaskModal(t.id); return; }
+  if (a === "qaEvent"){ closeQuickAdd(); setView("calendar"); openEventModal(null, todayISO()); return; }
+  if (a === "qaSpace"){ closeQuickAdd(); if (!isAdmin()){ toast("Only admins can create spaces."); return; } setView("spaces"); openSpaceModal(null); return; }
+  if (a === "qaChat"){ closeQuickAdd(); if (!brand()){ toast("Encode a brand first to start a chat."); setView("chat"); return; } newChat(); return; }
+  if (a === "qaInvite"){ closeQuickAdd(); if (!isAdmin()){ toast("Ask your workspace admin for the team code to invite people."); return; } setView("settings"); toast("Share your live team code (in Settings) with teammates."); return; }
+});
+
+/* =====================================================================
    STAGE 4 · MY DAY (per-user home) + PEOPLE directory
    ===================================================================== */
 function greetWord(){ const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; }
@@ -3287,6 +3446,24 @@ function renderMyDay(){
     (aiReady() ? '<button class="head-btn md-plan" data-wact="planMyDay" id="mdPlanBtn">✦ Plan my day</button>' : '') + '</div>';
   h += '<div class="md-ask"><input id="mdAsk" placeholder="Ask SYN anything…"><button class="btn-gold" data-wact="mdAsk">Ask</button></div>';
   h += '<div class="md-plan-out" id="mdPlanOut" style="display:none"></div>';
+
+  // Friendly empty state: nothing due, no events, no unreads, no pending approvals
+  if (!myDue.length && !events.length && !threads.length && !(isAdmin() && pend)){
+    h += '<div class="spec-block md-empty-hero"><div class="empty-orb"><img src="' + LOGO + '" onerror="logoFail(this)" alt=""></div>' +
+      '<h3>Your day is clear</h3>' +
+      '<p>Nothing due and nothing unread' + (noDue.length ? ' (you have ' + noDue.length + ' task' + (noDue.length > 1 ? 's' : '') + ' with no due date)' : '') + '. Ask SYN to get moving, add a task, or plan your week.</p>' +
+      '<div class="starter-row"><button class="btn-gold" data-wact="newTask">+ New Task</button><button class="head-btn ghost" data-wact="newEvent">+ New Event</button></div></div>';
+    if (acts.length){
+      h += '<div class="spec-block md-card" style="margin-top:14px"><div class="sb-head">Recent activity</div><div class="sb-body">';
+      acts.forEach(a => h += '<div class="md-act-line">' + esc(a.text) + '<span class="t">' + esc(fmtTime(a.createdAt)) + '</span></div>');
+      h += '</div></div>';
+    }
+    p.innerHTML = h;
+    const ask0 = document.getElementById("mdAsk");
+    if (ask0) ask0.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); myDayAsk(); } });
+    return;
+  }
+
   h += '<div class="md-grid">';
 
   // Tasks due
@@ -3424,7 +3601,7 @@ function saveSeen(){ saveSoon(okey("seen:" + currentUser.id), () => SEEN, false)
 function recFor(kind, id){ return kind === "space" ? Spaces.get(id) : DMs.get(id); }
 function unreadFor(kind, id){ const rec = recFor(kind, id); const total = rec ? (rec.msgCount || 0) : 0; return Math.max(0, total - (SEEN[kind + ":" + id] || 0)); }
 function markSeen(kind, id){ const rec = recFor(kind, id); const total = Math.max(rec ? (rec.msgCount || 0) : 0, threadMsgs(kind, id).length); SEEN[kind + ":" + id] = total; saveSeen(); }
-function hasUnreadMention(spaceId){ return Notifs.list(n => n.forUserId === currentUser.id && n.type === "mention" && !n.read && n.link && n.link.space === spaceId).length > 0; }
+function hasUnreadMention(spaceId){ return notifAllowed("mention") && Notifs.list(n => n.forUserId === currentUser.id && n.type === "mention" && !n.read && n.link && n.link.space === spaceId).length > 0; }
 function clearSpaceMentions(spaceId){
   let changed = false;
   collAll("notifications").forEach(n => { if (n.forUserId === currentUser.id && n.type === "mention" && !n.read && n.link && n.link.space === spaceId){ n.read = true; changed = true; } });
@@ -3878,9 +4055,9 @@ let busWired = false;
 function wireWorkspaceBus(){
   if (busWired) return; busWired = true;
   BUS.on("change:tasks", () => { if (viewIs("tasks")) renderTasks(); if (viewIs("calendar")) renderCalendar(); renderProjectsNav(); updateTasksBadge(); });
-  BUS.on("change:projects", () => { renderProjectsNav(); if (viewIs("tasks")) renderTasks(); });
+  BUS.on("change:projects", () => { renderProjectsNav(); if (viewIs("tasks")) renderTasks(); if (viewIs("settings")) renderSettings(); });
   BUS.on("change:events", () => { if (viewIs("calendar")) renderCalendar(); });
-  BUS.on("change:spaces", () => { if (viewIs("spaces")) renderSpaceRail(); updateSpacesBadge(); });
+  BUS.on("change:spaces", () => { if (viewIs("spaces")) renderSpaceRail(); updateSpacesBadge(); if (viewIs("settings")) renderSettings(); });
   BUS.on("change:dms", () => { if (viewIs("spaces")) renderSpaceRail(); updateSpacesBadge(); });
   BUS.on("change:notifications", () => { renderBell(); if (viewIs("spaces")) renderSpaceRail(); });
   ["tasks","events","spaces","dms","notifications","activity","projects"].forEach(k => BUS.on("change:" + k, () => { if (viewIs("myday")) renderMyDay(); if (viewIs("people") && (k === "tasks")) renderPeople(); }));
@@ -3958,6 +4135,7 @@ document.addEventListener("click", e => {
   else if (a === "toggleMotion"){ SETTINGS.motion = SETTINGS.motion === false ? true : false; document.body.classList.toggle("no-motion", SETTINGS.motion === false); saveSettings(); renderSettings(); }
   else if (a === "toggleCalTasks"){ SETTINGS.calShowTasks = SETTINGS.calShowTasks === false ? true : false; saveSettings(); renderSettings(); if (viewIs("calendar")) renderCalendar(); }
   else if (a === "exportIcs"){ exportAllIcs(); }
+  else if (a === "toggleNotif"){ const nt = act.dataset.nt; NOTIF_PREFS[nt] = NOTIF_PREFS[nt] === false ? true : false; savePrefs(); renderSettings(); renderBell(); updateSpacesBadge(); }
   else if (a === "signout") signOut();
   else if (a === "backup") backupWorkspace();
   else if (a === "refreshCode") renderSettings();
@@ -4026,9 +4204,24 @@ const stageEl = document.getElementById("stage");
 stageEl.addEventListener("drop", e => { stageEl.classList.remove("dragging"); if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 
 /* --- workspace suite wiring (Stage 0 + 1) --- */
-document.getElementById("bellBtn").addEventListener("click", e => { e.stopPropagation(); toggleBell(); });
+document.getElementById("bellBtn").addEventListener("click", e => { e.stopPropagation(); closeQuickAdd(); toggleBell(); });
 document.getElementById("notifClear").addEventListener("click", markAllRead);
 document.addEventListener("click", e => { const p = document.getElementById("notifPanel"); if (p.classList.contains("open") && !e.target.closest(".bell-wrap")) closeBell(); });
+/* global search + quick-add wiring */
+document.getElementById("searchBtn").addEventListener("click", openSearch);
+document.getElementById("newBtn").addEventListener("click", e => { e.stopPropagation(); closeBell(); toggleQuickAdd(); });
+document.addEventListener("click", e => { const m = document.getElementById("quickAddMenu"); if (m.classList.contains("open") && !e.target.closest("#quickAddMenu") && e.target.id !== "newBtn") closeQuickAdd(); });
+document.addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")){ e.preventDefault(); if (document.getElementById("app").classList.contains("on")) openSearch(); return; }
+  if (e.key === "Escape" && document.getElementById("searchVeil").classList.contains("open")) closeSearch();
+});
+const searchInputEl = document.getElementById("searchInput");
+searchInputEl.addEventListener("input", doSearch);
+searchInputEl.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown"){ e.preventDefault(); searchMove(1); }
+  else if (e.key === "ArrowUp"){ e.preventDefault(); searchMove(-1); }
+  else if (e.key === "Enter"){ e.preventDefault(); searchJump(searchSel); }
+});
 document.getElementById("tmSave").addEventListener("click", saveTaskModal);
 document.getElementById("tmDelete").addEventListener("click", deleteTaskNow);
 document.getElementById("pmSave").addEventListener("click", saveProjectModal);
