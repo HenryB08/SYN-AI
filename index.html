@@ -1414,11 +1414,73 @@ function apiBase(){
 /* ---------------- STORAGE ADAPTER (persistent, team-shared) ---------------- */
 const mem = {};                       // last-resort fallback
 let persistOk = false;
-let persistMode = "memory";           // "shared" (Claude preview) | "device" (browser) | "memory"
+let persistMode = "memory";           // "cloud" (SYN Core) | "shared" (Claude preview) | "device" (browser) | "memory"
+let cloudOk = false;                  // set at boot by cloudHealth(); when true, shared data reads/writes go through SYN Core
 function lsOk(){
   try{ const k = "__syn_t"; localStorage.setItem(k, "1"); localStorage.removeItem(k); return true; }catch(e){ return false; }
 }
+
+/* ----- SYN Core cloud tier: D1-backed KV over GET/PUT /kv/<key> (origin-locked, no auth header) ----- */
+function cloudBase(){ return (SYN_CORE_URL && SYN_CORE_URL.startsWith("http")) ? SYN_CORE_URL : ""; }
+async function cloudGet(key){
+  const res = await fetch(cloudBase() + "/kv/" + encodeURIComponent(key), { method:"GET" });
+  if (!res.ok) throw new Error("cloud get " + res.status);
+  const j = await res.json();
+  return (j && j.value != null) ? JSON.parse(j.value) : null;   // stored value is a JSON string, exactly like localStorage
+}
+async function cloudPut(key, str){
+  const res = await fetch(cloudBase() + "/kv/" + encodeURIComponent(key), {
+    method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ value: str })
+  });
+  if (!res.ok) throw new Error("cloud put " + res.status);
+}
+// Serialize writes per key so rapid PUTs to the same key can't overlap or land out of order.
+const cloudChain = {};
+function cloudWrite(key, str){
+  const next = (cloudChain[key] || Promise.resolve()).catch(() => {}).then(() => cloudPut(key, str));
+  cloudChain[key] = next;
+  return next;
+}
+async function cloudHealth(){
+  if (!cloudBase()) return false;
+  try{
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 4000);           // never let a dead backend hang boot
+    const res = await fetch(cloudBase() + "/", { method:"GET", signal: ctl.signal });
+    clearTimeout(t);
+    if (!res.ok) return false;
+    const j = await res.json().catch(() => null);
+    return !!(j && j.ok === true);
+  }catch(e){ return false; }
+}
+// One-time: push every shared syn5:* key from localStorage up to cloud when cloud is empty but this device has a workspace.
+async function migrateLocalToCloud(){
+  if (!lsOk()) return 0;
+  let cloudOrgs = null;
+  try{ cloudOrgs = await cloudGet("syn5:orgs"); }catch(e){ return 0; }
+  if (cloudOrgs && cloudOrgs.length) return 0;              // cloud already has workspaces; never clobber
+  let localOrgs = null;
+  try{ const v = localStorage.getItem("syn5:orgs"); localOrgs = v ? JSON.parse(v) : null; }catch(e){}
+  if (!localOrgs || !localOrgs.length) return 0;            // nothing here to migrate
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k) keys.push(k); }
+  let n = 0;
+  for (const k of keys){
+    if (!k.startsWith("syn5:")) continue;
+    if (k === "syn5:session" || /:(prefs|seen):/.test(k)) continue;   // device-local by design; stays put
+    const str = localStorage.getItem(k);
+    if (str == null) continue;
+    try{ await cloudWrite(k, str); n++; }catch(e){ /* keep the local copy intact on failure */ }
+  }
+  return n;
+}
+
 async function sGet(key, shared = true){
+  // Shared data reads from SYN Core when it's live; device-local data (session, per-device prefs) never does.
+  if (shared && cloudOk){
+    try{ return await cloudGet(key); }
+    catch(e){ /* fall through to local so a read never hard-fails on a network blip */ }
+  }
   if (window.storage){
     try{ const r = await window.storage.get(key, shared); return r && r.value ? JSON.parse(r.value) : null; }
     catch(e){ return null; }
@@ -1429,13 +1491,18 @@ async function sGet(key, shared = true){
   return mem[key] || null;
 }
 async function sSet(key, val, shared = true){
-  mem[key] = val;
+  mem[key] = val;                       // keep the newest value in memory as a safety net
+  const str = JSON.stringify(val);
+  if (shared && cloudOk){
+    try{ await cloudWrite(key, str); return; }
+    catch(e){ console.error("cloud save failed, falling back to local", key, e); /* never silently lose: fall through */ }
+  }
   if (window.storage){
-    try{ await window.storage.set(key, JSON.stringify(val), shared); }catch(e){ console.error("save fail", key, e); }
+    try{ await window.storage.set(key, str, shared); }catch(e){ console.error("save fail", key, e); }
     return;
   }
   if (lsOk()){
-    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error("save fail", key, e); }
+    try{ localStorage.setItem(key, str); }catch(e){ console.error("save fail", key, e); }
   }
 }
 const saveTimers = {};
@@ -1591,13 +1658,20 @@ function backToSite(){ document.getElementById("authScreen").classList.remove("o
 window.addEventListener("hashchange", () => { if (appIsOn()) return; if (_skipHash){ _skipHash = false; return; } routeSite(); });
 
 async function boot(){
-  persistMode = window.storage ? "shared" : (lsOk() ? "device" : "memory");
-  persistOk = persistMode !== "memory";
+  cloudOk = await cloudHealth();
+  if (cloudOk){
+    persistMode = "cloud"; persistOk = true;
+    try{ const moved = await migrateLocalToCloud(); if (moved) console.log("SYN Core: migrated " + moved + " local key(s) to the cloud."); }catch(e){}
+  } else {
+    persistMode = window.storage ? "shared" : (lsOk() ? "device" : "memory");
+    persistOk = persistMode !== "memory";
+  }
   const pill = document.getElementById("storagePill");
-  pill.textContent = persistMode === "shared" ? "Saved" : persistMode === "device" ? "This Device" : "Session";
+  pill.textContent = persistMode === "cloud" ? "Synced" : persistMode === "shared" ? "Saved" : persistMode === "device" ? "This Device" : "Session";
   pill.className = "storage-pill " + (persistOk ? "ok" : "no");
-  pill.title = persistMode === "shared" ? "Team workspace storage is live. Everything persists and is shared."
-    : persistMode === "device" ? "Saved to this browser. Team-shared storage across devices arrives with SYN Core."
+  pill.title = persistMode === "cloud" ? "Synced to SYN Core. Everything is saved to the cloud and shared with your team across devices."
+    : persistMode === "shared" ? "Team workspace storage is live. Everything persists and is shared."
+    : persistMode === "device" ? "Saved to this browser only. SYN Core wasn't reachable, so cross-device team sync is off right now."
     : "Storage unavailable; this session is in-memory only.";
 
   ORGS = (await sGet("syn5:orgs")) || [];
@@ -1673,6 +1747,10 @@ async function authSubmit(){
   const pass = val("aPass");
   if (!em) return authErr("Enter your email.");
   if (!pass) return authErr("Enter your password.");
+
+  // Always work from the latest workspace registry (cloud when live) so sign-in and join
+  // see workspaces created in another browser, not just whatever was loaded at boot.
+  ORGS = (await sGet("syn5:orgs")) || [];
 
   if (authMode === "signin"){
     for (const org of ORGS){
@@ -2719,8 +2797,8 @@ function renderSettings(){
     '<div class="set-row"><div class="set-info"><div class="set-title">Living background</div><div class="set-sub">Aurora motion behind the glass</div></div>' +
     '<button class="toggle ' + (SETTINGS.motion !== false ? "on" : "") + '" data-act="toggleMotion" aria-label="Toggle motion"></button></div>' +
     '<div class="set-row"><div class="set-info"><div class="set-title">Workspace storage</div><div class="set-sub">' +
-    (persistMode === "shared" ? "Connected. Accounts, brands, chats, memory, and approvals are saved and shared with your team." : persistMode === "device" ? "Saving to this browser. Everything persists on this device; team-shared sync across devices arrives with SYN Core." : "Unavailable in this environment; running in-session only.") +
-    '</div></div><span class="role-pill">' + (persistMode === "shared" ? "Saved" : persistMode === "device" ? "Device" : "Session") + '</span></div>' +
+    (persistMode === "cloud" ? "Synced to SYN Core. Accounts, brands, chats, memory, and approvals are saved to the cloud and shared with your team across devices." : persistMode === "shared" ? "Connected. Accounts, brands, chats, memory, and approvals are saved and shared with your team." : persistMode === "device" ? "Saving to this browser only. SYN Core wasn't reachable, so cross-device team sync is off right now." : "Unavailable in this environment; running in-session only.") +
+    '</div></div><span class="role-pill">' + (persistMode === "cloud" ? "Synced" : persistMode === "shared" ? "Saved" : persistMode === "device" ? "Device" : "Session") + '</span></div>' +
     '<div class="set-row"><div class="set-info"><div class="set-title">Workspace backup</div><div class="set-sub">Download everything (brands, chats, memory, approvals) as one JSON file</div></div>' +
     '<button class="btn-ghost" data-act="backup">Download</button></div>' +
     '</div></div>';
@@ -4162,7 +4240,7 @@ function threadMsgs(kind, id){ return collAll(msgKey(kind, id)); }
 function isMember(s){ return s.members === "all" || (Array.isArray(s.members) && s.members.includes(currentUser.id)) || isAdmin(); }
 function dmOther(rec){ return (rec.members || []).find(x => x !== currentUser.id); }
 function dmName(rec){ return teamName(dmOther(rec)) || "Direct message"; }
-function aiReady(){ return (typeof SYN_CORE_URL === "string" && SYN_CORE_URL.startsWith("http")) || persistMode === "shared"; }
+function aiReady(){ return (typeof SYN_CORE_URL === "string" && SYN_CORE_URL.startsWith("http")) || persistMode === "cloud" || persistMode === "shared"; }
 function escapeRe(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
 /* seen state (per user, device-local) */
