@@ -18,8 +18,8 @@ function logoFail(img){ const p = img && img.parentElement; if (p) p.innerHTML =
   --glass-border:rgba(255,255,255,.12);
   --glass-border-soft:rgba(255,255,255,.07);
   --text:#F4F1EC;
-  --muted:rgba(244,241,236,.55);
-  --faint:rgba(244,241,236,.32);
+  --muted:rgba(244,241,236,.72);   /* raised for WCAG AA contrast on the dark bg */
+  --faint:rgba(244,241,236,.58);   /* raised: was .32 (failed 4.5:1) */
   --gold:#E4C169;
   --gold-deep:#C8A24B;
   --good:#7FD99A;
@@ -103,7 +103,8 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .storage-pill.ok{color:var(--good);border-color:rgba(127,217,154,.3)}
 .storage-pill.no{color:var(--bad);border-color:rgba(255,122,107,.3)}
 
-.side-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0}
+.side-body{flex:1;overflow-y:auto;min-height:0;display:flex;flex-direction:column}
+.side-scroll{display:flex;flex-direction:column}
 .side-label{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--muted);padding:12px 22px 8px;display:flex;align-items:center;justify-content:space-between}
 .add-btn{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--muted);padding:4px 11px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.04);transition:all .2s}
 .add-btn:hover{color:var(--gold);border-color:rgba(228,193,105,.4)}
@@ -126,12 +127,13 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .chat-item.active{background:rgba(255,255,255,.08);color:var(--text);border-color:var(--glass-border-soft)}
 .c-glyph{font-size:9px;color:var(--faint)}
 .chat-item.active .c-glyph{color:var(--accent)}
-.c-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.c-tools{display:none;gap:2px}
-.chat-item:hover .c-tools{display:flex}
-.c-tool{font-size:10px;color:var(--faint);padding:3px 5px;border-radius:8px}
-.c-tool:hover{color:var(--gold)}
+.c-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c-tools{display:flex;gap:1px;flex:none}
+.c-tool{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;line-height:1;color:var(--muted);border-radius:10px;background:transparent}
+.c-tool:hover,.c-tool:focus-visible{color:var(--gold);background:rgba(228,193,105,.14)}
 .c-tool.pin-on{color:var(--gold)}
+/* chat rows are taller so the 44px targets fit without cramping the name */
+.chat-item{min-height:48px}
 .chat-rename{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(228,193,105,.4);border-radius:12px;color:var(--text);font-family:'Manrope',sans-serif;font-size:12.5px;font-weight:600;padding:6px 10px;outline:none}
 
 .side-nav{padding:11px 12px;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--glass-border-soft)}
@@ -472,6 +474,14 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .tc-due.amber{color:var(--gold)}
 .tc-labels{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
 .tc-lab{font-size:9.5px;font-weight:600;padding:2px 8px;border-radius:var(--r-full);background:rgba(255,255,255,.06);border:1px solid var(--glass-border-soft);color:var(--muted)}
+.pn-av{width:20px;height:20px;min-width:20px;font-size:8px;margin:0}
+.pn-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tc-status{display:flex;gap:3px;margin-top:10px;flex-wrap:wrap}
+.tcs-btn{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:700;letter-spacing:.02em;color:var(--muted);padding:5px 8px;border-radius:9px;border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.03);transition:all .15s;min-height:30px}
+.tcs-btn .tcs-dot{width:7px;height:7px;border-radius:50%;opacity:.6}
+.tcs-btn:hover,.tcs-btn:focus-visible{color:var(--text);border-color:var(--glass-border)}
+.tcs-btn.on{color:var(--text);background:rgba(255,255,255,.09);border-color:var(--glass-border)}
+.tcs-btn.on .tcs-dot{opacity:1}
 .tc-foot{display:flex;align-items:center;gap:7px;margin-top:9px}
 .tc-avs{display:flex}
 .t-av{width:22px;height:22px;min-width:22px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#8a6d2f);color:#141210;font-weight:800;font-size:9px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(20,18,26,.9);margin-left:-6px}
@@ -494,6 +504,8 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .trow.overdue{border-left-color:var(--bad)}
 .tr-check{width:19px;height:19px;min-width:19px;border-radius:6px;border:1.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .18s}
 .tr-check.done{background:var(--good);border-color:var(--good);color:#141210}
+.tr-main{flex:1;min-width:0}
+.tr-sub{font-size:10px;color:var(--muted);margin-top:2px}
 .tr-title{flex:1;font-size:13.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tr-title.done{text-decoration:line-through;color:var(--muted)}
 .tr-side{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
@@ -551,7 +563,27 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .cal-ev.cont{border-left-style:dashed;opacity:.82}
 .cal-ev.task{background:rgba(255,255,255,.05);border-left:2.5px dashed var(--muted);color:var(--muted);font-weight:600}
 .cal-ev.task:hover{color:var(--text)}
-.cal-more{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.06em;color:var(--faint);padding:1px 4px}
+.cal-more{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.06em;color:var(--gold);padding:2px 4px;text-align:left;cursor:pointer}
+.cal-more:hover{text-decoration:underline}
+.cal-ev{display:flex;align-items:center;gap:5px}
+.cal-ev .ce-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-avs{display:flex;flex:none}
+.cal-av{width:16px;height:16px;min-width:16px;font-size:7px;margin-left:-4px;border-width:1px}
+.cal-avs .cal-av:first-child{margin-left:0}
+.cal-av-more{font-family:'IBM Plex Mono',monospace;font-size:7.5px;color:var(--muted);margin-left:2px;align-self:center}
+/* ---- Day view ---- */
+.cal-day{display:flex;flex-direction:column;gap:8px}
+.cal-day-allday{display:flex;gap:10px;align-items:flex-start;padding:6px 4px;border-bottom:1px solid var(--glass-border-soft)}
+.cd-lbl{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);width:80px;min-width:80px;padding-top:4px}
+.cd-band{display:flex;flex-wrap:wrap;gap:5px;flex:1}
+.cal-day-grid{display:flex;flex-direction:column}
+.cd-hour{display:flex;gap:10px;align-items:stretch;min-height:44px;border-top:1px solid var(--glass-border-soft);padding:3px 4px;cursor:pointer;transition:background .15s}
+.cd-hour:hover{background:rgba(255,255,255,.03)}
+.cd-hour.now{background:rgba(228,193,105,.06)}
+.cd-hour.now .cd-time{color:var(--gold)}
+.cd-time{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--faint);width:80px;min-width:80px;padding-top:5px}
+.cd-slot{flex:1;display:flex;flex-direction:column;gap:4px;justify-content:center}
+.cd-slot .cal-ev{white-space:normal;font-size:12px;padding:6px 10px}
 /* week */
 .cal-week{flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:0 26px 22px;min-height:0}
 .cal-daycol{display:flex;flex-direction:column;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--glass-border-soft);overflow:hidden;min-height:0}
@@ -1125,9 +1157,10 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     <div class="side-head">
       <div class="logo-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="Syntrex"></div>
       <div><div class="wordmark">SYN</div><span class="ver" id="orgName">Brand Intelligence</span></div>
-      <span class="storage-pill" id="storagePill">…</span>
+      <span class="storage-pill" id="storagePill" role="status" aria-label="Workspace storage status">…</span>
     </div>
 
+    <div class="side-body">
     <div class="side-scroll">
       <div class="side-label"><span id="brandsLabel">Your Brand</span> <button class="add-btn" id="addBrandBtn">+ Add</button></div>
       <div class="brand-list" id="brandList"></div>
@@ -1136,7 +1169,7 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <div class="chat-list" id="chatList"></div>
     </div>
 
-    <div class="side-nav">
+    <nav class="side-nav" aria-label="Primary">
       <button class="nav-btn active" data-view="myday"><span class="glyph">☀</span> My Day</button>
       <button class="nav-btn" data-view="dashboard"><span class="glyph">▦</span> Portfolio</button>
       <button class="nav-btn" data-view="chat"><span class="glyph">◈</span> Workspace</button>
@@ -1147,8 +1180,8 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <button class="nav-btn" data-view="people"><span class="glyph">⬢</span> People</button>
       <button class="nav-btn" data-view="profile"><span class="glyph">⬡</span> Brand Profile</button>
       <button class="nav-btn" data-view="assets"><span class="glyph">▤</span> Assets</button>
-      <button class="nav-btn" data-view="approvals"><span class="glyph">✓</span> Approvals <span class="badge" id="pendBadge" style="display:none">0</span></button>
       <button class="nav-btn" data-view="settings"><span class="glyph">⚙</span> Settings</button>
+    </nav>
     </div>
     <div class="user-row">
       <div class="avatar" id="uAvatar">?</div>
@@ -1157,7 +1190,7 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
   </aside>
 
   <div class="main">
-    <div class="topbar glass">
+    <div class="topbar glass" role="banner">
       <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
       <div class="lock-chip"><span class="chip-dot"></span>Locked to <b id="lockName">—</b></div>
       <div class="top-right">
@@ -1185,7 +1218,7 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       </div>
     </div>
 
-    <div class="stage glass" id="stage">
+    <div class="stage glass" id="stage" role="main">
       <!-- MY DAY -->
       <div class="view active" id="view-myday"><div class="panel-scroll"><div class="panel-inner" id="mydayPanel"></div></div></div>
 
@@ -1253,7 +1286,6 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <!-- ASSETS -->
       <div class="view" id="view-assets"><div class="panel-scroll"><div class="panel-inner" id="assetsPanel"></div></div></div>
       <!-- APPROVALS -->
-      <div class="view" id="view-approvals"><div class="panel-scroll"><div class="panel-inner" id="apprPanel"></div></div></div>
       <!-- SETTINGS -->
       <div class="view" id="view-settings"><div class="panel-scroll"><div class="panel-inner" id="settingsPanel"></div></div></div>
     </div>
@@ -1875,6 +1907,8 @@ async function enterOrg(org, u){
   checkDueSoon();
   startWorkspacePoll();
   startSpacePoll();
+  checkDueSoon();                         // surface due-soon / overdue task reminders on load
+  renderBell();
 
   refreshFraming();
   if (BRANDS.length){ activeBrandId = BRANDS[0].id; await selectBrand(activeBrandId); }
@@ -1934,10 +1968,10 @@ function renderChatList(){
     btn.innerHTML = '<span class="c-glyph">' + (shared ? "⧉" : (t.pinned ? "★" : "🔒")) + '</span>' +
       '<span class="c-name">' + esc(t.name) + marker + '</span>' +
       '<span class="c-tools">' +
-      (mine || isAdmin() ? '<button class="c-tool" data-act="share" title="' + (shared ? "Make private to you" : "Share to workspace") + '">' + (shared ? "🔒" : "⧉") + '</button>' : "") +
-      '<button class="c-tool ' + (t.pinned ? "pin-on" : "") + '" data-act="pin" title="Pin">★</button>' +
-      '<button class="c-tool" data-act="rename" title="Rename">✎</button>' +
-      (mine || isAdmin() ? '<button class="c-tool" data-act="delchat" title="Delete">✕</button>' : "") + '</span>';
+      (mine || isAdmin() ? '<button class="c-tool" data-act="share" aria-label="' + (shared ? "Make private to you" : "Share to workspace") + '" title="' + (shared ? "Make private to you" : "Share to workspace") + '">' + (shared ? "🔒" : "⧉") + '</button>' : "") +
+      '<button class="c-tool ' + (t.pinned ? "pin-on" : "") + '" data-act="pin" aria-label="' + (t.pinned ? "Unpin chat" : "Pin chat") + '" title="Pin">★</button>' +
+      '<button class="c-tool" data-act="rename" aria-label="Rename chat" title="Rename">✎</button>' +
+      (mine || isAdmin() ? '<button class="c-tool" data-act="delchat" aria-label="Delete chat" title="Delete">✕</button>' : "") + '</span>';
     el.appendChild(btn);
   });
 }
@@ -2007,14 +2041,18 @@ function buildSystemPrompt(b, brandRelevant){
     "3. MEMORY: when the user states a lasting fact, decision, preference, or correction about the brand or how they work (not small talk), save it by emitting on its own line: [[REMEMBER: the fact, under 25 words]] . Maximum 2 per response, only genuinely durable facts. It is stored permanently and silently.",
     "4. TASKS: when the user asks you to plan, organize, launch, or break down a project or effort, decompose it into concrete tasks and emit each on its own line EXACTLY as: [[TASK: title | assignee | YYYY-MM-DD | priority | project]] . Assignee is a team member's name or blank. Priority is one of low, med, high, urgent. Project is a short project name (reuse the same name for all tasks in one plan). Date is optional but realistic. Each of these lines creates a real task on the team board, so make titles action-oriented and specific. Team members: " + TEAM.map(u => u.name).join(", ") + ".",
     "5. EVENTS: when the user asks you to schedule, book, or set up a meeting, call, or calendar item, emit each on its own line EXACTLY as: [[EVENT: title | YYYY-MM-DD | HH:MM | attendees]] . Time is 24-hour and optional (omit for all-day; still keep the empty slot with the surrounding pipes). Attendees is a comma-separated list of team member names or blank. Each line creates a real event on the team calendar. Today is " + (typeof todayISO === "function" ? todayISO() : "") + ".",
-    "6. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
-    "7. Never use em dashes.");
+    "6. DIRECT MESSAGES: when the user asks you to message, DM, tell, or notify a specific teammate, actually send it by emitting on its own line EXACTLY as: [[DM: person | message]] . Person is a team member's name; message is what to send. This posts a real direct message from " + currentUser.name + " to that teammate. Never claim you cannot send messages. Team members: " + TEAM.map(u => u.name).join(", ") + ".",
+    "7. TASK STATUS: you may be given a snapshot of task state below. Use it to answer questions about who is doing what and how far along they are. Only report on tasks that appear in that snapshot.",
+    "8. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
+    "9. Never use em dashes.");
 
   // The stable prefix is marked for prompt caching so we don't pay full input price for the brand
   // profile + instructions on every message. The dynamic tail (who you're talking to, cross-chat
   // context) is kept out of the cached block so it never busts the cache.
   const blocks = [{ type:"text", text: sp.join("\n"), cache_control:{ type:"ephemeral" } }];
-  const dyn = ["You are working with " + currentUser.name + " (" + currentUser.role + " at Syntrex)."];
+  const dyn = ["You are working with " + currentUser.name + " (" + currentUser.role + " at Syntrex)" + (isAdmin() ? ", who is a workspace ADMIN." : ".")];
+  const taskCtx = taskContextForAI();
+  if (taskCtx) dyn.push("", taskCtx);
   if (brandRelevant){
     const others = chats().filter(x => x.id !== t.id && x.msgs.length && canSee(x));
     if (others.length){
@@ -2220,7 +2258,7 @@ function renderPending(){
 
 /* ---------------- GENERATED FILES ---------------- */
 function parseSpecial(raw){
-  const files = [], memories = [], aiTasks = [], aiEvents = [];
+  const files = [], memories = [], aiTasks = [], aiEvents = [], aiDMs = [];
   let clean = raw.replace(/\[\[FILE:([^\]]+)\]\]([\s\S]*?)\[\[\/FILE\]\]/g, (m, name, content) => {
     files.push({ name: name.trim(), content: content.replace(/^\n+|\n+$/g, "") }); return "";
   });
@@ -2229,7 +2267,47 @@ function parseSpecial(raw){
   clean = clean.replace(/\[\[REMEMBER:\s*([\s\S]*?)\]\]/g, (m, fact) => { memories.push(fact.trim()); return ""; });
   clean = clean.replace(/\[\[TASK:\s*([^\]]+?)\]\]/g, (m, body) => { aiTasks.push(body.trim()); return ""; });
   clean = clean.replace(/\[\[EVENT:\s*([^\]]+?)\]\]/g, (m, body) => { aiEvents.push(body.trim()); return ""; });
-  return { clean: clean.trim(), files, memories, aiTasks, aiEvents };
+  clean = clean.replace(/\[\[DM:\s*([^\]]+?)\]\]/g, (m, body) => { aiDMs.push(body.trim()); return ""; });
+  return { clean: clean.trim(), files, memories, aiTasks, aiEvents, aiDMs };
+}
+// SYN can actually send a DM: [[DM: person | message]] -> posts from the current user to that teammate.
+function ingestAIDMs(lines){
+  if (!lines || !lines.length || !currentUser) return 0;
+  let made = 0;
+  lines.forEach(line => {
+    const parts = line.split("|"); const who = (parts[0] || "").trim(); const msg = parts.slice(1).join("|").trim();
+    if (!who || !msg) return;
+    const u = (TEAM || []).find(x => x.id !== currentUser.id && (x.name.toLowerCase() === who.toLowerCase() || x.name.toLowerCase().split(" ")[0] === who.toLowerCase()));
+    if (!u) return;
+    let dm = DMs.list(d => Array.isArray(d.members) && d.members.length === 2 && d.members.includes(currentUser.id) && d.members.includes(u.id))[0];
+    if (!dm) dm = DMs.create({ members:[currentUser.id, u.id], msgCount:0 });
+    const key = msgKey("dm", dm.id);
+    collLoad(key).then(() => {
+      const arr = collAll(key);
+      const m = { id: uid("m"), by: currentUser.name, byId: currentUser.id, at: nowISO(), text: msg, atts:[], reactions:{}, mentions:[] };
+      arr.push(m); if (arr.length > 800) arr.splice(0, arr.length - 800); collSave(key);
+      if (typeof bumpThreadRecord === "function") bumpThreadRecord("dm", dm.id, m);
+      updateSpacesBadge();
+    });
+    notify(u.id, "dm", currentUser.name + ": " + msg.slice(0, 60), { view:"spaces", dm: dm.id });
+    if (typeof fireIntegrations === "function") fireIntegrations("dm", currentUser.name + " messaged " + u.name);
+    made++;
+  });
+  return made;
+}
+// Compact task snapshot for the AI. Admins get the whole workspace; everyone else only their own tasks.
+function taskContextForAI(){
+  const admin = isAdmin();
+  const list = Tasks.list(t => !isArchived(t) && (admin || (t.assignees || []).includes(currentUser.id))).slice(0, 60);
+  if (!list.length) return "";
+  const S = { todo:"To do", inprogress:"In progress", review:"Review", done:"Done" };
+  const lines = list.map(t => {
+    const who = (t.assignees || []).map(id => teamName(id) || "?").join(", ") || "unassigned";
+    return "- " + (t.title || "Untitled") + " [" + (S[t.status] || t.status) + "] assignee: " + who + (t.dueDate ? ", due " + t.dueDate : "") + (t.projectId && projectById(t.projectId) ? ", project " + projectById(t.projectId).name : "");
+  });
+  return (admin
+    ? "WORKSPACE TASK STATE (you are talking to an ADMIN, so you may report on anyone's tasks and progress):"
+    : "YOUR TASKS (the person you're talking to is not an admin; only their own tasks are visible to you):") + "\n" + lines.join("\n");
 }
 function mimeFor(ext){
   return { csv:"text/csv", html:"text/html", htm:"text/html", md:"text/markdown", txt:"text/plain", doc:"application/msword", json:"application/json", ics:"text/calendar" }[ext] || "text/plain";
@@ -2439,8 +2517,8 @@ function finishSyn(raw, errKind, brandWork){
   if (errKind === "stopped" && !(raw && raw.trim())){
     t.msgs.push({ role:"syn", text:"Stopped.", displayText:"Stopped.", rawText:"Stopped.", files:[], mode:"copy", verdict:null, needsApproval:false, at:new Date().toISOString() });
   } else if (errKind === "stopped"){
-    const { clean, files, memories, aiTasks, aiEvents } = parseSpecial(raw);
-    const madeS = ingestAITasks(aiTasks); const madeES = ingestAIEvents(aiEvents);
+    const { clean, files, memories, aiTasks, aiEvents, aiDMs } = parseSpecial(raw);
+    const madeS = ingestAITasks(aiTasks); const madeES = ingestAIEvents(aiEvents); ingestAIDMs(aiDMs);
     const display = (clean || (files.length ? "Your file is ready." : ((madeS || madeES) ? "Added to your workspace." : raw))) + "\n\n*(stopped early)*";
     t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, needsApproval: (!!brandWork || files.length > 0), at:new Date().toISOString() });
     if (madeS) toast("SYN created " + madeS + " task" + (madeS > 1 ? "s" : "") + ".");
@@ -2450,12 +2528,12 @@ function finishSyn(raw, errKind, brandWork){
   } else if (!raw){
     t.msgs.push({ role:"syn", text:"SYN returned an empty response. Try rephrasing.", displayText:"SYN returned an empty response. Try rephrasing.", rawText:"", files:[], mode:"copy", verdict:null, needsApproval:false, at:new Date().toISOString() });
   } else {
-    const { clean, files, memories, aiTasks, aiEvents } = parseSpecial(raw);
+    const { clean, files, memories, aiTasks, aiEvents, aiDMs } = parseSpecial(raw);
     if (memories.length){
       memories.forEach(mm => b.memories.push({ id: uid("m"), text: mm, by: currentUser.name, at: new Date().toISOString() }));
       saveBrands();
     }
-    const made = ingestAITasks(aiTasks); const madeE = ingestAIEvents(aiEvents);
+    const made = ingestAITasks(aiTasks); const madeE = ingestAIEvents(aiEvents); const madeDM = ingestAIDMs(aiDMs);
     const display = clean || (files.length ? "Your file is ready." : ((made || madeE) ? "Added to your workspace." : raw));
     // Only content that ships needs a verdict: brand/campaign work (Smart mode) or a generated file.
     const needsApproval = (!!brandWork || files.length > 0);
@@ -2472,10 +2550,10 @@ function finishSyn(raw, errKind, brandWork){
 /* ---------------- APPROVALS ---------------- */
 // Only content that ships requires a verdict: imagery and brand/campaign copy (and generated files).
 // General Q&A gets no approval UI. Legacy messages fall back to files/imagery so old items still show.
+// Approvals now apply to generated IMAGERY ONLY (quiet approve/reject, still audit-logged).
+// Text/chat/copy no longer carries an approval gate.
 function needsVerdict(m){
-  if (!m || m.role !== "syn") return false;
-  if (m.needsApproval !== undefined) return !!m.needsApproval;
-  return (m.files && m.files.length > 0) || m.mode === "image";
+  return !!(m && m.role === "syn" && m.mode === "image");
 }
 function pendingCount(){
   let n = 0;
@@ -2485,6 +2563,7 @@ function pendingCount(){
 function updatePendBadge(){
   const n = pendingCount();
   const badge = document.getElementById("pendBadge");
+  if (!badge) return;
   badge.style.display = n ? "inline-block" : "none";
   badge.textContent = n;
 }
@@ -3001,7 +3080,6 @@ function setView(v){
   document.getElementById("view-" + v).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach(el => el.classList.toggle("active", el.dataset.view === v));
   if (typeof applyPersonalAccent === "function") applyPersonalAccent();
-  if (v === "approvals") renderApprovals();
   if (v === "myday") renderMyDay();
   if (v === "people") renderPeople();
   if (v === "tasks") renderTasks();
@@ -3136,7 +3214,7 @@ function entity(name, defaults){
   };
 }
 
-const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees: currentUser ? [currentUser.id] : [], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"team", order: Date.now() }));
+const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees: currentUser ? [currentUser.id] : [], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"private", completedAt:null, order: Date.now() }));
 const Projects = entity("projects", () => ({ name:"", color:"#E4C169", description:"" }));
 const Events   = entity("events", () => ({ title:"", description:"", location:"", startDate:null, endDate:null, allDay:true, startTime:"09:00", endTime:"10:00", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, meetingLink:"", visibility:"team" }));
 const Spaces   = entity("spaces", () => ({ name:"", icon:"◆", color:"#E4C169", description:"", type:"team", members:"all", archived:false }));
@@ -3228,10 +3306,11 @@ function checkDueSoon(){
   const now = Date.now(), soon = now + 48 * 3600 * 1000;
   Tasks.list(t => t.status !== "done" && t.dueDate && (t.assignees || []).includes(currentUser.id)).forEach(t => {
     const due = new Date(t.dueDate + "T23:59:59").getTime();
-    if (due >= now && due <= soon){
-      const exists = Notifs.list(x => x.forUserId === currentUser.id && x.type === "task-due" && x.link && x.link.taskId === t.id).length;
-      if (!exists) notify(currentUser.id, "task-due", "Due soon: " + t.title, { view:"tasks", taskId:t.id });
-    }
+    const overdue = due < now;
+    if (!overdue && due > soon) return;
+    const type = overdue ? "task-overdue" : "task-due";
+    const exists = Notifs.list(x => x.forUserId === currentUser.id && x.type === type && x.link && x.link.taskId === t.id).length;
+    if (!exists) notify(currentUser.id, type, (overdue ? "Overdue: " : "Due soon: ") + t.title, { view:"tasks", taskId:t.id });
   });
 }
 
@@ -3330,7 +3409,20 @@ let editingTaskId = null;
 let editingProjectId = null;
 let armedDone = null;
 
-function canSeeTask(t){ return t.visibility !== "private" || (currentUser && t.createdBy === currentUser.id); }
+// Tasks are private to their assignees by default. Admins see everything; "team" tasks are
+// workspace-visible; otherwise you see a task only if you're an assignee or its creator.
+function canSeeTask(t){
+  if (isAdmin()) return true;
+  if (t.visibility === "team") return true;
+  const me = currentUser && currentUser.id;
+  return !!(me && ((t.assignees || []).includes(me) || t.createdBy === me));
+}
+const ARCHIVE_MS = 48 * 3600 * 1000;
+// A completed task auto-archives 48h after completion: hidden from the board, still under Completed, recoverable.
+function isArchived(t){
+  if (t.status !== "done" || !t.completedAt) return false;
+  return (Date.now() - Date.parse(t.completedAt)) > ARCHIVE_MS;
+}
 function allLabels(){ const s = new Set(); Tasks.list(canSeeTask).forEach(t => (t.labels || []).forEach(l => s.add(l))); return Array.from(s).sort(); }
 function projectById(id){ return Projects.get(id); }
 function taskDueState(t){
@@ -3343,8 +3435,23 @@ function taskDueState(t){
 }
 function fmtDay(d){ if (!d) return ""; const dt = new Date(d + "T00:00:00"); return dt.toLocaleDateString([], { month:"short", day:"numeric" }); }
 
+function matchAssignee(t, uid){
+  if (!uid) return true;
+  if (uid === "__unassigned__") return !(t.assignees || []).length;
+  return (t.assignees || []).includes(uid);
+}
 function baseTasks(){
   let list = Tasks.list(canSeeTask);
+  if (taskView === "completed"){
+    // Completed view: every done task (recent + auto-archived), most-recent first, recoverable.
+    list = list.filter(t => t.status === "done");
+    list = list.filter(t => matchAssignee(t, taskFilter.assignee));
+    if (taskFilter.project)  list = list.filter(t => t.projectId === taskFilter.project);
+    if (taskFilter.priority) list = list.filter(t => t.priority === taskFilter.priority);
+    if (taskFilter.label)    list = list.filter(t => (t.labels || []).includes(taskFilter.label));
+    return list.sort((a,b) => Date.parse(b.completedAt || b.updatedAt || 0) - Date.parse(a.completedAt || a.updatedAt || 0));
+  }
+  list = list.filter(t => !isArchived(t));               // archived-completed drop off the board/list
   if (taskView === "mine"){
     list = list.filter(t => (t.assignees || []).includes(currentUser.id));
     if (myScope !== "all"){
@@ -3354,7 +3461,7 @@ function baseTasks(){
     }
   }
   if (taskFilter.project)  list = list.filter(t => t.projectId === taskFilter.project);
-  if (taskFilter.assignee) list = list.filter(t => (t.assignees || []).includes(taskFilter.assignee));
+  list = list.filter(t => matchAssignee(t, taskFilter.assignee));
   if (taskFilter.priority) list = list.filter(t => t.priority === taskFilter.priority);
   if (taskFilter.label)    list = list.filter(t => (t.labels || []).includes(taskFilter.label));
   return list;
@@ -3375,18 +3482,23 @@ function sortTasks(list){
   return arr;
 }
 
-/* ----- projects sidebar nav ----- */
+/* ----- tasks sidebar nav: grouped BY PERSON (projects moved to the toolbar filter) ----- */
 function renderProjectsNav(){
   const el = document.getElementById("projNav");
   if (!el) return;
-  const projs = Projects.list();
-  let html = '<button class="proj-nav-item' + (taskFilter.project === "" ? " active" : "") + '" data-wact="projFilter" data-pid=""><span class="proj-dot" style="--pn:var(--gold)"></span>All tasks<span class="pn-count">' + Tasks.list(canSeeTask).length + '</span></button>';
-  projs.forEach(p => {
-    const n = Tasks.list(t => canSeeTask(t) && t.projectId === p.id).length;
-    html += '<button class="proj-nav-item' + (taskFilter.project === p.id ? " active" : "") + '" data-wact="projFilter" data-pid="' + p.id + '">' +
-      '<span class="proj-dot" style="--pn:' + esc(p.color) + '"></span>' + esc(p.name) + '<span class="pn-count">' + n + '</span></button>';
+  const active = (uid) => (taskFilter.assignee === uid && taskView !== "completed") ? " active" : "";
+  const liveCount = (pred) => Tasks.list(t => canSeeTask(t) && !isArchived(t) && pred(t)).length;
+  let html = '<button class="proj-nav-item' + active("") + '" data-wact="personFilter" data-uid=""><span class="proj-dot" style="--pn:var(--gold)"></span>All tasks<span class="pn-count">' + liveCount(() => true) + '</span></button>';
+  (TEAM || []).forEach(u => {
+    // Only offer people the current user can actually see tasks for (admins see all).
+    const n = liveCount(t => (t.assignees || []).includes(u.id));
+    if (!isAdmin() && u.id !== currentUser.id && !n) return;
+    html += '<button class="proj-nav-item' + active(u.id) + '" data-wact="personFilter" data-uid="' + u.id + '">' +
+      avatarHtml(u.id, "pn-av") + '<span class="pn-name">' + esc(u.name.split(" ")[0]) + (u.id === currentUser.id ? " (you)" : "") + '</span><span class="pn-count">' + n + '</span></button>';
   });
-  html += '<button class="proj-add" data-wact="newProject">+ New project</button>';
+  const unN = liveCount(t => !(t.assignees || []).length);
+  html += '<button class="proj-nav-item' + active("__unassigned__") + '" data-wact="personFilter" data-uid="__unassigned__"><span class="proj-dot" style="--pn:var(--faint)"></span>Unassigned<span class="pn-count">' + unN + '</span></button>';
+  html += '<button class="proj-nav-item' + (taskView === "completed" ? " active" : "") + '" data-wact="taskView" data-v="completed"><span class="proj-dot" style="--pn:var(--good)"></span>Completed<span class="pn-count">' + Tasks.list(t => canSeeTask(t) && t.status === "done").length + '</span></button>';
   el.innerHTML = html;
 }
 
@@ -3400,12 +3512,13 @@ function renderTasks(){
   const projName = taskFilter.project ? (projectById(taskFilter.project) || {}).name : "";
   let bar =
     '<div class="tasks-bar"><div class="tb-top">' +
-    '<div><h2>' + (taskView === "mine" ? "My Tasks" : (projName ? esc(projName) : "Tasks")) + '</h2>' +
-    '<div class="sub">Shared team work. Assign, track, and ship. Everything saves to the workspace.</div></div>' +
+    '<div><h2>' + (taskView === "completed" ? "Completed" : taskView === "mine" ? "My Tasks" : (projName ? esc(projName) : "Tasks")) + '</h2>' +
+    '<div class="sub">' + (taskView === "completed" ? "Done tasks auto-archive off the board after 48h. Reopen any of them here." : "Tasks are private to their assignees; mark a task “team” to share it. Admins see everything.") + '</div></div>' +
     '<div class="tb-actions">' +
     '<button class="mode-btn' + (taskView === "board" ? " active" : "") + '" data-wact="taskView" data-v="board">Board</button>' +
     '<button class="mode-btn' + (taskView === "list" ? " active" : "") + '" data-wact="taskView" data-v="list">List</button>' +
     '<button class="mode-btn' + (taskView === "mine" ? " active" : "") + '" data-wact="taskView" data-v="mine">My Tasks</button>' +
+    '<button class="head-btn ghost" data-wact="newProject" style="padding:8px 13px">+ Project</button>' +
     '<button class="head-btn ghost" data-wact="planProject" style="padding:8px 15px">✦ Ask SYN to plan</button>' +
     '<button class="head-btn" data-wact="newTask" style="padding:8px 17px">+ New Task</button>' +
     '</div></div>' +
@@ -3425,7 +3538,19 @@ function renderTasks(){
       }).join("") + '</div>' : "") +
     '</div>';
 
-  const total = Tasks.list(canSeeTask).length;
+  if (taskView === "completed"){
+    const done = baseTasks();
+    wrap.innerHTML = bar + (done.length ? '<div class="tlist">' + done.map(t => {
+      const archived = isArchived(t);
+      return '<div class="trow" data-wact="openTask" data-tid="' + t.id + '"><span class="tr-check done">✓</span>' +
+        '<div class="tr-main"><div class="tr-title done">' + esc(t.title || "Untitled") + '</div>' +
+        '<div class="tr-sub">Completed ' + (t.completedAt ? fmtTime(t.completedAt) : "") + (archived ? " · archived" : "") + '</div></div>' +
+        '<div class="tc-avs">' + (t.assignees || []).slice(0,4).map(id => avatarHtml(id)).join("") + '</div>' +
+        '<button class="mode-btn" data-wact="reopenTask" data-tid="' + t.id + '">Reopen</button></div>';
+    }).join("") + '</div>' : '<div class="empty-log tasks-empty">No completed tasks yet.</div>');
+    return;
+  }
+  const total = Tasks.list(t => canSeeTask(t) && !isArchived(t)).length;
   if (!total && taskView !== "board"){
     wrap.innerHTML = bar + '<div class="empty-log tasks-empty">No tasks yet. Switch to the Board to quick-add into a column, use <b>+ New Task</b>, or ask SYN to plan a project and it will fill the board for you.</div>';
     return;
@@ -3452,7 +3577,12 @@ function taskCardHtml(t){
   if ((t.comments || []).length) bits.push("❝ " + t.comments.length);
   if ((t.attachments || []).length) bits.push("≣ " + t.attachments.length);
   if (bits.length) h += '<div class="tc-sub">' + bits.join(" · ") + '</div>';
-  h += '</div></div>';
+  h += '</div>';
+  // One-click status control right on the card.
+  h += '<div class="tc-status" role="group" aria-label="Set status">' + T_STATUS.map(c =>
+    '<button class="tcs-btn' + (t.status === c.key ? " on" : "") + '" data-wact="setStatus" data-tid="' + t.id + '" data-st="' + c.key + '" title="' + c.label + '" aria-label="Set status: ' + c.label + '"' + (t.status === c.key ? ' aria-pressed="true"' : '') + '><span class="tcs-dot" style="background:' + c.dot + '"></span>' + c.label + '</button>'
+  ).join("") + '</div>';
+  h += '</div>';
   return h;
 }
 function renderBoard(){
@@ -3590,7 +3720,7 @@ function renderTaskModalBody(){
   h += '<div><label class="f-label" for="tmDue">Due date</label><input class="f-input" id="tmDue" type="date" value="' + esc(t.dueDate || "") + '"></div>';
   h += '</div>';
   h += '<div class="tm-grid"><div><label class="f-label" for="tmProj">Project</label><select class="f-input" id="tmProj"><option value="">No project</option>' + Projects.list().map(p => opt(p.id, t.projectId || "", p.name)).join("") + '</select></div>';
-  h += '<div><label class="f-label" for="tmVis">Visibility</label><select class="f-input" id="tmVis">' + opt("team", t.visibility, "Team") + opt("private", t.visibility, "Private to me") + '</select></div></div>';
+  h += '<div><label class="f-label" for="tmVis">Visibility</label><select class="f-input" id="tmVis">' + opt("private", t.visibility, "Private to assignees") + opt("team", t.visibility, "Team task (workspace-visible)") + '</select></div></div>';
 
   h += '<label class="f-label">Assignees</label><div class="tm-assignees">' +
     TEAM.map(u => { const on = (t.assignees || []).includes(u.id); return '<button type="button" class="assign-chip' + (on ? " on" : "") + '" data-wact="assign" data-uid="' + u.id + '">' + avatarHtml(u.id) + esc(u.name.split(" ")[0]) + '</button>'; }).join("") + '</div>';
@@ -3673,12 +3803,21 @@ function toggleDone(id){
     const rem = (t.subtasks || []).filter(s => !s.done).length;
     if (rem && armedDone !== id){ armedDone = id; toast(rem + " subtask" + (rem > 1 ? "s" : "") + " still open. Tap the check again to mark done."); setTimeout(() => { if (armedDone === id) armedDone = null; }, 3000); return; }
     armedDone = null;
-    Tasks.update(id, { status:"done" });
+    Tasks.update(id, { status:"done", completedAt: nowISO() });
     logActivity("task", currentUser.name + " completed “" + t.title + "”", "task", id);
   } else {
-    Tasks.update(id, { status:"todo" });
+    Tasks.update(id, { status:"todo", completedAt: null });
   }
   if (viewIs("tasks")) renderTasks();
+}
+// One-click status change straight from the card (To do / In progress / Review / Done).
+function setTaskStatus(id, st){
+  const t = Tasks.get(id); if (!t || !T_STATUS.some(c => c.key === st)) return;
+  const patch = { status: st, completedAt: st === "done" ? nowISO() : null };
+  Tasks.update(id, patch);
+  if (st === "done") logActivity("task", currentUser.name + " completed “" + t.title + "”", "task", id);
+  if (viewIs("tasks")) renderTasks();
+  renderProjectsNav();
 }
 
 /* ----- project modal ----- */
@@ -3843,10 +3982,40 @@ function calItemsByDay(startStr, endStr){
   return map;
 }
 function calChipHtml(item){
-  if (item.kind === "task"){ const t = item.task; return '<button class="cal-ev task" data-wact="openTaskCal" data-tid="' + t.id + '" title="Task due: ' + esc(t.title) + '">✓ ' + esc(t.title || "Task") + '</button>'; }
+  if (item.kind === "task"){ const t = item.task; return '<button class="cal-ev task" data-wact="openTaskCal" data-tid="' + t.id + '" title="Task due: ' + esc(t.title) + '"><span class="ce-t">✓ ' + esc(t.title || "Task") + '</span>' + calAvatars(t.assignees, 2) + '</button>'; }
   const ev = item.ev;
   const tm = (!ev.allDay && item.isStart && ev.startTime) ? ev.startTime + " " : "";
-  return '<button class="cal-ev' + (item.isStart ? "" : " cont") + '" style="--ec:' + esc(ev.color || "#E4C169") + ';--ec-soft:' + hexToSoft(ev.color || "#E4C169") + '" data-wact="openEvent" data-eid="' + ev.id + '" title="' + esc(ev.title) + '">' + (item.isStart ? esc(tm) : "↳ ") + esc(ev.title || "Event") + '</button>';
+  return '<button class="cal-ev' + (item.isStart ? "" : " cont") + '" style="--ec:' + esc(ev.color || "#E4C169") + ';--ec-soft:' + hexToSoft(ev.color || "#E4C169") + '" data-wact="openEvent" data-eid="' + ev.id + '" title="' + esc(ev.title) + '"><span class="ce-t">' + (item.isStart ? esc(tm) : "↳ ") + esc(ev.title || "Event") + '</span>' + (item.isStart ? calAvatars(ev.attendees, 2) : "") + '</button>';
+}
+
+// Compact avatar cluster for calendar items (event attendees / task assignees).
+function calAvatars(ids, max){
+  ids = ids || []; if (!ids.length) return "";
+  max = max || 3;
+  return '<span class="cal-avs">' + ids.slice(0, max).map(id => avatarHtml(id, "cal-av")).join("") +
+    (ids.length > max ? '<span class="cal-av-more">+' + (ids.length - max) + '</span>' : "") + '</span>';
+}
+function dayItemHtml(item){
+  if (item.kind === "task"){ const t = item.task; return '<button class="cal-ev task" data-wact="openTaskCal" data-tid="' + t.id + '" title="Task due: ' + esc(t.title) + '"><span class="ce-t">✓ ' + esc(t.title || "Task") + '</span>' + calAvatars(t.assignees, 3) + '</button>'; }
+  const ev = item.ev; const tm = (!ev.allDay && ev.startTime) ? ev.startTime + " " : "";
+  return '<button class="cal-ev" style="--ec:' + esc(ev.color || "#E4C169") + ';--ec-soft:' + hexToSoft(ev.color || "#E4C169") + '" data-wact="openEvent" data-eid="' + ev.id + '" title="' + esc(ev.title) + '"><span class="ce-t">' + esc(tm) + esc(ev.title || "Event") + '</span>' + calAvatars(ev.attendees, 3) + (ev.meetingLink ? '<a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Join</a>' : "") + '</button>';
+}
+// Day view: hour-by-hour timeline with events at their times, plus an all-day / due band.
+function renderDay(){
+  const iso = fmtISO(calCursor);
+  const items = (calItemsByDay(iso, iso)[iso] || []);
+  const band = items.filter(it => it.kind === "task" || (it.kind === "event" && it.ev.allDay));
+  const timed = items.filter(it => it.kind === "event" && !it.ev.allDay);
+  const byHour = {};
+  timed.forEach(it => { const hr = parseInt((it.ev.startTime || "09:00").split(":")[0], 10) || 0; (byHour[hr] = byHour[hr] || []).push(it); });
+  const nowHr = (iso === todayISO()) ? new Date().getHours() : -1;
+  let h = '<div class="cal-day"><div class="cal-day-allday"><div class="cd-lbl">All day &amp; due</div><div class="cd-band">' +
+    (band.length ? band.map(dayItemHtml).join("") : '<span class="cal-daycol-empty">Nothing all-day or due</span>') + '</div></div><div class="cal-day-grid">';
+  for (let hr = 0; hr < 24; hr++){
+    const label = String(hr).padStart(2, "0") + ":00";
+    h += '<div class="cd-hour' + (hr === nowHr ? " now" : "") + '" data-wact="calSlot" data-d="' + iso + '" data-t="' + label + '"><div class="cd-time">' + label + '</div><div class="cd-slot">' + (byHour[hr] || []).map(dayItemHtml).join("") + '</div></div>';
+  }
+  return h + '</div></div>';
 }
 
 function renderCalendar(){
@@ -3854,13 +4023,14 @@ function renderCalendar(){
   let label, body;
   if (calView === "month"){ label = calCursor.toLocaleDateString([], { month:"long", year:"numeric" }); body = renderMonth(); }
   else if (calView === "week"){ const ws = weekStart(calCursor); label = fmtRange(ws, new Date(ws.getTime() + 6*86400000)); body = renderWeek(); }
+  else if (calView === "day"){ label = calCursor.toLocaleDateString([], { weekday:"long", month:"long", day:"numeric" }); body = renderDay(); }
   else { label = "Agenda · next 45 days"; body = renderAgenda(); }
   const seg = (v, l) => '<button class="mode-btn' + (calView === v ? " active" : "") + '" data-wact="calView" data-v="' + v + '">' + l + '</button>';
   const bar = '<div class="cal-bar"><h2>' + esc(label) + '</h2>' +
     '<div class="cal-navctl"><button class="cal-arrow" data-wact="calNav" data-dir="-1" aria-label="Previous">‹</button>' +
     '<button class="mode-btn" data-wact="calToday">Today</button>' +
     '<button class="cal-arrow" data-wact="calNav" data-dir="1" aria-label="Next">›</button></div>' +
-    '<div class="cal-actions">' + seg("month","Month") + seg("week","Week") + seg("agenda","Agenda") +
+    '<div class="cal-actions">' + seg("month","Month") + seg("week","Week") + seg("day","Day") + seg("agenda","Agenda") +
     '<button class="head-btn ghost" data-wact="exportAllIcs" style="padding:8px 15px">⤓ Export .ics</button>' +
     '<button class="head-btn" data-wact="newEvent" style="padding:8px 17px">+ New Event</button></div></div>';
   wrap.innerHTML = bar + body;
@@ -4230,11 +4400,6 @@ function renderMyDay(){
   });
   h += '</div></div>';
 
-  // Approvals (approvers = admins)
-  if (isAdmin() && pend){
-    h += '<div class="spec-block md-card"><div class="sb-head">Pending approvals <span style="color:var(--faint)">' + pend + '</span></div><div class="sb-body">' +
-      '<div class="md-row" data-wact="mdApprovals"><span class="r-ico">✓</span><div class="r-main"><div class="r-title">' + pend + ' item' + (pend > 1 ? 's' : '') + ' awaiting a verdict</div><div class="r-sub">Review in Approvals</div></div></div></div></div>';
-  }
 
   // Activity
   h += '<div class="spec-block md-card"><div class="sb-head">Recent activity</div><div class="sb-body">';
@@ -4308,7 +4473,6 @@ document.addEventListener("click", e => {
   if (a === "mdPlanClose"){ const o = document.getElementById("mdPlanOut"); if (o){ o.style.display = "none"; o.innerHTML = ""; } return; }
   if (a === "mdEvent"){ setView("calendar"); if (Events.get(w.dataset.eid)) openEventModal(w.dataset.eid); return; }
   if (a === "mdThread"){ setView("spaces"); openThread(w.dataset.kind, w.dataset.id); return; }
-  if (a === "mdApprovals"){ setView("approvals"); return; }
   if (a === "pDM"){ setView("spaces"); startDM(w.dataset.uid); return; }
   if (a === "pTasks"){ taskFilter = { project:"", assignee:w.dataset.uid, priority:"", label:"", sort:"manual" }; taskView = "list"; setView("tasks"); return; }
 });
@@ -4610,9 +4774,9 @@ function finishSpaceSyn(space, raw, errKind){
   if (errKind === "net"){ const inner = document.getElementById("spaceMsgsInner"); if (inner){ const n = document.createElement("div"); n.className = "ai-offline-note"; n.innerHTML = "◍ SYN is offline · this space still works as a normal channel"; inner.appendChild(n); scrollSpace(); } return; }
   if (errKind === "stopped" && !raw) return;
   if (!raw){ return; }
-  const { clean, files, memories, aiTasks, aiEvents } = parseSpecial(raw);
+  const { clean, files, memories, aiTasks, aiEvents, aiDMs } = parseSpecial(raw);
   if (memories.length && b){ memories.forEach(mm => b.memories.push({ id:uid("m"), text:mm, by:"SYN · " + space.name, at:nowISO() })); saveBrands(); }
-  ingestAITasks(aiTasks); ingestAIEvents(aiEvents);
+  ingestAITasks(aiTasks); ingestAIEvents(aiEvents); ingestAIDMs(aiDMs);
   const display = clean || (files.length ? "Your file is ready." : raw);
   const m = { id:uid("m"), role:"syn", by:"SYN", byId:"syn", at:nowISO(), text:display, displayText:display, rawText:raw, files, reactions:{} };
   arr.push(m); if (arr.length > 800) arr.splice(0, arr.length - 800); collSave(key);
@@ -4755,9 +4919,10 @@ document.addEventListener("click", e => {
   if (!w) return;
   const a = w.dataset.wact;
   if (a === "calView"){ calView = w.dataset.v; renderCalendar(); return; }
-  if (a === "calNav"){ const dir = +w.dataset.dir; if (calView === "month") calCursor.setMonth(calCursor.getMonth() + dir); else calCursor.setDate(calCursor.getDate() + dir * (calView === "week" ? 7 : 7)); renderCalendar(); return; }
+  if (a === "calNav"){ const dir = +w.dataset.dir; if (calView === "month") calCursor.setMonth(calCursor.getMonth() + dir); else calCursor.setDate(calCursor.getDate() + dir * (calView === "day" ? 1 : 7)); renderCalendar(); return; }
   if (a === "calToday"){ calCursor = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })(); renderCalendar(); return; }
-  if (a === "calDay"){ openEventModal(null, w.dataset.d); return; }
+  if (a === "calDay"){ calView = "day"; calCursor = dparse(w.dataset.d); renderCalendar(); return; }   // clicking any date opens the Day view
+  if (a === "calSlot"){ openEventModal(null, w.dataset.d); if (w.dataset.t && typeof evDraft === "object" && evDraft){ evDraft.allDay = false; evDraft.startTime = w.dataset.t; const eh = String(Math.min(23, (parseInt(w.dataset.t,10)||9)+1)).padStart(2,"0")+":00"; evDraft.endTime = eh; renderEventModal(); } return; }
   if (a === "openEvent"){ openEventModal(w.dataset.eid); return; }
   if (a === "openTaskCal"){ openTaskModal(w.dataset.tid); return; }
   if (a === "newEvent"){ openEventModal(null, todayISO()); return; }
@@ -4775,8 +4940,11 @@ document.addEventListener("click", e => {
   const a = w.dataset.wact;
   if (a === "openNotif"){ openNotification(w.dataset.nid); return; }
   if (a === "projFilter"){ taskFilter.project = w.dataset.pid; renderProjectsNav(); setView("tasks"); return; }
+  if (a === "personFilter"){ taskFilter.assignee = w.dataset.uid; if (taskView === "completed") taskView = "board"; renderProjectsNav(); renderTasks(); setView("tasks"); return; }
   if (a === "newProject"){ openProjectModal(null); return; }
-  if (a === "taskView"){ taskView = w.dataset.v; renderTasks(); return; }
+  if (a === "setStatus"){ e.stopPropagation(); setTaskStatus(w.dataset.tid, w.dataset.st); return; }
+  if (a === "reopenTask"){ e.stopPropagation(); setTaskStatus(w.dataset.tid, "todo"); return; }
+  if (a === "taskView"){ taskView = w.dataset.v; if (taskView !== "completed" && taskView !== "mine" && taskView !== "board" && taskView !== "list") taskView = "board"; renderProjectsNav(); renderTasks(); return; }
   if (a === "myScope"){ myScope = w.dataset.s; renderTasks(); return; }
   if (a === "newTask"){ const t = Tasks.create({ title:"", status:"todo" }); openTaskModal(t.id); return; }
   if (a === "planProject"){ openPlanModal(); return; }
