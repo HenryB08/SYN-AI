@@ -1072,6 +1072,75 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .vis-people{margin:4px 0 14px;padding:12px 14px;border:1px solid var(--hairline);border-radius:var(--r-md);max-height:190px;overflow-y:auto}
 .vis-people .vp-lbl{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:9px}
 
+/* ===== Operations layer ===== */
+.nav-sep{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);padding:12px 14px 5px;opacity:.75}
+.app.sb-collapsed .nav-sep{font-size:0;padding:8px 0;text-align:center}
+.app.sb-collapsed .nav-sep::after{content:"·";font-size:14px;color:var(--text-3)}
+.ops-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.ops-dt{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em}
+.ops-dt input{color-scheme:dark}
+:root[data-theme="light"] .ops-dt input{color-scheme:light}
+.ops-list{display:flex;flex-direction:column;gap:1px;border:1px solid var(--hairline);border-radius:var(--r-md);overflow:hidden}
+.ops-row{display:flex;align-items:center;gap:14px;padding:13px 16px;background:var(--surface-1);position:relative}
+.ops-row + .ops-row{border-top:1px solid var(--hairline)}
+.ops-row[data-act]{cursor:pointer}
+.ops-row[data-act]:hover{background:var(--surface-2,rgba(255,255,255,.05))}
+.ops-ico{width:34px;height:34px;min-width:34px;border-radius:9px;background:var(--surface-2,rgba(255,255,255,.06));border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-2)}
+.ops-main{flex:1;min-width:0}
+.ops-title{font-size:13.5px;font-weight:700;line-height:1.3}
+.ops-sub{font-size:11.5px;color:var(--text-3);margin-top:2px}
+.ops-notes{font-size:12px;color:var(--text-2);margin-top:5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ops-dim{color:var(--text-3);font-weight:400}
+.ops-auto{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);border:1px solid var(--hairline);border-radius:var(--r-full);padding:1px 6px;margin-left:4px}
+.ops-fu{margin-left:auto;flex-shrink:0}
+.ops-help{font-size:12.5px;color:var(--text-2);line-height:1.5;margin-bottom:12px}
+/* escalation chips — colour + a mandatory text label (never colour alone) */
+.esc-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:var(--r-full);white-space:nowrap;border:1px solid transparent}
+.esc-chip .esc-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.esc-chip .esc-bang{width:14px;height:14px;border-radius:50%;background:currentColor;color:var(--surface-1);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0}
+.esc-upcoming{color:var(--text-2);background:var(--surface-2,rgba(255,255,255,.05));border-color:var(--hairline)}
+.esc-today{color:var(--gold);background:var(--accent-soft);border-color:rgba(228,193,105,.4)}
+.esc-warm{color:var(--gold);background:rgba(228,193,105,.2);border-color:rgba(228,193,105,.6)}
+.esc-red{color:var(--bad);background:rgba(192,57,43,.12);border-color:rgba(192,57,43,.4)}
+.esc-critical{color:var(--bad);background:rgba(192,57,43,.2);border-color:rgba(192,57,43,.65);font-weight:800}
+:root[data-theme="dark"] .esc-red,:root[data-theme="dark"] .esc-critical{background:rgba(255,122,107,.14);border-color:rgba(255,122,107,.45)}
+.esc-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.fu-row.esc-red,.fu-row.esc-critical,.dep-row.esc-red,.dep-row.esc-critical{box-shadow:inset 3px 0 0 var(--bad)}
+.fu-row.esc-warm,.fu-row.esc-today,.dep-row.esc-warm,.dep-row.esc-today{box-shadow:inset 3px 0 0 var(--gold)}
+.fu-actions{display:flex;gap:6px;flex-shrink:0}
+.mini-btn{font-size:11px;font-weight:600;padding:6px 11px;border-radius:var(--r-sm);border:1px solid var(--hairline);color:var(--text-2);background:var(--surface-1);white-space:nowrap}
+.mini-btn:hover{background:var(--surface-2,rgba(255,255,255,.07));color:var(--text)}
+.mini-btn.gold{color:var(--gold);border-color:rgba(228,193,105,.4)}
+/* activity form */
+.type-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px}
+.type-chip{font-size:12px;font-weight:600;padding:7px 13px;border-radius:var(--r-full);border:1px solid var(--hairline);color:var(--text-2);background:var(--surface-1)}
+.type-chip.on{color:var(--gold);border-color:rgba(228,193,105,.5);background:var(--accent-soft)}
+/* parse confirm */
+.parse-grp{margin-bottom:14px}
+.parse-lbl{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin:6px 0 8px}
+.parse-item{display:flex;align-items:flex-start;gap:11px;padding:8px 2px;font-size:12.5px;color:var(--text);cursor:pointer}
+.parse-item input{position:absolute;opacity:0;width:0;height:0}
+.parse-item .box{width:17px;height:17px;min-width:17px;margin-top:1px;border-radius:var(--r-xs,4px);border:1.5px solid var(--hairline-strong);display:inline-flex;align-items:center;justify-content:center;color:transparent;transition:all .15s}
+.parse-item .box svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.parse-item input:checked + .box{background:var(--gold);border-color:var(--gold);color:#fff}
+/* recap + rollup */
+.mode-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.recap-head{display:flex;align-items:center;gap:13px;margin-bottom:16px}
+.recap-av{width:44px;height:44px;font-size:15px}
+.recap-name{font-size:16px;font-weight:700}
+.recap-narr{font-size:13.5px;line-height:1.6;color:var(--text)}
+.roll-bars{display:flex;flex-direction:column;gap:10px}
+.roll-bar{display:flex;align-items:center;gap:12px}
+.rb-lbl{width:150px;font-size:12px;color:var(--text-2);flex-shrink:0}
+.rb-track{flex:1;height:9px;border-radius:var(--r-full);background:var(--surface-2,rgba(255,255,255,.07));overflow:hidden}
+.rb-fill{display:block;height:100%;background:var(--gold);border-radius:var(--r-full)}
+.rb-val{width:28px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-2)}
+.roll-table{width:100%;border-collapse:collapse;font-size:12px}
+.roll-table th,.roll-table td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--hairline)}
+.roll-table th{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);font-weight:600}
+.roll-table td{color:var(--text-2)}
+.roll-table tbody tr:hover{background:var(--surface-2,rgba(255,255,255,.04))}
+
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ============================================================
@@ -1509,6 +1578,13 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <button class="nav-btn" data-view="people"><span class="glyph"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M4 20c0-3 2.2-5 5-5s5 2 5 5"/><path d="M16 5.2A3 3 0 0 1 16 13M20 20c0-2.4-1.3-4.2-3.3-4.8"/></svg></span> People</button>
       <button class="nav-btn" data-view="profile"><span class="glyph"><svg viewBox="0 0 24 24"><path d="M12 3l7.5 4.3v8.6L12 20.2l-7.5-4.3V7.3L12 3Z"/><circle cx="12" cy="11.6" r="2.4"/></svg></span> Brand Profile</button>
       <button class="nav-btn" data-view="assets"><span class="glyph"><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4 8-4Z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/></svg></span> Assets</button>
+      <div class="nav-sep" data-navsep>Operations</div>
+      <button class="nav-btn" data-view="activity"><span class="glyph"><svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-7 5 14 2.5-7H21"/></svg></span> Activity</button>
+      <button class="nav-btn" data-view="followups"><span class="glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></span> Follow-ups <span class="badge" id="fuBadge" style="display:none">0</span></button>
+      <button class="nav-btn" data-view="deps"><span class="glyph"><svg viewBox="0 0 24 24"><path d="M8 8a4 4 0 0 0 0 8h2M16 16a4 4 0 0 0 0-8h-2M9 12h6"/></svg></span> Dependencies <span class="badge" id="depBadge" style="display:none">0</span></button>
+      <button class="nav-btn" data-view="recap"><span class="glyph"><svg viewBox="0 0 24 24"><path d="M6 3h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M9 14v3M12 12v5M15 15v2"/></svg></span> Weekly Recap</button>
+      <button class="nav-btn" data-view="rollup" data-admin="1"><span class="glyph"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M6 20v-7M11 20V5M16 20v-10"/></svg></span> Rollup</button>
+      <div class="nav-sep" data-navsep>Workspace</div>
       <button class="nav-btn" data-view="settings"><span class="glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.2 7l1.9 1.1M17.9 15.9l1.9 1.1M4.2 17l1.9-1.1M17.9 8.1l1.9-1.1"/></svg></span> Settings</button>
     </nav>
     </div>
@@ -1529,6 +1605,7 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
           <button class="head-btn newmenu-btn" id="newBtn" title="Create" style="padding:8px 15px">+ New</button>
           <div class="notif-panel newmenu" id="quickAddMenu">
             <button class="qa-item" data-wact="qaTask"><span class="qa-ico">▣</span> Task</button>
+            <button class="qa-item" data-wact="qaActivity"><span class="qa-ico">☎</span> Log activity</button>
             <button class="qa-item" data-wact="qaEvent"><span class="qa-ico">◷</span> Event</button>
             <button class="qa-item" data-wact="qaSpace"><span class="qa-ico">◎</span> Space</button>
             <button class="qa-item" data-wact="qaChat"><span class="qa-ico">◈</span> Chat</button>
@@ -1614,7 +1691,12 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <div class="view" id="view-profile"><div class="panel-scroll"><div class="panel-inner" id="profilePanel"></div></div></div>
       <!-- ASSETS -->
       <div class="view" id="view-assets"><div class="panel-scroll"><div class="panel-inner" id="assetsPanel"></div></div></div>
-      <!-- APPROVALS -->
+      <!-- OPERATIONS LAYER -->
+      <div class="view" id="view-activity"><div class="panel-scroll"><div class="panel-inner" id="activityPanel"></div></div></div>
+      <div class="view" id="view-followups"><div class="panel-scroll"><div class="panel-inner" id="followupsPanel"></div></div></div>
+      <div class="view" id="view-deps"><div class="panel-scroll"><div class="panel-inner" id="depsPanel"></div></div></div>
+      <div class="view" id="view-recap"><div class="panel-scroll"><div class="panel-inner" id="recapPanel"></div></div></div>
+      <div class="view" id="view-rollup"><div class="panel-scroll"><div class="panel-inner" id="rollupPanel"></div></div></div>
       <!-- SETTINGS -->
       <div class="view" id="view-settings"><div class="panel-scroll"><div class="panel-inner" id="settingsPanel"></div></div></div>
     </div>
@@ -1789,6 +1871,55 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
     <div class="m-foot">
       <button class="btn-ghost" data-close="folderVeil">Cancel</button>
       <button class="btn-gold" id="folderSave">Create folder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVITY ENTRY MODAL -->
+<div class="modal-veil" id="actVeil">
+  <div class="modal" style="max-width:520px">
+    <div class="m-head"><h3 id="actTitle">Log activity</h3><button class="m-close" data-close="actVeil" aria-label="Close">✕</button></div>
+    <div class="m-body" id="actBody"></div>
+    <div class="m-foot">
+      <button class="btn-danger" id="actDelete" style="margin-right:auto;display:none">Delete</button>
+      <button class="btn-ghost" data-close="actVeil">Cancel</button>
+      <button class="btn-gold" id="actSave">Save activity</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI PARSE MODAL -->
+<div class="modal-veil" id="parseVeil">
+  <div class="modal" style="max-width:640px">
+    <div class="m-head"><h3>Parse with SYN</h3><button class="m-close" data-close="parseVeil" aria-label="Close">✕</button></div>
+    <div class="m-body" id="parseBody"></div>
+    <div class="m-foot" id="parseFoot">
+      <button class="btn-ghost" data-close="parseVeil">Cancel</button>
+      <button class="btn-gold" id="parseRun">Extract</button>
+    </div>
+  </div>
+</div>
+
+<!-- DEPENDENCY MODAL -->
+<div class="modal-veil" id="depVeil">
+  <div class="modal" style="max-width:480px">
+    <div class="m-head"><h3 id="depTitle">Request from a teammate</h3><button class="m-close" data-close="depVeil" aria-label="Close">✕</button></div>
+    <div class="m-body" id="depBody"></div>
+    <div class="m-foot">
+      <button class="btn-ghost" data-close="depVeil">Cancel</button>
+      <button class="btn-gold" id="depSave">Send request</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESCHEDULE / SNOOZE MODAL -->
+<div class="modal-veil" id="reschedVeil">
+  <div class="modal" style="max-width:400px">
+    <div class="m-head"><h3 id="reschedTitle">Reschedule follow-up</h3><button class="m-close" data-close="reschedVeil" aria-label="Close">✕</button></div>
+    <div class="m-body" id="reschedBody"></div>
+    <div class="m-foot">
+      <button class="btn-ghost" data-close="reschedVeil">Cancel</button>
+      <button class="btn-gold" id="reschedSave">Save date</button>
     </div>
   </div>
 </div>
@@ -2315,6 +2446,7 @@ async function enterOrg(org, u){
   renderBell();
   updateTasksBadge();
   updateSpacesBadge();
+  updateOpsBadges();
   checkDueSoon();
   startWorkspacePoll();
   startSpacePoll();
@@ -3420,6 +3552,12 @@ document.addEventListener("change", e => {
   if (ft){ assetTypeFilter = ft.value; renderAssets(); return; }
   const fo = e.target.closest('[data-act="aFilterOwner"]');
   if (fo){ assetOwnerFilter = fo.value; renderAssets(); return; }
+  // operations-layer filters
+  const at = e.target.closest('[data-act="actFType"]'); if (at){ actFilter.type = at.value; renderActivity(); return; }
+  const ap = e.target.closest('[data-act="actFPerson"]'); if (ap){ actFilter.person = ap.value; renderActivity(); return; }
+  const af = e.target.closest('[data-act="actFFrom"]'); if (af){ actFilter.from = af.value; renderActivity(); return; }
+  const ato = e.target.closest('[data-act="actFTo"]'); if (ato){ actFilter.to = ato.value; renderActivity(); return; }
+  const rp = e.target.closest('[data-act="recapPerson"]'); if (rp){ recapUser = rp.value; renderRecap(); return; }
 });
 function saveVisibility(){
   if (!visEditId) return;
@@ -3438,6 +3576,490 @@ function saveFolder(){
   assetFolder = f.id; renderAssets();
 }
 /* ---------------- ASSETS end ---------------- */
+
+/* ==================================================================
+   OPERATIONS LAYER — activities, follow-ups, dependencies, recap, rollup
+   ================================================================== */
+function actTypeLabel(t){ const x = ACT_TYPES.find(a => a[0] === t); return x ? x[1] : "Note"; }
+function actIcon(t){ return { call:"☎", meeting:"◷", email:"✉", sample:"▤", application:"⎘", note:"✎" }[t] || "•"; }
+
+/* ---- escalation: days overdue -> state + always-a-text-label (never colour alone) ---- */
+function escalate(dateStr){
+  if (!dateStr) return { key:"none", label:"", cls:"", days:null, badge:false };
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + "T00:00:00"); d.setHours(0,0,0,0);
+  const days = Math.round((today - d) / 86400000);               // >0 = overdue
+  if (days < 0){ const n = -days; return { key:"upcoming", label:"in " + n + " day" + (n>1?"s":""), cls:"esc-upcoming", days, badge:false }; }
+  if (days === 0) return { key:"today", label:"Due today", cls:"esc-today", days, badge:false };
+  if (days <= 3)  return { key:"warm", label:days + " day" + (days>1?"s":"") + " overdue", cls:"esc-warm", days, badge:false };
+  if (days <= 13) return { key:"red", label:days + " days overdue", cls:"esc-red", days, badge:false };
+  return { key:"critical", label:days + " days overdue", cls:"esc-critical", days, badge:true };
+}
+function escChip(e){ if (!e || !e.cls) return ""; return '<span class="esc-chip ' + e.cls + '" role="status">' + (e.badge ? '<span class="esc-bang" aria-hidden="true">!</span>' : '<span class="esc-dot" aria-hidden="true"></span>') + esc(e.label) + '</span>'; }
+
+/* ---- auto-activity when a task is completed (once per task) ---- */
+function autoActivityForTask(t){
+  if (!t) return;
+  if (Acts.list(a => a.taskId === t.id && a.auto).length) return;
+  Acts.create({ type:"note", notes:"Completed task: " + (t.title || "Untitled"), date: todayISO(), taskId: t.id, auto:true, visibility:"private" });
+}
+
+/* ---- non-streaming model call returning text (for AI parse + recap narrative) ---- */
+async function aiText(system, user, maxTokens){
+  const res = await fetch(apiBase() + "/v1/messages", { method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ model: MODELS.fast, max_tokens: maxTokens || 1500, system, messages:[{ role:"user", content: user }] }) });
+  if (!res.ok) throw new Error("ai " + res.status);
+  const j = await res.json();
+  return (j.content || []).filter(c => c.type === "text").map(c => c.text).join("").trim();
+}
+
+/* ================= ACTIVITY VIEW ================= */
+let actFilter = { type:"", person:"", from:"", to:"" };
+function actInWindow(a){
+  if (actFilter.from && a.date < actFilter.from) return false;
+  if (actFilter.to && a.date > actFilter.to) return false;
+  return true;
+}
+function visibleActs(){
+  return myActs(a => (!actFilter.type || a.type === actFilter.type) &&
+    (!actFilter.person || a.createdBy === actFilter.person) && actInWindow(a))
+    .sort((x,y) => (y.date + (y.createdAt||"")) < (x.date + (x.createdAt||"")) ? -1 : 1);
+}
+function renderActivity(){
+  const p = document.getElementById("activityPanel"); if (!p) return;
+  const list = visibleActs();
+  let h = '<div class="panel-head"><div><h2>Activity</h2><p class="sub">Log calls, meetings, emails, samples, and notes. Yours are private; admins see the whole team.</p></div>' +
+    '<div style="display:flex;gap:8px"><button class="btn-ghost" data-act="opsParse">✦ Parse with SYN</button><button class="btn-gold" data-act="opsLog">+ Log activity</button></div></div>';
+
+  // filters + export
+  h += '<div class="ops-toolbar">' +
+    '<select class="af-select" data-act="actFType"><option value="">All types</option>' + ACT_TYPES.map(t => '<option value="' + t[0] + '"' + (actFilter.type === t[0] ? " selected" : "") + '>' + t[1] + '</option>').join("") + '</select>';
+  if (isAdmin()) h += '<select class="af-select" data-act="actFPerson"><option value="">Everyone</option>' + TEAM.map(u => '<option value="' + u.id + '"' + (actFilter.person === u.id ? " selected" : "") + '>' + esc(u.name) + '</option>').join("") + '</select>';
+  h += '<label class="ops-dt">From <input type="date" class="af-select" data-act="actFFrom" value="' + esc(actFilter.from) + '"></label>' +
+    '<label class="ops-dt">To <input type="date" class="af-select" data-act="actFTo" value="' + esc(actFilter.to) + '"></label>' +
+    '<div class="at-spacer"></div>' +
+    '<button class="btn-ghost" data-act="opsExport" data-kind="activities">⤓ Export CSV</button></div>';
+
+  if (!list.length){ h += '<div class="empty-log">No activities logged' + (actFilter.type || actFilter.from || actFilter.person ? ' for this filter' : ' yet') + '. Log one in seconds, or paste a call transcript and let SYN extract it.</div>'; }
+  else {
+    h += '<div class="ops-list">';
+    list.forEach(a => {
+      const fu = a.followUpDate && !a.followUpDone ? escalate(a.followUpDate) : null;
+      h += '<div class="ops-row" data-act="opsEditAct" data-id="' + a.id + '">' +
+        '<span class="ops-ico" title="' + actTypeLabel(a.type) + '">' + actIcon(a.type) + '</span>' +
+        '<div class="ops-main"><div class="ops-title">' + esc(actTypeLabel(a.type)) + (a.relatedName ? ' · ' + esc(a.relatedName) : '') + (a.companyName ? ' <span class="ops-dim">(' + esc(a.companyName) + ')</span>' : '') + (a.auto ? ' <span class="ops-auto">auto</span>' : '') + '</div>' +
+        '<div class="ops-sub">' + esc(fmtDay(a.date)) + (a.duration ? ' · ' + a.duration + ' min' : '') + (a.outcome ? ' · ' + esc(a.outcome) : '') + (isAdmin() && a.createdByName ? ' · ' + esc(a.createdByName) : '') + '</div>' +
+        (a.notes ? '<div class="ops-notes">' + esc(a.notes) + '</div>' : '') + '</div>' +
+        (fu ? '<div class="ops-fu">' + escChip(fu) + '</div>' : '') + '</div>';
+    });
+    h += '</div>';
+  }
+  p.innerHTML = h;
+}
+
+/* ---- activity entry modal (fast manual logging) ---- */
+let editingActId = null;
+function contactsDatalist(){
+  return '<datalist id="contactList">' + Contacts.list().map(c => '<option value="' + esc(c.name) + '">' + esc(c.company || "") + '</option>').join("") + '</datalist>';
+}
+function openActVeil(id){
+  editingActId = id || null;
+  const a = id ? Acts.get(id) : null;
+  document.getElementById("actTitle").textContent = a ? "Edit activity" : "Log activity";
+  document.getElementById("actDelete").style.display = a ? "block" : "none";
+  const cur = a || { type:"call", date: todayISO(), duration:0 };
+  let b = '<label class="f-label">Type</label><div class="type-chips" id="actTypeChips">' +
+    ACT_TYPES.map(t => '<button type="button" class="type-chip' + (cur.type === t[0] ? " on" : "") + '" data-acttype="' + t[0] + '">' + esc(t[1]) + '</button>').join("") + '</div>' +
+    '<div class="tm-grid"><div><label class="f-label" for="actContact">Contact / company</label><input class="f-input" id="actContact" list="contactList" placeholder="Name" value="' + esc(cur.relatedName || "") + '">' + contactsDatalist() + '</div>' +
+    '<div><label class="f-label" for="actCompany">Company</label><input class="f-input" id="actCompany" placeholder="Company" value="' + esc(cur.companyName || "") + '"></div></div>' +
+    '<div class="tm-grid"><div><label class="f-label" for="actDate">Date</label><input class="f-input" type="date" id="actDate" value="' + esc(cur.date || todayISO()) + '"></div>' +
+    '<div><label class="f-label" for="actDuration">Duration (min)</label><input class="f-input" type="number" min="0" id="actDuration" value="' + (cur.duration || 0) + '"></div></div>' +
+    '<label class="f-label" for="actOutcome">Outcome</label><input class="f-input" id="actOutcome" placeholder="e.g. Positive · needs quote" value="' + esc(cur.outcome || "") + '">' +
+    '<label class="f-label" for="actNotes">Notes</label><textarea class="f-area" id="actNotes" placeholder="Free text…">' + esc(cur.notes || "") + '</textarea>' +
+    '<label class="f-label" for="actFollow">Follow-up date (optional)</label><input class="f-input" type="date" id="actFollow" value="' + esc(cur.followUpDate || "") + '">' +
+    '<input class="f-input" id="actFollowNote" placeholder="Follow-up note (optional)" value="' + esc(cur.followUpNote || "") + '" style="margin-top:8px">';
+  document.getElementById("actBody").innerHTML = b;
+  document.getElementById("actVeil").classList.add("open");
+  const chips = document.getElementById("actTypeChips");
+  chips.addEventListener("click", e => { const c = e.target.closest("[data-acttype]"); if (!c) return; chips.querySelectorAll(".type-chip").forEach(x => x.classList.remove("on")); c.classList.add("on"); chips.dataset.val = c.dataset.acttype; });
+  chips.dataset.val = cur.type;
+  setTimeout(() => { const el = document.getElementById("actContact"); if (el) el.focus(); }, 60);
+}
+function ensureContact(name, company){
+  name = (name || "").trim(); if (!name) return null;
+  let c = Contacts.list(x => x.name.toLowerCase() === name.toLowerCase())[0];
+  if (!c) c = Contacts.create({ name, company: (company || "").trim() });
+  else if (company && !c.company) Contacts.update(c.id, { company: company.trim() });
+  return c;
+}
+function saveAct(){
+  const type = document.getElementById("actTypeChips").dataset.val || "note";
+  const relatedName = document.getElementById("actContact").value.trim();
+  const companyName = document.getElementById("actCompany").value.trim();
+  const contact = relatedName ? ensureContact(relatedName, companyName) : null;
+  const patch = {
+    type, relatedName, companyName, contactId: contact ? contact.id : null,
+    date: document.getElementById("actDate").value || todayISO(),
+    duration: parseInt(document.getElementById("actDuration").value, 10) || 0,
+    outcome: document.getElementById("actOutcome").value.trim(),
+    notes: document.getElementById("actNotes").value.trim(),
+    followUpDate: document.getElementById("actFollow").value || null,
+    followUpNote: document.getElementById("actFollowNote").value.trim()
+  };
+  if (editingActId) Acts.update(editingActId, patch);
+  else Acts.create(patch);
+  document.getElementById("actVeil").classList.remove("open");
+  toast("Activity saved.");
+  refreshOps();
+}
+function deleteAct(){
+  if (!editingActId) return;
+  Acts.remove(editingActId);
+  document.getElementById("actVeil").classList.remove("open");
+  toast("Activity deleted.");
+  refreshOps();
+}
+
+/* ---- AI parse: transcript / brain-dump -> structured activities + tasks + follow-ups ---- */
+let parsed = null;
+function openParseModal(){
+  parsed = null;
+  document.getElementById("parseBody").innerHTML =
+    '<p class="ops-help">Paste a call transcript or an unstructured dump of your day. SYN will extract activities, tasks, and follow-ups for you to confirm before anything is saved.</p>' +
+    '<textarea class="f-area" id="parseInput" style="min-height:180px" placeholder="e.g. Called Dana at Acme about the sample, she wants a quote by Friday. Emailed Ben the deck. Need to send samples to Riverside next week…"></textarea>';
+  document.getElementById("parseFoot").innerHTML = '<button class="btn-ghost" data-close="parseVeil">Cancel</button><button class="btn-gold" id="parseRun">Extract</button>';
+  document.getElementById("parseVeil").classList.add("open");
+  document.getElementById("parseRun").addEventListener("click", runParse);
+}
+// local heuristic fallback so parse works (and is testable) even when the model is offline
+function localParse(text){
+  const acts = [], tasks = [], followUps = [];
+  const lines = text.split(/[\n.;]+/).map(s => s.trim()).filter(s => s.length > 3);
+  const guess = s => { s = s.toLowerCase();
+    if (/\bcall(ed)?\b|\bphoned\b|\brang\b|\bspoke\b/.test(s)) return "call";
+    if (/\bmet\b|\bmeeting\b|\bmet with\b|\bdemo\b/.test(s)) return "meeting";
+    if (/\bemail(ed)?\b|\bsent .*deck\b|\breplied\b/.test(s)) return "email";
+    if (/\bsample(s)?\b/.test(s)) return "sample";
+    if (/\bappl(ied|ication)\b|\bsubmitted\b/.test(s)) return "application";
+    return null; };
+  lines.forEach(line => {
+    const isTask = /\b(need to|todo|to-do|must|should|follow up|follow-up|send|schedule|prepare|draft)\b/i.test(line);
+    const type = guess(line);
+    const nameM = line.match(/\b(?:with|to|from|called)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)/);
+    const relatedName = nameM ? nameM[1] : "";
+    if (type){ acts.push({ type, relatedName, notes: line, date: todayISO() }); }
+    if (isTask || /\bby (friday|monday|tuesday|wednesday|thursday|next week|tomorrow)\b/i.test(line)){
+      tasks.push({ title: line.slice(0, 80) });
+      if (/\bfollow[- ]?up\b|\bnext week\b|\bby \w+day\b/i.test(line)) followUps.push({ note: line.slice(0, 80) });
+    }
+  });
+  if (!acts.length && !tasks.length && lines.length) acts.push({ type:"note", relatedName:"", notes: lines[0].slice(0,120), date: todayISO() });
+  return { activities: acts, tasks, followUps };
+}
+async function runParse(){
+  const text = (document.getElementById("parseInput").value || "").trim();
+  if (!text){ toast("Paste something to parse first."); return; }
+  const btn = document.getElementById("parseRun"); btn.textContent = "Extracting…"; btn.disabled = true;
+  let result = null;
+  if (aiReady()){
+    try{
+      const sys = "You extract structured CRM data from a sales rep's notes. Return ONLY minified JSON, no prose, shaped as {\"activities\":[{\"type\":one of call|meeting|email|sample|application|note,\"relatedName\":string,\"companyName\":string,\"outcome\":string,\"notes\":string,\"date\":\"YYYY-MM-DD\"}],\"tasks\":[{\"title\":string,\"dueDate\":\"YYYY-MM-DD\"|null}],\"followUps\":[{\"note\":string,\"date\":\"YYYY-MM-DD\"|null}]}. Use today " + todayISO() + " for relative dates.";
+      const raw = await aiText(sys, text, 1800);
+      const m = raw.match(/\{[\s\S]*\}/);
+      result = JSON.parse(m ? m[0] : raw);
+    }catch(e){ result = null; }
+  }
+  if (!result) result = localParse(text);
+  parsed = { activities: result.activities || [], tasks: result.tasks || [], followUps: result.followUps || [] };
+  renderParseConfirm();
+  btn.textContent = "Extract"; btn.disabled = false;
+}
+function renderParseConfirm(){
+  const a = parsed.activities, t = parsed.tasks, f = parsed.followUps;
+  let h = '<p class="ops-help">SYN found the following. Uncheck anything you do not want, then save. Nothing is stored until you confirm.</p>';
+  if (a.length){ h += '<div class="parse-grp"><div class="parse-lbl">Activities · ' + a.length + '</div>';
+    a.forEach((x,i) => h += '<label class="parse-item"><input type="checkbox" data-pgroup="activities" data-i="' + i + '" checked><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span><span><b>' + esc(actTypeLabel(x.type)) + '</b>' + (x.relatedName ? ' · ' + esc(x.relatedName) : '') + '<div class="ops-dim">' + esc(x.notes || x.outcome || "") + '</div></span></label>');
+    h += '</div>'; }
+  if (t.length){ h += '<div class="parse-grp"><div class="parse-lbl">Tasks · ' + t.length + '</div>';
+    t.forEach((x,i) => h += '<label class="parse-item"><input type="checkbox" data-pgroup="tasks" data-i="' + i + '" checked><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span><span>' + esc(x.title) + (x.dueDate ? ' <span class="ops-dim">· due ' + esc(x.dueDate) + '</span>' : '') + '</span></label>');
+    h += '</div>'; }
+  if (f.length){ h += '<div class="parse-grp"><div class="parse-lbl">Follow-ups · ' + f.length + '</div>';
+    f.forEach((x,i) => h += '<label class="parse-item"><input type="checkbox" data-pgroup="followUps" data-i="' + i + '" checked><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span><span>' + esc(x.note) + (x.date ? ' <span class="ops-dim">· ' + esc(x.date) + '</span>' : '') + '</span></label>');
+    h += '</div>'; }
+  if (!a.length && !t.length && !f.length) h += '<div class="empty-log">Nothing structured could be extracted. Try adding more detail.</div>';
+  document.getElementById("parseBody").innerHTML = h;
+  document.getElementById("parseFoot").innerHTML = '<button class="btn-ghost" data-close="parseVeil">Cancel</button><button class="btn-gold" id="parseSave">Save selected</button>';
+  document.getElementById("parseSave").addEventListener("click", saveParsed);
+}
+function saveParsed(){
+  const keep = g => [...document.querySelectorAll('[data-pgroup="' + g + '"]')].filter(c => c.checked).map(c => +c.dataset.i);
+  const ka = keep("activities"), kt = keep("tasks"), kf = keep("followUps");
+  let n = 0;
+  ka.forEach(i => { const x = parsed.activities[i]; const contact = x.relatedName ? ensureContact(x.relatedName, x.companyName) : null;
+    Acts.create({ type: x.type || "note", relatedName: x.relatedName || "", companyName: x.companyName || "", contactId: contact ? contact.id : null, outcome: x.outcome || "", notes: x.notes || "", date: x.date || todayISO() }); n++; });
+  kt.forEach(i => { const x = parsed.tasks[i]; Tasks.create({ title: x.title || "Task", dueDate: x.dueDate || null, status:"todo", visibility:"private" }); n++; });
+  kf.forEach(i => { const x = parsed.followUps[i]; Acts.create({ type:"note", notes: x.note || "Follow-up", date: todayISO(), followUpDate: x.date || fmtISO(new Date(Date.now() + 7*86400000)), followUpNote: x.note || "" }); n++; });
+  document.getElementById("parseVeil").classList.remove("open");
+  toast("Saved " + n + " item" + (n===1?"":"s") + " from your notes.");
+  refreshOps();
+}
+
+/* ================= FOLLOW-UPS VIEW ================= */
+// Aggregates open follow-ups from both activities and tasks that the current user can see.
+function collectFollowUps(){
+  const out = [];
+  myActs(a => a.followUpDate && !a.followUpDone).forEach(a => out.push({ kind:"act", id:a.id, date:a.followUpDate, title:(a.followUpNote || a.notes || actTypeLabel(a.type)), meta: actTypeLabel(a.type) + (a.relatedName ? " · " + a.relatedName : ""), ownerName:a.createdByName }));
+  Tasks.list(t => canSeeTask(t) && t.followUpDate && !t.followUpDone && t.status !== "done").forEach(t => out.push({ kind:"task", id:t.id, date:t.followUpDate, title:(t.followUpNote || t.title), meta:"Task" + (t.projectId && projectById(t.projectId) ? " · " + projectById(t.projectId).name : ""), ownerName: teamName((t.assignees||[])[0]) }));
+  return out.sort((a,b) => a.date < b.date ? -1 : 1);
+}
+function openFollowUpCount(){ return collectFollowUps().filter(f => { const e = escalate(f.date); return e.days !== null && e.days >= 0; }).length; }
+function renderFollowups(){
+  const p = document.getElementById("followupsPanel"); if (!p) return;
+  const list = collectFollowUps();
+  let h = '<div class="panel-head"><div><h2>Follow-ups</h2><p class="sub">Everything you owe a next touch. States escalate as they age — the label always tells you exactly how overdue.</p></div>' +
+    '<button class="btn-ghost" data-act="opsExport" data-kind="followups">⤓ Export CSV</button></div>';
+  // legend
+  h += '<div class="esc-legend">' + ["upcoming","today","warm","red","critical"].map(k => { const sample = { upcoming:"in 3 days", today:"Due today", warm:"2 days overdue", red:"7 days overdue", critical:"20 days overdue" }[k]; const cls = "esc-" + k; return '<span class="esc-chip ' + cls + '">' + (k==="critical"?'<span class="esc-bang">!</span>':'<span class="esc-dot"></span>') + sample + '</span>'; }).join("") + '</div>';
+  if (!list.length){ h += '<div class="empty-log">No open follow-ups. Add a follow-up date to any activity or task and it shows up here.</div>'; p.innerHTML = h; return; }
+  h += '<div class="ops-list">';
+  list.forEach(f => {
+    const e = escalate(f.date);
+    h += '<div class="ops-row fu-row ' + e.cls + '">' +
+      '<div class="ops-main"><div class="ops-title">' + esc(f.title) + '</div>' +
+      '<div class="ops-sub">' + esc(f.meta) + ' · due ' + esc(fmtDay(f.date)) + (isAdmin() && f.ownerName ? ' · ' + esc(f.ownerName) : '') + '</div></div>' +
+      '<div class="ops-fu">' + escChip(e) + '</div>' +
+      '<div class="fu-actions">' +
+        '<button class="mini-btn" data-act="fuSnooze" data-kind="' + f.kind + '" data-id="' + f.id + '" title="Snooze 3 days">Snooze</button>' +
+        '<button class="mini-btn" data-act="fuResched" data-kind="' + f.kind + '" data-id="' + f.id + '">Reschedule</button>' +
+        '<button class="mini-btn gold" data-act="fuComplete" data-kind="' + f.kind + '" data-id="' + f.id + '">Complete</button>' +
+      '</div></div>';
+  });
+  h += '</div>';
+  p.innerHTML = h;
+}
+function fuSetDate(kind, id, date){ if (kind === "act") Acts.update(id, { followUpDate: date }); else Tasks.update(id, { followUpDate: date }); }
+function fuSnooze(kind, id){ const from = new Date(); from.setHours(0,0,0,0); from.setDate(from.getDate() + 3); fuSetDate(kind, id, fmtISO(from)); toast("Snoozed 3 days."); refreshOps(); }
+function fuComplete(kind, id){ if (kind === "act") Acts.update(id, { followUpDone:true }); else Tasks.update(id, { followUpDone:true }); toast("Follow-up complete."); refreshOps(); }
+let reschedTarget = null;
+function openResched(kind, id){ reschedTarget = { kind, id }; const cur = (kind === "act" ? Acts.get(id) : Tasks.get(id)) || {};
+  document.getElementById("reschedBody").innerHTML = '<label class="f-label" for="reschedDate">New follow-up date</label><input class="f-input" type="date" id="reschedDate" value="' + esc(cur.followUpDate || todayISO()) + '">';
+  document.getElementById("reschedVeil").classList.add("open"); }
+function saveResched(){ if (!reschedTarget) return; const d = document.getElementById("reschedDate").value; if (!d){ toast("Pick a date."); return; } fuSetDate(reschedTarget.kind, reschedTarget.id, d); document.getElementById("reschedVeil").classList.remove("open"); toast("Rescheduled."); refreshOps(); }
+
+/* ================= DEPENDENCIES VIEW ================= */
+let depTab = "owe";  // owe = what I owe others; owed = what others owe me
+function openDependencies(){ renderDeps(); }
+function renderDeps(){
+  const p = document.getElementById("depsPanel"); if (!p) return;
+  const me = currentUser.id;
+  const admin = isAdmin();
+  let h = '<div class="panel-head"><div><h2>Dependencies</h2><p class="sub">Who is waiting on whom, and for how long. Requests notify the other person and show in their My Day.</p></div>' +
+    '<button class="btn-gold" data-act="depNew">+ Request</button></div>';
+  h += '<div class="mode-tabs">' +
+    '<button class="mode-btn' + (depTab === "owe" ? " active" : "") + '" data-act="depTab" data-t="owe">What I owe others</button>' +
+    '<button class="mode-btn' + (depTab === "owed" ? " active" : "") + '" data-act="depTab" data-t="owed">What others owe me</button>' +
+    (admin ? '<button class="mode-btn' + (depTab === "all" ? " active" : "") + '" data-act="depTab" data-t="all">All open (admin)</button>' : '') + '</div>';
+  let list;
+  if (depTab === "owe") list = myDeps(d => d.oweeId === me && d.status === "open");
+  else if (depTab === "owed") list = myDeps(d => d.requesterId === me && d.status === "open");
+  else list = Deps.list(d => d.status === "open");   // admin-only tab (gated by button visibility + isAdmin below)
+  if (depTab === "all" && !admin) list = [];
+  list = list.sort((a,b) => (a.createdAt||"") < (b.createdAt||"") ? -1 : 1);
+  if (!list.length){ h += '<div class="empty-log">Nothing here. ' + (depTab === "owe" ? "You are not blocking anyone." : depTab === "owed" ? "No one owes you anything right now." : "No open dependencies in the workspace.") + '</div>'; p.innerHTML = h; return; }
+  h += '<div class="ops-list">';
+  list.forEach(d => {
+    const e = escalate(d.dueDate || fmtISO(new Date((d.createdAt||nowISO()).slice(0,10))));
+    const daysOut = Math.max(0, Math.round((Date.now() - Date.parse(d.createdAt || nowISO())) / 86400000));
+    const who = depTab === "owe" ? ("For " + esc(d.requesterName || teamName(d.requesterId))) : depTab === "owed" ? ("From " + esc(d.oweeName || teamName(d.oweeId))) : (esc(d.requesterName || teamName(d.requesterId)) + " → " + esc(d.oweeName || teamName(d.oweeId)));
+    h += '<div class="ops-row dep-row ' + e.cls + '">' +
+      '<div class="ops-main"><div class="ops-title">' + esc(d.note || "(no detail)") + '</div>' +
+      '<div class="ops-sub">' + who + ' · requested ' + esc(fmtDay((d.createdAt||"").slice(0,10))) + ' · ' + daysOut + ' day' + (daysOut===1?"":"s") + ' outstanding' + '</div></div>' +
+      '<div class="ops-fu">' + (d.dueDate ? escChip(e) : '<span class="esc-chip esc-upcoming"><span class="esc-dot"></span>' + daysOut + 'd outstanding</span>') + '</div>' +
+      '<div class="fu-actions">' + ((d.oweeId === me || d.requesterId === me || admin) ? '<button class="mini-btn gold" data-act="depResolve" data-id="' + d.id + '">Mark done</button>' : '') + '</div></div>';
+  });
+  h += '</div>';
+  p.innerHTML = h;
+}
+function openDepModal(){
+  const others = TEAM.filter(u => u.id !== currentUser.id);
+  document.getElementById("depBody").innerHTML =
+    '<label class="f-label" for="depOwee">Waiting on</label><select class="f-input" id="depOwee">' + (others.length ? others.map(u => '<option value="' + u.id + '">' + esc(u.name) + '</option>').join("") : '<option value="">No teammates yet</option>') + '</select>' +
+    '<label class="f-label" for="depNote">What do you need?</label><textarea class="f-area" id="depNote" placeholder="e.g. Approved pricing for the Riverside quote"></textarea>' +
+    '<label class="f-label" for="depDue">Needed by (optional)</label><input class="f-input" type="date" id="depDue">';
+  document.getElementById("depVeil").classList.add("open");
+}
+function saveDep(){
+  const oweeId = document.getElementById("depOwee").value;
+  const note = document.getElementById("depNote").value.trim();
+  if (!oweeId){ toast("Pick a teammate."); return; }
+  if (!note){ toast("Describe what you need."); return; }
+  const d = Deps.create({ requesterId: currentUser.id, requesterName: currentUser.name, oweeId, oweeName: teamName(oweeId), note, dueDate: document.getElementById("depDue").value || null, status:"open" });
+  notify(oweeId, "assigned", currentUser.name + " is waiting on you: " + note.slice(0, 60), { view:"deps" });
+  document.getElementById("depVeil").classList.remove("open");
+  toast("Request sent to " + teamName(oweeId) + ".");
+  refreshOps();
+}
+function resolveDep(id){ const d = Deps.get(id); if (!d) return; Deps.update(id, { status:"done", resolvedAt: nowISO() }); if (d.requesterId && d.requesterId !== currentUser.id) notify(d.requesterId, "assigned", teamName(currentUser.id) + " resolved: " + (d.note||"").slice(0,60), { view:"deps" }); toast("Marked done."); refreshOps(); }
+
+/* ================= WEEKLY RECAP ================= */
+let recapUser = null, recapWeekOffset = 0;
+function weekBounds(offset){ const ws = weekStart(new Date()); ws.setDate(ws.getDate() + offset*7); const we = new Date(ws); we.setDate(we.getDate()+6); return { start: fmtISO(ws), end: fmtISO(we) }; }
+function computeRecap(uid, offset){
+  const wb = weekBounds(offset);
+  const nb = weekBounds(offset + 1);
+  const inWeek = d => d >= wb.start && d <= wb.end;
+  const acts = Acts.list(a => a.createdBy === uid && inWeek(a.date));
+  const counts = {}; ACT_TYPES.forEach(t => counts[t[0]] = 0); acts.forEach(a => counts[a.type] = (counts[a.type]||0) + 1);
+  const tasksCompleted = Tasks.list(t => t.completedAt && t.completedAt.slice(0,10) >= wb.start && t.completedAt.slice(0,10) <= wb.end && ((t.assignees||[]).includes(uid) || t.createdBy === uid));
+  const tasksOpen = Tasks.list(t => t.status !== "done" && (t.assignees||[]).includes(uid));
+  const followUpsNext = collectFollowUpsFor(uid).filter(f => f.date >= nb.start && f.date <= nb.end);
+  const deps = Deps.list(d => d.status === "open" && (d.requesterId === uid || d.oweeId === uid));
+  return { wb, acts, counts, tasksCompleted, tasksOpen, followUpsNext, deps };
+}
+function collectFollowUpsFor(uid){
+  const out = [];
+  Acts.list(a => a.createdBy === uid && a.followUpDate && !a.followUpDone).forEach(a => out.push({ date:a.followUpDate, title:(a.followUpNote||a.notes||actTypeLabel(a.type)) }));
+  Tasks.list(t => (t.assignees||[]).includes(uid) && t.followUpDate && !t.followUpDone && t.status!=="done").forEach(t => out.push({ date:t.followUpDate, title:(t.followUpNote||t.title) }));
+  return out.sort((a,b)=>a.date<b.date?-1:1);
+}
+async function renderRecap(){
+  const p = document.getElementById("recapPanel"); if (!p) return;
+  if (!recapUser) recapUser = currentUser.id;
+  if (!canSeeRecapOf(recapUser)) recapUser = currentUser.id;   // data-layer guard: members can only view their own
+  const uid = recapUser, r = computeRecap(uid, recapWeekOffset);
+  const totalActs = r.acts.length;
+  let h = '<div class="panel-head"><div><h2>Weekly Recap</h2><p class="sub">' + esc(fmtDay(r.wb.start)) + ' – ' + esc(fmtDay(r.wb.end)) + (recapWeekOffset===0?' · this week':'') + '</p></div><div style="display:flex;gap:8px;align-items:center">';
+  if (isAdmin()) h += '<select class="af-select" data-act="recapPerson">' + TEAM.map(u => '<option value="' + u.id + '"' + (uid===u.id?" selected":"") + '>' + esc(u.name) + (u.id===currentUser.id?" (you)":"") + '</option>').join("") + '</select>';
+  h += '<button class="btn-ghost" data-act="recapWeek" data-d="-1">‹ Prev</button><button class="btn-ghost" data-act="recapWeek" data-d="0">This week</button><button class="btn-ghost" data-act="recapWeek" data-d="1">Next ›</button>' +
+    '<button class="btn-ghost" data-act="opsExport" data-kind="recap">⤓ CSV</button></div></div>';
+  h += '<div class="recap-head">' + avatarHtml(uid, "recap-av") + '<div><div class="recap-name">' + esc(teamName(uid)) + '</div><div class="ops-dim">' + totalActs + ' activities · ' + r.tasksCompleted.length + ' tasks completed · ' + r.tasksOpen.length + ' still open</div></div></div>';
+  // stat tiles
+  h += '<div class="stat-strip">' + ACT_TYPES.map(t => '<div class="stat-tile"><b>' + (r.counts[t[0]]||0) + '</b><span>' + esc(t[1]) + '</span></div>').join("") + '</div>';
+  // narrative
+  h += '<div class="spec-block"><div class="sb-head">The week in review</div><div class="sb-body"><div id="recapNarr" class="recap-narr">' + esc(templateNarrative(uid, r)) + '</div>' +
+    (aiReady() ? '<button class="btn-ghost" data-act="recapAI" style="margin-top:10px">✦ Write a richer narrative with SYN</button>' : '') + '</div></div>';
+  // columns
+  h += '<div class="md-grid">';
+  h += '<div class="spec-block md-card"><div class="sb-head">Tasks completed · ' + r.tasksCompleted.length + '</div><div class="sb-body">' + (r.tasksCompleted.length ? r.tasksCompleted.map(t => '<div class="md-act-line">' + esc(t.title) + '</div>').join("") : '<div class="md-empty-row">None completed this week.</div>') + '</div></div>';
+  h += '<div class="spec-block md-card"><div class="sb-head">Still open · ' + r.tasksOpen.length + '</div><div class="sb-body">' + (r.tasksOpen.length ? r.tasksOpen.slice(0,8).map(t => '<div class="md-act-line">' + esc(t.title) + '</div>').join("") : '<div class="md-empty-row">Clear.</div>') + '</div></div>';
+  h += '<div class="spec-block md-card"><div class="sb-head">Follow-ups due next week · ' + r.followUpsNext.length + '</div><div class="sb-body">' + (r.followUpsNext.length ? r.followUpsNext.map(f => '<div class="md-act-line">' + esc(f.title) + '<span class="t">' + esc(fmtDay(f.date)) + '</span></div>').join("") : '<div class="md-empty-row">None scheduled.</div>') + '</div></div>';
+  h += '<div class="spec-block md-card"><div class="sb-head">Outstanding dependencies · ' + r.deps.length + '</div><div class="sb-body">' + (r.deps.length ? r.deps.map(d => '<div class="md-act-line">' + esc(d.note||"") + '<span class="t">' + (d.oweeId===uid?"you owe":"owed to you") + '</span></div>').join("") : '<div class="md-empty-row">No open dependencies.</div>') + '</div></div>';
+  h += '</div>';
+  p.innerHTML = h;
+}
+function templateNarrative(uid, r){
+  const name = teamName(uid).split(" ")[0] || "You";
+  const total = r.acts.length;
+  const topType = ACT_TYPES.map(t => [t[1], r.counts[t[0]]||0]).sort((a,b)=>b[1]-a[1])[0];
+  const parts = [];
+  parts.push(name + " logged " + total + " activit" + (total===1?"y":"ies") + " this week" + (topType && topType[1] ? ", most of them " + topType[0].toLowerCase() + "s" : "") + ".");
+  parts.push(r.tasksCompleted.length + " task" + (r.tasksCompleted.length===1?"":"s") + " closed" + (r.tasksOpen.length ? ", " + r.tasksOpen.length + " still open" : "") + ".");
+  if (r.followUpsNext.length) parts.push(r.followUpsNext.length + " follow-up" + (r.followUpsNext.length===1?" lands":"s land") + " next week, worth front-loading.");
+  if (r.deps.length) parts.push(r.deps.length + " dependenc" + (r.deps.length===1?"y is":"ies are") + " still open.");
+  return parts.join(" ");
+}
+async function recapAINarrative(){
+  const el = document.getElementById("recapNarr"); if (!el) return;
+  const uid = recapUser, r = computeRecap(uid, recapWeekOffset);
+  el.textContent = "Writing…";
+  try{
+    const facts = "Rep: " + teamName(uid) + ". Activities by type: " + ACT_TYPES.map(t => t[1] + "=" + (r.counts[t[0]]||0)).join(", ") + ". Tasks completed: " + r.tasksCompleted.length + ". Tasks open: " + r.tasksOpen.length + ". Follow-ups next week: " + r.followUpsNext.map(f=>f.title).join("; ") + ". Open dependencies: " + r.deps.map(d=>d.note).join("; ") + ".";
+    const txt = await aiText("You are a sales operations lead writing a crisp 3-4 sentence weekly recap for a rep, then a short 'Suggested for next week' list of 2-3 bullet follow-ups. No em dashes. Base it only on the facts given.", facts, 700);
+    el.innerHTML = renderMD(txt);
+  }catch(e){ el.textContent = templateNarrative(uid, r); toast("SYN is offline; kept the summary."); }
+}
+
+/* ================= COMPANY ROLLUP (admin only) ================= */
+function renderRollup(){
+  const p = document.getElementById("rollupPanel"); if (!p) return;
+  if (!isAdmin()){ p.innerHTML = '<div class="empty-log">The company rollup is available to workspace admins.</div>'; return; }
+  const tw = weekBounds(0), lw = weekBounds(-1);
+  const inW = (d,b) => d >= b.start && d <= b.end;
+  const allActs = Acts.list(() => true);
+  const thisWeek = allActs.filter(a => inW(a.date, tw));
+  const lastWeek = allActs.filter(a => inW(a.date, lw));
+  const byType = {}; ACT_TYPES.forEach(t => byType[t[0]] = 0); thisWeek.forEach(a => byType[a.type] = (byType[a.type]||0)+1);
+  const tasksCompleted = Tasks.list(t => t.completedAt && inW(t.completedAt.slice(0,10), tw)).length;
+  const tasksOpened = Tasks.list(t => t.createdAt && inW(t.createdAt.slice(0,10), tw)).length;
+  const openDeps = Deps.list(d => d.status === "open");
+  const trend = thisWeek.length - lastWeek.length;
+  let h = '<div class="panel-head"><div><h2>Company Rollup</h2><p class="sub">Workspace-wide operations for ' + esc(fmtDay(tw.start)) + ' – ' + esc(fmtDay(tw.end)) + '. Admin only.</p></div>' +
+    '<button class="btn-ghost" data-act="opsExport" data-kind="rollup">⤓ Export CSV</button></div>';
+  h += '<div class="stat-strip">' +
+    '<div class="stat-tile"><b>' + thisWeek.length + '</b><span>Activities this week</span></div>' +
+    '<div class="stat-tile"><b>' + (trend>=0?"+":"") + trend + '</b><span>vs last week</span></div>' +
+    '<div class="stat-tile"><b>' + tasksCompleted + '</b><span>Tasks completed</span></div>' +
+    '<div class="stat-tile"><b>' + tasksOpened + '</b><span>Tasks opened</span></div>' +
+    '<div class="stat-tile"><b>' + openDeps.length + '</b><span>Open dependencies</span></div></div>';
+  // by type
+  h += '<div class="spec-block"><div class="sb-head">Activities by type · this week</div><div class="sb-body"><div class="roll-bars">';
+  const maxT = Math.max(1, ...ACT_TYPES.map(t => byType[t[0]]||0));
+  ACT_TYPES.forEach(t => { const v = byType[t[0]]||0; h += '<div class="roll-bar"><span class="rb-lbl">' + esc(t[1]) + '</span><span class="rb-track"><span class="rb-fill" style="width:' + (v/maxT*100) + '%"></span></span><span class="rb-val">' + v + '</span></div>'; });
+  h += '</div></div></div>';
+  // per person
+  h += '<div class="spec-block"><div class="sb-head">Per-person this week</div><div class="sb-body"><table class="roll-table"><thead><tr><th>Person</th>' + ACT_TYPES.map(t => '<th>' + esc(t[1]) + '</th>').join("") + '<th>Total</th></tr></thead><tbody>';
+  TEAM.forEach(u => { const ua = thisWeek.filter(a => a.createdBy === u.id); const c = {}; ACT_TYPES.forEach(t => c[t[0]] = ua.filter(a => a.type===t[0]).length);
+    h += '<tr><td>' + esc(u.name) + '</td>' + ACT_TYPES.map(t => '<td>' + c[t[0]] + '</td>').join("") + '<td><b>' + ua.length + '</b></td></tr>'; });
+  h += '</tbody></table></div></div>';
+  // open deps
+  h += '<div class="spec-block"><div class="sb-head">All open dependencies · ' + openDeps.length + '</div><div class="sb-body">' + (openDeps.length ? openDeps.map(d => { const days = Math.max(0, Math.round((Date.now()-Date.parse(d.createdAt||nowISO()))/86400000)); return '<div class="md-act-line">' + esc(d.requesterName||teamName(d.requesterId)) + ' → ' + esc(d.oweeName||teamName(d.oweeId)) + ': ' + esc(d.note||"") + '<span class="t">' + days + 'd</span></div>'; }).join("") : '<div class="md-empty-row">No open dependencies.</div>') + '</div></div>';
+  p.innerHTML = h;
+}
+
+/* ================= CSV EXPORT ================= */
+function csvCell(v){ v = (v == null ? "" : String(v)); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }
+function csvDoc(rows){ return "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n"); }   // BOM so Excel reads UTF-8
+function personFilterMatch(uid){ return !actFilter.person || uid === actFilter.person; }
+function exportOps(kind){
+  let rows, name;
+  const dateOk = d => (!actFilter.from || d >= actFilter.from) && (!actFilter.to || d <= actFilter.to);
+  if (kind === "activities" || kind === undefined){
+    rows = [["Date","Type","Owner","Contact","Company","Duration (min)","Outcome","Notes","Follow-up"]];
+    myActs(a => personFilterMatch(a.createdBy) && dateOk(a.date)).sort((a,b)=>a.date<b.date?-1:1)
+      .forEach(a => rows.push([a.date, actTypeLabel(a.type), a.createdByName||teamName(a.createdBy), a.relatedName, a.companyName, a.duration||0, a.outcome, a.notes, a.followUpDate||""]));
+    name = "activities";
+  } else if (kind === "tasks"){
+    rows = [["Title","Status","Priority","Assignees","Due","Completed","Project","Follow-up"]];
+    Tasks.list(t => canSeeTask(t) && personFilterMatch((t.assignees||[])[0]) && (!actFilter.from || (t.dueDate||t.createdAt.slice(0,10)) >= actFilter.from) && (!actFilter.to || (t.dueDate||t.createdAt.slice(0,10)) <= actFilter.to))
+      .forEach(t => rows.push([t.title, t.status, (T_PRI[t.priority]||T_PRI.med).label, (t.assignees||[]).map(teamName).join("; "), t.dueDate||"", t.completedAt?t.completedAt.slice(0,10):"", (t.projectId&&projectById(t.projectId)?projectById(t.projectId).name:""), t.followUpDate||""]));
+    name = "tasks";
+  } else if (kind === "followups"){
+    rows = [["Due","Item","Detail","State"]];
+    collectFollowUps().forEach(f => { const e = escalate(f.date); rows.push([f.date, f.title, f.meta, e.label]); });
+    name = "followups";
+  } else if (kind === "recap" || kind === "rollup"){
+    rows = [["Person","Week"].concat(ACT_TYPES.map(t=>t[1])).concat(["Tasks completed","Tasks open"])];
+    const targets = kind === "rollup" ? TEAM.map(u=>u.id) : [recapUser || currentUser.id];
+    targets.filter(canSeeRecapOf).forEach(uid => { const r = computeRecap(uid, kind==="rollup"?0:recapWeekOffset);
+      rows.push([teamName(uid), r.wb.start + "/" + r.wb.end].concat(ACT_TYPES.map(t=>r.counts[t[0]]||0)).concat([r.tasksCompleted.length, r.tasksOpen.length])); });
+    name = kind === "rollup" ? "company_rollup" : "weekly_recap";
+  }
+  doDownload({ name: (ORG?ORG.name.replace(/[^\w\- ]/g,"").trim():"SYN") + "_" + name + ".csv", content: csvDoc(rows) });
+  toast("Exported " + name + ".csv");
+}
+
+/* ---- shared refresh + badges ---- */
+function refreshOps(){
+  const v = document.querySelector(".view.active");
+  if (v){ const id = v.id;
+    if (id === "view-activity") renderActivity();
+    else if (id === "view-followups") renderFollowups();
+    else if (id === "view-deps") renderDeps();
+    else if (id === "view-recap") renderRecap();
+    else if (id === "view-rollup") renderRollup();
+    else if (id === "view-myday") renderMyDay();
+  }
+  updateOpsBadges();
+}
+function updateOpsBadges(){
+  if (!currentUser) return;
+  const fu = openFollowUpCount();
+  const fb = document.getElementById("fuBadge"); if (fb){ fb.style.display = fu ? "inline-block" : "none"; fb.textContent = fu; }
+  const dc = myDeps(d => d.oweeId === currentUser.id && d.status === "open").length;
+  const db = document.getElementById("depBadge"); if (db){ db.style.display = dc ? "inline-block" : "none"; db.textContent = dc; }
+  // admin-only nav visibility for rollup
+  const rb = document.querySelector('.nav-btn[data-view="rollup"]'); if (rb) rb.style.display = isAdmin() ? "" : "none";
+}
 
 /* ---------------- DASHBOARD ---------------- */
 async function renderDashboard(){
@@ -3912,6 +4534,11 @@ function setView(v){
   if (v === "settings") renderSettings();
   if (v === "assets"){ wireAssetDnD(); renderAssets(); }
   if (v === "dashboard") renderDashboard();
+  if (v === "activity") renderActivity();
+  if (v === "followups") renderFollowups();
+  if (v === "deps") renderDeps();
+  if (v === "recap") renderRecap();
+  if (v === "rollup") renderRollup();
   if (window.innerWidth <= 900) document.getElementById("sidebar").classList.remove("open");
 }
 
@@ -4037,7 +4664,7 @@ function entity(name, defaults){
   };
 }
 
-const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees: currentUser ? [currentUser.id] : [], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"private", completedAt:null, order: Date.now() }));
+const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees: currentUser ? [currentUser.id] : [], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"private", completedAt:null, followUpDate:null, followUpNote:"", followUpDone:false, order: Date.now() }));
 const Projects = entity("projects", () => ({ name:"", color:"#E4C169", description:"" }));
 const Events   = entity("events", () => ({ title:"", description:"", location:"", startDate:null, endDate:null, allDay:true, startTime:"09:00", endTime:"10:00", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, meetingLink:"", visibility:"team" }));
 const Spaces   = entity("spaces", () => ({ name:"", icon:"◆", color:"#E4C169", description:"", type:"team", members:"all", archived:false }));
@@ -4047,8 +4674,22 @@ const Activity = entity("activity", () => ({ actorId:null, actorName:"", type:""
 const Profiles = entity("profiles", () => ({ avatar:null, accent:null }));   // per-user, id = userId
 const Assets   = entity("assets", () => ({ brandId:null, name:"", ext:"", size:0, content:"", dataUrl:null, folderId:null, visibility:"private", sharedWith:[] }));
 const AFolders = entity("afolders", () => ({ brandId:null, name:"" }));
+/* ---- Operations layer ---- */
+const ACT_TYPES = [["call","Call"],["meeting","Meeting"],["email","Email"],["sample","Sample sent"],["application","Application submitted"],["note","Note"]];
+// Operations activity model. Owner = createdBy. Private to owner by default; admins see all.
+const Acts     = entity("acts", () => ({ type:"note", contactId:null, relatedName:"", companyName:"", date: todayISO(), duration:0, outcome:"", notes:"", followUpDate:null, followUpNote:"", followUpDone:false, taskId:null, visibility:"private" }));
+const Contacts = entity("contacts", () => ({ name:"", company:"", email:"" }));
+// Dependency: requester is waiting on owee to deliver `note`. requester is "owed to"; owee "owes".
+const Deps     = entity("deps", () => ({ requesterId:null, requesterName:"", oweeId:null, oweeName:"", note:"", dueDate:null, status:"open", resolvedAt:null, taskId:null }));
 
-const WS_KEYS = ["tasks","projects","events","spaces","dms","notifications","activity","profiles","assets","afolders"];
+const WS_KEYS = ["tasks","projects","events","spaces","dms","notifications","activity","profiles","assets","afolders","acts","contacts","deps"];
+
+/* Operations privacy gates — enforced at the data-access layer (mirrors canSeeTask/canSeeAsset). */
+function canSeeAct(a){ return isAdmin() || (currentUser && a.createdBy === currentUser.id); }
+function canSeeDep(d){ const me = currentUser && currentUser.id; return isAdmin() || (me && (d.requesterId === me || d.oweeId === me)); }
+function canSeeRecapOf(uid){ return isAdmin() || (currentUser && uid === currentUser.id); }
+function myActs(f){ return Acts.list(a => canSeeAct(a) && (!f || f(a))); }
+function myDeps(f){ return Deps.list(d => canSeeDep(d) && (!f || f(d))); }
 
 /* Asset visibility gate — enforced at the data-access layer, mirroring canSeeTask/canSee.
    Every read of uploaded assets goes through this (never rendered-only). Admins see all;
@@ -4645,6 +5286,7 @@ function toggleDone(id){
     armedDone = null;
     Tasks.update(id, { status:"done", completedAt: nowISO() });
     logActivity("task", currentUser.name + " completed “" + t.title + "”", "task", id);
+    autoActivityForTask(t);
   } else {
     Tasks.update(id, { status:"todo", completedAt: null });
   }
@@ -4655,7 +5297,7 @@ function setTaskStatus(id, st){
   const t = Tasks.get(id); if (!t || !T_STATUS.some(c => c.key === st)) return;
   const patch = { status: st, completedAt: st === "done" ? nowISO() : null };
   Tasks.update(id, patch);
-  if (st === "done") logActivity("task", currentUser.name + " completed “" + t.title + "”", "task", id);
+  if (st === "done"){ logActivity("task", currentUser.name + " completed “" + t.title + "”", "task", id); autoActivityForTask(t); }
   if (viewIs("tasks")) renderTasks();
   renderProjectsNav();
 }
@@ -5153,6 +5795,7 @@ document.addEventListener("click", e => {
   if (a === "searchJump"){ searchJump(+w.dataset.i); return; }
   if (a === "editProject"){ openProjectModal(w.dataset.id); return; }
   if (a === "qaTask"){ closeQuickAdd(); const t = Tasks.create({ title:"", status:"todo" }); setView("tasks"); openTaskModal(t.id); return; }
+  if (a === "qaActivity"){ closeQuickAdd(); setView("activity"); openActVeil(null); return; }
   if (a === "qaEvent"){ closeQuickAdd(); setView("calendar"); openEventModal(null, todayISO()); return; }
   if (a === "qaSpace"){ closeQuickAdd(); if (!isAdmin()){ toast("Only admins can create spaces."); return; } setView("spaces"); openSpaceModal(null); return; }
   if (a === "qaChat"){ closeQuickAdd(); if (!brand()){ toast("Encode a brand first to start a chat."); setView("chat"); return; } newChat(); return; }
@@ -5261,6 +5904,21 @@ function renderMyDay(){
   });
   h += '</div></div>';
 
+  // Follow-ups due (today or overdue)
+  const dueFu = collectFollowUps().filter(f => { const e = escalate(f.date); return e.days !== null && e.days >= 0; });
+  h += '<div class="spec-block md-card"><div class="sb-head">Follow-ups due <span style="color:var(--faint)">' + dueFu.length + '</span></div><div class="sb-body">';
+  if (!dueFu.length) h += '<div class="md-empty-row">No follow-ups due. Nice.</div>';
+  else dueFu.slice(0,6).forEach(f => { const e = escalate(f.date);
+    h += '<div class="md-row" data-wact="goView" data-v="followups"><div class="r-main"><div class="r-title">' + esc(f.title) + '</div><div class="r-sub">' + esc(f.meta) + '</div></div>' + escChip(e) + '</div>'; });
+  h += '</div></div>';
+
+  // People waiting on you (dependencies)
+  const oweMe = myDeps(d => d.oweeId === currentUser.id && d.status === "open");
+  h += '<div class="spec-block md-card"><div class="sb-head">Waiting on you <span style="color:var(--faint)">' + oweMe.length + '</span></div><div class="sb-body">';
+  if (!oweMe.length) h += '<div class="md-empty-row">No one is blocked on you.</div>';
+  else oweMe.slice(0,6).forEach(d => { const days = Math.max(0, Math.round((Date.now()-Date.parse(d.createdAt||nowISO()))/86400000));
+    h += '<div class="md-row" data-wact="goView" data-v="deps"><div class="r-main"><div class="r-title">' + esc(d.note||"") + '</div><div class="r-sub">For ' + esc(d.requesterName||teamName(d.requesterId)) + ' · ' + days + 'd</div></div><span class="esc-chip ' + escalate(d.dueDate||todayISO()).cls + '"><span class="esc-dot"></span>' + days + 'd</span></div>'; });
+  h += '</div></div>';
 
   // Activity
   h += '<div class="spec-block md-card"><div class="sb-head">Recent activity</div><div class="sb-body">';
@@ -5334,6 +5992,7 @@ document.addEventListener("click", e => {
   if (a === "mdPlanClose"){ const o = document.getElementById("mdPlanOut"); if (o){ o.style.display = "none"; o.innerHTML = ""; } return; }
   if (a === "mdEvent"){ setView("calendar"); if (Events.get(w.dataset.eid)) openEventModal(w.dataset.eid); return; }
   if (a === "mdThread"){ setView("spaces"); openThread(w.dataset.kind, w.dataset.id); return; }
+  if (a === "goView"){ setView(w.dataset.v); return; }
   if (a === "pDM"){ setView("spaces"); startDM(w.dataset.uid); return; }
   if (a === "pTasks"){ taskFilter = { project:"", assignee:w.dataset.uid, priority:"", label:"", sort:"manual" }; taskView = "list"; setView("tasks"); return; }
 });
@@ -5896,6 +6555,19 @@ document.addEventListener("click", e => {
   else if (a === "aFolder"){ assetFolder = act.dataset.f; renderAssets(); }
   else if (a === "aNewFolder"){ document.getElementById("folderName").value = ""; document.getElementById("folderVeil").classList.add("open"); setTimeout(() => document.getElementById("folderName").focus(), 60); }
   else if (a === "aMenu"){ e.stopPropagation(); openAssetMenu(+act.dataset.i, act); }
+  // ---- operations layer ----
+  else if (a === "opsLog"){ openActVeil(null); }
+  else if (a === "opsParse"){ openParseModal(); }
+  else if (a === "opsEditAct"){ openActVeil(act.dataset.id); }
+  else if (a === "opsExport"){ exportOps(act.dataset.kind); }
+  else if (a === "fuSnooze"){ fuSnooze(act.dataset.kind, act.dataset.id); }
+  else if (a === "fuResched"){ openResched(act.dataset.kind, act.dataset.id); }
+  else if (a === "fuComplete"){ fuComplete(act.dataset.kind, act.dataset.id); }
+  else if (a === "depNew"){ openDepModal(); }
+  else if (a === "depTab"){ depTab = act.dataset.t; renderDeps(); }
+  else if (a === "depResolve"){ resolveDep(act.dataset.id); }
+  else if (a === "recapWeek"){ recapWeekOffset = +act.dataset.d; renderRecap(); }
+  else if (a === "recapAI"){ recapAINarrative(); }
   else if (a === "openBrand"){ selectBrand(act.dataset.bid); }
   else if (a === "toggleMotion"){ SETTINGS.motion = SETTINGS.motion === false ? true : false; document.body.classList.toggle("no-motion", SETTINGS.motion === false); saveSettings(); renderSettings(); }
   else if (a === "toggleCalTasks"){ SETTINGS.calShowTasks = SETTINGS.calShowTasks === false ? true : false; saveSettings(); renderSettings(); if (viewIs("calendar")) renderCalendar(); }
@@ -6023,6 +6695,10 @@ document.getElementById("visSave").addEventListener("click", saveVisibility);
 document.getElementById("folderSave").addEventListener("click", saveFolder);
 document.getElementById("folderName").addEventListener("keydown", e => { if (e.key === "Enter") saveFolder(); });
 document.getElementById("imConnect").addEventListener("click", intConnectSave);
+document.getElementById("actSave").addEventListener("click", saveAct);
+document.getElementById("actDelete").addEventListener("click", deleteAct);
+document.getElementById("depSave").addEventListener("click", saveDep);
+document.getElementById("reschedSave").addEventListener("click", saveResched);
 
 boot();
 </script>
