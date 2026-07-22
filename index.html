@@ -1216,8 +1216,8 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
               <button class="mode-btn active" id="modeCopy">Copy</button>
               <button class="mode-btn" id="modeImage">Imagery</button>
               <span class="mode-sep"></span>
-              <button class="mode-btn active" id="mSmart" title="Deep intelligence">Smart</button>
-              <button class="mode-btn" id="mFast" title="Fastest responses">Fast</button>
+              <button class="mode-btn" id="mSmart" title="Deep model for brand & campaign work (reviewed before it ships)">Smart</button>
+              <button class="mode-btn active" id="mFast" title="Fast, low-cost model for general chat">Fast</button>
               <span class="mode-hint" id="modeHint">Text · Files · Live Web · Memory</span>
             </div>
             <div class="input-shell">
@@ -1522,7 +1522,7 @@ let CHATS = {};                       // brandId -> array of chats
 let currentUser = null;
 let activeBrandId = null;
 let mode = "copy";
-let modelPick = "smart";              // smart = sonnet, fast = haiku
+let modelPick = "fast";               // default to the cheap model for general chat; Smart = brand/campaign work
 let pendingAtts = [];
 let busy = false;
 let abortCtl = null;
@@ -1611,18 +1611,51 @@ const saveBrands    = () => saveSoon(okey("brands"), () => BRANDS.map(b => ({ ..
 const saveTeam      = () => saveSoon(okey("team"), () => TEAM);
 const saveApprovals = () => saveSoon(okey("approvals"), () => APPROVALS);
 const saveSettings  = () => saveSoon(okey("settings"), () => SETTINGS);
+/* Chats split into two physical stores per brand so a member's PRIVATE chats never sit in
+   a blob other members read: private chats live under a per-user key; shared chats under a
+   shared key. Team visibility is enforced by the key namespace, not by client-side filtering. */
+function privChatKey(brandId){ return okey((currentUser ? currentUser.id : "anon") + ":chats:" + brandId); }
+function sharedChatKey(brandId){ return okey("shared-chats:" + brandId); }
+function stripChat(c){
+  return { ...c, msgs: c.msgs.map(m => ({
+    ...m,
+    atts: (m.atts || []).map(a => (a.data && a.data.length > 400000) ? { kind:a.kind, name:a.name, stub:true } : a)
+  })) };
+}
 function saveChats(brandId){
-  saveSoon(okey("chats:" + brandId), () => (CHATS[brandId] || []).map(c => ({
-    ...c,
-    msgs: c.msgs.map(m => ({
-      ...m,
-      atts: (m.atts || []).map(a => (a.data && a.data.length > 400000) ? { kind:a.kind, name:a.name, stub:true } : a)
-    }))
-  })));
+  const all = CHATS[brandId] || [];
+  const mine   = all.filter(c => !c.shared).map(stripChat);           // only my private chats live under my key
+  const shared = all.filter(c =>  c.shared).map(stripChat);           // shared chats visible to the whole workspace
+  saveSoon(privChatKey(brandId),  () => mine);
+  saveSoon(sharedChatKey(brandId), () => shared);
+}
+const migratedChats = new Set();
+async function migrateChatsBrand(brandId){
+  if (migratedChats.has(brandId)) return;
+  migratedChats.add(brandId);
+  const old = await sGet(okey("chats:" + brandId));                   // legacy single shared blob
+  if (!old || !old.length) return;
+  // Assign every legacy chat to its ORIGINAL author's private store and expose it to no one else.
+  const byOwner = {};
+  old.forEach(c => {
+    const oid = c.ownerId || (c.ownerName ? (TEAM.find(u => u.name === c.ownerName) || {}).id : null) || currentUser.id;
+    (byOwner[oid] = byOwner[oid] || []).push({ ...c, shared:false, ownerId:oid, ownerName:c.ownerName || teamName(oid) });
+  });
+  for (const oid of Object.keys(byOwner)){
+    const key = okey(oid + ":chats:" + brandId);
+    const existing = (await sGet(key)) || [];
+    if (!existing.length) await sSet(key, byOwner[oid].map(stripChat));
+  }
+  await sSet(okey("chats:" + brandId), []);                           // clear the legacy blob so it is no longer exposed
 }
 async function loadChats(brandId){
   if (CHATS[brandId]) return CHATS[brandId];
-  CHATS[brandId] = (await sGet(okey("chats:" + brandId))) || [];
+  await migrateChatsBrand(brandId);
+  const mine   = (await sGet(privChatKey(brandId)))   || [];
+  const shared = (await sGet(sharedChatKey(brandId))) || [];
+  mine.forEach(c => { c.shared = false; if (!c.ownerId && currentUser) c.ownerId = currentUser.id; });
+  shared.forEach(c => { c.shared = true; });
+  CHATS[brandId] = shared.concat(mine);
   return CHATS[brandId];
 }
 
@@ -1855,22 +1888,24 @@ function ensureThread(){
   if (!brand()) return null;
   const list = chats();
   if (!list.length){
-    list.push({ id: uid("t"), name:"New chat", pinned:false, visibility:"team", ownerId: currentUser ? currentUser.id : null, ownerName: currentUser ? currentUser.name : "", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] });
+    list.push({ id: uid("t"), name:"New chat", pinned:false, shared:false, ownerId: currentUser ? currentUser.id : null, ownerName: currentUser ? currentUser.name : "", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] });
     CHATS[activeBrandId] = list;
   }
   let t = list.find(x => x.id === (brand()._activeThread || "") && canSee(x));
   if (!t) t = list.find(canSee) || null;
   if (!t){
-    t = { id: uid("t"), name:"New chat", pinned:false, visibility:"team", ownerId: currentUser ? currentUser.id : null, ownerName: currentUser ? currentUser.name : "", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] };
+    t = { id: uid("t"), name:"New chat", pinned:false, shared:false, ownerId: currentUser ? currentUser.id : null, ownerName: currentUser ? currentUser.name : "", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] };
     list.push(t);
   }
   brand()._activeThread = t.id;
   return t;
 }
 function thread(){ return ensureThread(); }
-function canSee(c){ return c.visibility !== "private" || (currentUser && c.ownerId === currentUser.id); }
+// Everything loaded into memory is already visible to me (my private chats + shared chats),
+// but keep an explicit guard: a chat is mine to see if it's shared or I own it.
+function canSee(c){ return !!c.shared || (currentUser && c.ownerId === currentUser.id); }
 function newChat(){
-  const t = { id: uid("t"), name:"New chat", pinned:false, visibility:"team", ownerId: currentUser.id, ownerName: currentUser.name, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] };
+  const t = { id: uid("t"), name:"New chat", pinned:false, shared:false, ownerId: currentUser.id, ownerName: currentUser.name, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] };
   chats().unshift(t);
   brand()._activeThread = t.id;
   saveChats(activeBrandId);
@@ -1891,12 +1926,15 @@ function renderChatList(){
     const btn = document.createElement("button");
     btn.className = "chat-item" + (t.id === brand()._activeThread ? " active" : "");
     btn.dataset.tid = t.id;
-    const priv = t.visibility === "private";
+    const shared = !!t.shared;
     const mine = t.ownerId === currentUser.id;
-    btn.innerHTML = '<span class="c-glyph">' + (priv ? "🔒" : (t.pinned ? "★" : "◆")) + '</span>' +
-      '<span class="c-name">' + esc(t.name) + (priv ? ' <span style="color:var(--faint);font-size:10px">private</span>' : (t.ownerName && !mine ? ' <span style="color:var(--faint);font-size:10px">' + esc(t.ownerName.split(" ")[0]) + '</span>' : "")) + '</span>' +
+    const marker = shared
+      ? ' <span style="color:var(--good);font-size:10px" title="Shared with the whole workspace">shared' + (t.ownerName && !mine ? " · " + esc(t.ownerName.split(" ")[0]) : "") + '</span>'
+      : ' <span style="color:var(--faint);font-size:10px">private</span>';
+    btn.innerHTML = '<span class="c-glyph">' + (shared ? "⧉" : (t.pinned ? "★" : "🔒")) + '</span>' +
+      '<span class="c-name">' + esc(t.name) + marker + '</span>' +
       '<span class="c-tools">' +
-      (mine || isAdmin() ? '<button class="c-tool" data-act="vis" title="' + (priv ? "Make visible to team" : "Make private to you") + '">' + (priv ? "◎" : "🔒") + '</button>' : "") +
+      (mine || isAdmin() ? '<button class="c-tool" data-act="share" title="' + (shared ? "Make private to you" : "Share to workspace") + '">' + (shared ? "🔒" : "⧉") + '</button>' : "") +
       '<button class="c-tool ' + (t.pinned ? "pin-on" : "") + '" data-act="pin" title="Pin">★</button>' +
       '<button class="c-tool" data-act="rename" title="Rename">✎</button>' +
       (mine || isAdmin() ? '<button class="c-tool" data-act="delchat" title="Delete">✕</button>' : "") + '</span>';
@@ -1917,40 +1955,45 @@ function startRename(tid){
 }
 
 /* ---------------- SYSTEM PROMPT ---------------- */
-function buildSystemPrompt(b){
+// General Q&A doesn't need the full brand payload. Send it only when the request is brand/campaign work.
+function isBrandRelevant(text, m){
+  if (m === "image") return true;
+  if (modelPick === "smart") return true;
+  const b = brand();
+  const s = (text || "").toLowerCase();
+  if (b && b.name && s.includes(b.name.toLowerCase())) return true;
+  return /\b(brand|voice|tone|campaign|copy|tagline|slogan|claim|palette|colou?rs?|logo|audience|products?|posts?|ads?|email|newsletter|caption|social|instagram|linkedin|tweet|thread|headline|write|draft|rewrite|generate|create|design|content|one[- ]?pager|brief|landing|press release|blog|script)\b/.test(s);
+}
+function buildSystemPrompt(b, brandRelevant){
   const t = thread();
+  // ---- STABLE, CACHEABLE PREFIX: identity + guardrails + (brand profile when relevant) + protocols ----
   const sp = [
     "You are SYN, the proprietary brand intelligence platform built by Syntrex, an AI-native digital studio. You are a full-capability assistant: strategy, research, analysis, writing, documents, spreadsheets, code, planning, math. You format answers with clean markdown (headers, bold, lists, tables, code blocks) like a world-class assistant.",
     "You are LOCKED to the brand \"" + b.name + "\" (" + b.industry + "). All brand-facing content ships as this brand.",
-    "You are working with " + currentUser.name + " (" + currentUser.role + " at Syntrex).",
     "You have LIVE WEB SEARCH. Use it for research, competitors, trends, current facts, prices, and anything you are unsure of. Name sources in plain text (publication or site). Do not announce that you are searching; deliver the researched answer.",
-    "",
-    "BRAND VOICE: " + b.voice,
-    "AUDIENCE: " + b.audience,
-    "PALETTE: " + b.palette.map(p => p.name + " " + p.hex).join(", "),
-    "PRODUCTS: " + b.products.join("; "),
-    "APPROVED CLAIMS: " + (b.approvedClaims.join("; ") || "none recorded"),
+    // Guardrails travel on EVERY call, even general Q&A, so nothing unsafe can slip through.
     "BANNED CLAIMS AND PHRASES you must NEVER use, including close variants: " + (b.bannedClaims.join("; ") || "none recorded"),
     "LEGAL CONSTRAINTS: " + b.legal
   ];
 
-  if (b.memories.length){
-    sp.push("", "PERMANENT BRAND MEMORY (facts and decisions saved across all chats; treat as truth):");
-    b.memories.slice(-40).forEach(m => sp.push("- " + m.text));
-  }
-  const textKnow = b.knowledge.filter(k => k.kind === "text");
-  if (textKnow.length){
-    sp.push("", "BRAND KNOWLEDGE LIBRARY:");
-    textKnow.forEach(k => sp.push("--- FILE: " + k.name + " ---\n" + (k.text || "").slice(0, 6000)));
-  }
-  const others = chats().filter(x => x.id !== t.id && x.msgs.length && canSee(x));
-  if (others.length){
-    sp.push("", "SHARED CONTEXT from this brand's other chats (for continuity):");
-    others.slice(0, 4).forEach(o => {
-      const recent = o.msgs.filter(m => m.mode !== "image").slice(-4)
-        .map(m => (m.role === "user" ? "Teammate: " : "SYN: ") + (m.text || "").slice(0, 200)).join("\n");
-      if (recent) sp.push("[Chat: " + o.name + "]\n" + recent);
-    });
+  if (brandRelevant){
+    sp.push(
+      "",
+      "BRAND VOICE: " + b.voice,
+      "AUDIENCE: " + b.audience,
+      "PALETTE: " + b.palette.map(p => p.name + " " + p.hex).join(", "),
+      "PRODUCTS: " + b.products.join("; "),
+      "APPROVED CLAIMS: " + (b.approvedClaims.join("; ") || "none recorded")
+    );
+    if (b.memories.length){
+      sp.push("", "PERMANENT BRAND MEMORY (facts and decisions saved across all chats; treat as truth):");
+      b.memories.slice(-40).forEach(m => sp.push("- " + m.text));
+    }
+    const textKnow = b.knowledge.filter(k => k.kind === "text");
+    if (textKnow.length){
+      sp.push("", "BRAND KNOWLEDGE LIBRARY:");
+      textKnow.forEach(k => sp.push("--- FILE: " + k.name + " ---\n" + (k.text || "").slice(0, 6000)));
+    }
   }
 
   sp.push("",
@@ -1966,7 +2009,25 @@ function buildSystemPrompt(b){
     "5. EVENTS: when the user asks you to schedule, book, or set up a meeting, call, or calendar item, emit each on its own line EXACTLY as: [[EVENT: title | YYYY-MM-DD | HH:MM | attendees]] . Time is 24-hour and optional (omit for all-day; still keep the empty slot with the surrounding pipes). Attendees is a comma-separated list of team member names or blank. Each line creates a real event on the team calendar. Today is " + (typeof todayISO === "function" ? todayISO() : "") + ".",
     "6. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
     "7. Never use em dashes.");
-  return sp.join("\n");
+
+  // The stable prefix is marked for prompt caching so we don't pay full input price for the brand
+  // profile + instructions on every message. The dynamic tail (who you're talking to, cross-chat
+  // context) is kept out of the cached block so it never busts the cache.
+  const blocks = [{ type:"text", text: sp.join("\n"), cache_control:{ type:"ephemeral" } }];
+  const dyn = ["You are working with " + currentUser.name + " (" + currentUser.role + " at Syntrex)."];
+  if (brandRelevant){
+    const others = chats().filter(x => x.id !== t.id && x.msgs.length && canSee(x));
+    if (others.length){
+      dyn.push("", "SHARED CONTEXT from this brand's other chats (for continuity):");
+      others.slice(0, 4).forEach(o => {
+        const recent = o.msgs.filter(m => m.mode !== "image").slice(-4)
+          .map(m => (m.role === "user" ? "Teammate: " : "SYN: ") + (m.text || "").slice(0, 200)).join("\n");
+        if (recent) dyn.push("[Chat: " + o.name + "]\n" + recent);
+      });
+    }
+  }
+  blocks.push({ type:"text", text: dyn.join("\n") });
+  return blocks;
 }
 function buildImagePrompt(b, scene){
   return "BRAND: " + b.name + "\nSTYLE DNA: " + b.imageStyle +
@@ -2060,6 +2121,15 @@ function buildMsgNode(m, idx){
       '<div class="ic-body"><div class="ic-label">Prompt compiled from brand profile</div>' +
       '<div class="ic-prompt">' + esc(m.text) + '</div>' +
       '<div class="ic-status">Queued · imagery renders when SYN Core connects</div></div></div>';
+    if (needsVerdict(m)){
+      let acts = "";
+      if (m.verdict === "ap") acts += '<button class="act-btn done-approve">✓ Approved</button>';
+      else if (m.verdict === "rj") acts += '<button class="act-btn done-reject">✕ Rejected</button>';
+      else acts += '<button class="act-btn approve" data-act="approve" data-idx="' + idx + '">Approve</button>' +
+                   '<button class="act-btn reject" data-act="reject" data-idx="' + idx + '">Reject</button>';
+      if (!m.verdict) acts += '<span class="act-note">Imagery ships only with a verdict</span>';
+      html += '<div class="actions">' + acts + "</div>";
+    }
     d.innerHTML = html; return d;
   }
 
@@ -2082,14 +2152,17 @@ function buildMsgNode(m, idx){
 
   if (m.role === "syn" && m.mode !== "image"){
     const isLast = idx === thread().msgs.length - 1;
+    const gated = needsVerdict(m);
     let acts = "";
-    if (m.verdict === "ap") acts += '<button class="act-btn done-approve">✓ Approved</button>';
-    else if (m.verdict === "rj") acts += '<button class="act-btn done-reject">✕ Rejected</button>';
-    else acts += '<button class="act-btn approve" data-act="approve" data-idx="' + idx + '">Approve</button>' +
-                 '<button class="act-btn reject" data-act="reject" data-idx="' + idx + '">Reject</button>';
+    if (gated){
+      if (m.verdict === "ap") acts += '<button class="act-btn done-approve">✓ Approved</button>';
+      else if (m.verdict === "rj") acts += '<button class="act-btn done-reject">✕ Rejected</button>';
+      else acts += '<button class="act-btn approve" data-act="approve" data-idx="' + idx + '">Approve</button>' +
+                   '<button class="act-btn reject" data-act="reject" data-idx="' + idx + '">Reject</button>';
+    }
     acts += '<button class="act-btn" data-act="copy" data-idx="' + idx + '">Copy</button>';
     if (isLast && !busy) acts += '<button class="act-btn" data-act="regen">Regenerate</button>';
-    if (!m.verdict) acts += '<span class="act-note">Nothing ships without a verdict</span>';
+    if (gated && !m.verdict) acts += '<span class="act-note">Nothing ships without a verdict</span>';
     html += '<div class="actions">' + acts + "</div>";
   }
   d.innerHTML = html;
@@ -2228,7 +2301,7 @@ async function send(){
   renderChatList(); renderThread();
 
   if (mode === "image"){
-    t.msgs.push({ role:"syn", text: buildImagePrompt(brand(), text || "See attached reference files."), mode:"image", at: new Date().toISOString() });
+    t.msgs.push({ role:"syn", text: buildImagePrompt(brand(), text || "See attached reference files."), mode:"image", verdict:null, needsApproval:true, at: new Date().toISOString() });
     saveChats(activeBrandId); renderThread(); return;
   }
   await generate();
@@ -2276,9 +2349,16 @@ async function generate(){
     }
   };
 
+  // Cost control: only the full brand payload when the request is brand/campaign work, and only a
+  // trailing window of the conversation instead of the entire transcript on every call.
+  const lastUser = [...t.msgs].reverse().find(m => m.role === "user");
+  const brandRelevant = isBrandRelevant(lastUser ? lastUser.text : "", mode);
+  const brandWork = (modelPick === "smart") || mode === "image";
+  const HISTORY_WINDOW = 10;
+
   let raw = "";
   try{
-    const history = t.msgs.filter(m => m.mode !== "image").map(m => {
+    const history = t.msgs.filter(m => m.mode !== "image").slice(-HISTORY_WINDOW).map(m => {
       if (m.role === "user"){
         const blocks = [];
         (m.atts || []).forEach(a => {
@@ -2301,7 +2381,7 @@ async function generate(){
         signal: abortCtl.signal,
         body: JSON.stringify({
           model: MODELS[modelPick], max_tokens: 8000, stream: true,
-          system: buildSystemPrompt(b), messages: msgs,
+          system: buildSystemPrompt(b, brandRelevant), messages: msgs,
           tools: [{ type:"web_search_20250305", name:"web_search" }]
         })
       });
@@ -2342,33 +2422,33 @@ async function generate(){
     }
     raw = raw.trim();
     live.remove();
-    finishSyn(raw || "", null);
+    finishSyn(raw || "", null, brandWork);
   }catch(err){
     live.remove();
-    if (err && err.name === "AbortError"){ finishSyn(raw, "stopped"); }
-    else finishSyn(raw, raw ? null : "net");
+    if (err && err.name === "AbortError"){ finishSyn(raw, "stopped", brandWork); }
+    else finishSyn(raw, raw ? null : "net", brandWork);
   }
   busy = false;
   abortCtl = null;
   sendBtn.textContent = "↑"; sendBtn.classList.remove("stop"); sendBtn.title = "Send";
   renderThread();
 }
-function finishSyn(raw, errKind){
+function finishSyn(raw, errKind, brandWork){
   const t = thread();
   const b = brand();
   if (errKind === "stopped" && !(raw && raw.trim())){
-    t.msgs.push({ role:"syn", text:"Stopped.", displayText:"Stopped.", rawText:"Stopped.", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
+    t.msgs.push({ role:"syn", text:"Stopped.", displayText:"Stopped.", rawText:"Stopped.", files:[], mode:"copy", verdict:null, needsApproval:false, at:new Date().toISOString() });
   } else if (errKind === "stopped"){
     const { clean, files, memories, aiTasks, aiEvents } = parseSpecial(raw);
     const madeS = ingestAITasks(aiTasks); const madeES = ingestAIEvents(aiEvents);
     const display = (clean || (files.length ? "Your file is ready." : ((madeS || madeES) ? "Added to your workspace." : raw))) + "\n\n*(stopped early)*";
-    t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
+    t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, needsApproval: (!!brandWork || files.length > 0), at:new Date().toISOString() });
     if (madeS) toast("SYN created " + madeS + " task" + (madeS > 1 ? "s" : "") + ".");
     if (madeES) toast("SYN scheduled " + madeES + " event" + (madeES > 1 ? "s" : "") + ".");
   } else if (errKind === "net"){
-    t.msgs.push({ role:"syn", text:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", displayText:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", rawText:"", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
+    t.msgs.push({ role:"syn", text:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", displayText:"The intelligence layer isn't reachable from here. Live generation runs in the Claude preview now, and everywhere once SYN Core is connected.", rawText:"", files:[], mode:"copy", verdict:null, needsApproval:false, at:new Date().toISOString() });
   } else if (!raw){
-    t.msgs.push({ role:"syn", text:"SYN returned an empty response. Try rephrasing.", displayText:"SYN returned an empty response. Try rephrasing.", rawText:"", files:[], mode:"copy", verdict:null, at:new Date().toISOString() });
+    t.msgs.push({ role:"syn", text:"SYN returned an empty response. Try rephrasing.", displayText:"SYN returned an empty response. Try rephrasing.", rawText:"", files:[], mode:"copy", verdict:null, needsApproval:false, at:new Date().toISOString() });
   } else {
     const { clean, files, memories, aiTasks, aiEvents } = parseSpecial(raw);
     if (memories.length){
@@ -2377,10 +2457,12 @@ function finishSyn(raw, errKind){
     }
     const made = ingestAITasks(aiTasks); const madeE = ingestAIEvents(aiEvents);
     const display = clean || (files.length ? "Your file is ready." : ((made || madeE) ? "Added to your workspace." : raw));
-    t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, at:new Date().toISOString() });
+    // Only content that ships needs a verdict: brand/campaign work (Smart mode) or a generated file.
+    const needsApproval = (!!brandWork || files.length > 0);
+    t.msgs.push({ role:"syn", text: display, displayText: display, rawText: raw, files, savedMemories: memories, mode:"copy", verdict:null, needsApproval, at:new Date().toISOString() });
     if (made) toast("SYN created " + made + " task" + (made > 1 ? "s" : "") + ".");
     if (madeE) toast("SYN scheduled " + madeE + " event" + (madeE > 1 ? "s" : "") + ".");
-    if (typeof fireIntegrations === "function") fireIntegrations("approval", currentUser.name + " generated content for " + b.name + " awaiting approval");
+    if (needsApproval && typeof fireIntegrations === "function") fireIntegrations("approval", currentUser.name + " generated content for " + b.name + " awaiting approval");
   }
   t.updatedAt = new Date().toISOString();
   saveChats(activeBrandId);
@@ -2388,9 +2470,16 @@ function finishSyn(raw, errKind){
 }
 
 /* ---------------- APPROVALS ---------------- */
+// Only content that ships requires a verdict: imagery and brand/campaign copy (and generated files).
+// General Q&A gets no approval UI. Legacy messages fall back to files/imagery so old items still show.
+function needsVerdict(m){
+  if (!m || m.role !== "syn") return false;
+  if (m.needsApproval !== undefined) return !!m.needsApproval;
+  return (m.files && m.files.length > 0) || m.mode === "image";
+}
 function pendingCount(){
   let n = 0;
-  BRANDS.forEach(b => (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach(m => { if (m.role === "syn" && m.mode !== "image" && !m.verdict && m.rawText) n++; })));
+  BRANDS.forEach(b => (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach(m => { if (needsVerdict(m) && !m.verdict) n++; })));
   return n;
 }
 function updatePendBadge(){
@@ -2414,7 +2503,7 @@ async function renderApprovals(){
   const p = document.getElementById("apprPanel");
   const pend = [];
   BRANDS.forEach(b => (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach((m, i) => {
-    if (m.role === "syn" && m.mode !== "image" && !m.verdict && m.rawText) pend.push({ b, c, m, i });
+    if (needsVerdict(m) && !m.verdict) pend.push({ b, c, m, i });
   })));
   let html = '<div class="panel-head"><div><h2>Approvals</h2><p class="sub">Every generation, every verdict, every approver, timestamped forever. The audit trail is the moat.</p></div>' +
     '<button class="head-btn ghost" data-act="exportAppr">Export CSV</button></div>';
@@ -2659,7 +2748,9 @@ function deleteBrandNow(){
   const bid = BRANDS[i].id;
   BRANDS.splice(i, 1);
   delete CHATS[bid];
-  sSet(okey("chats:" + bid), []);
+  sSet(okey("chats:" + bid), []);                 // legacy blob
+  sSet(privChatKey(bid), []);                     // my private chats for this brand
+  sSet(sharedChatKey(bid), []);                   // shared chats for this brand
   saveBrands();
   document.getElementById("brandVeil").classList.remove("open");
   selectBrand(BRANDS[0].id);
@@ -3045,7 +3136,7 @@ function entity(name, defaults){
   };
 }
 
-const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees:[], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"team", order: Date.now() }));
+const Tasks    = entity("tasks", () => ({ title:"", description:"", status:"todo", assignees: currentUser ? [currentUser.id] : [], priority:"med", dueDate:null, startDate:null, labels:[], subtasks:[], attachments:[], comments:[], linkedBrandId:null, linkedChatId:null, projectId:null, visibility:"team", order: Date.now() }));
 const Projects = entity("projects", () => ({ name:"", color:"#E4C169", description:"" }));
 const Events   = entity("events", () => ({ title:"", description:"", location:"", startDate:null, endDate:null, allDay:true, startTime:"09:00", endTime:"10:00", attendees:[], color:"#E4C169", taskId:null, projectId:null, recur:null, reminder:0, meetingLink:"", visibility:"team" }));
 const Spaces   = entity("spaces", () => ({ name:"", icon:"◆", color:"#E4C169", description:"", type:"team", members:"all", archived:false }));
@@ -3147,22 +3238,23 @@ function checkDueSoon(){
 /* ---------- workspace sync poll (8s, pauses when hidden) ---------- */
 let wsPollTimer = null;
 function collSig(arr){ let mx = ""; for (const x of arr){ if (x.updatedAt > mx) mx = x.updatedAt; } return arr.length + "|" + mx; }
+async function wsSyncOnce(){
+  if (!ORG) return;
+  for (const name of WS_KEYS){
+    if (collDirty.has(name)) continue;                   // don't clobber unsaved local edits
+    const fresh = (await sGet(okey(name))) || [];
+    const c = coll(name);
+    if (collSig(fresh) !== collSig(c.cache || [])){
+      c.cache = fresh;
+      BUS.emit("change:" + name, { op:"sync" });
+    }
+  }
+  checkDueSoon();
+  renderBell();
+}
 function startWorkspacePoll(){
   clearInterval(wsPollTimer);
-  wsPollTimer = setInterval(async () => {
-    if (!ORG || document.hidden) return;
-    for (const name of WS_KEYS){
-      if (collDirty.has(name)) continue;                 // don't clobber unsaved local edits
-      const fresh = (await sGet(okey(name))) || [];
-      const c = coll(name);
-      if (collSig(fresh) !== collSig(c.cache || [])){
-        c.cache = fresh;
-        BUS.emit("change:" + name, { op:"sync" });
-      }
-    }
-    checkDueSoon();
-    renderBell();
-  }, 8000);
+  wsPollTimer = setInterval(() => { if (ORG && !document.hidden) wsSyncOnce(); }, 8000);
 }
 
 /* ---------- shared helpers ---------- */
@@ -3649,7 +3741,7 @@ function ingestAITasks(lines){
     }
     const pri = ["low","med","high","urgent"].includes(priStr) ? priStr : (priStr.startsWith("med") ? "med" : (priStr.startsWith("urg") ? "urgent" : (priStr.startsWith("hi") ? "high" : (priStr.startsWith("lo") ? "low" : "med"))));
     const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : null;
-    const t = Tasks.create({ title, priority:pri, dueDate, projectId, assignees: assignee ? [assignee.id] : [] });
+    const t = Tasks.create({ title, priority:pri, dueDate, projectId, assignees: assignee ? [assignee.id] : (currentUser ? [currentUser.id] : []) });
     if (assignee && assignee.id !== currentUser.id){ notify(assignee.id, "assigned", currentUser.name + " (via SYN) assigned you: " + title, { view:"tasks", taskId:t.id }); fireIntegrations("assigned", currentUser.name + " (via SYN) assigned " + assignee.name + " to “" + title + "”"); }
     made++;
   });
@@ -4605,21 +4697,35 @@ function startDM(otherId){
 }
 
 /* poll open thread messages (8s, pauses when hidden) */
+async function activeThreadSyncOnce(){
+  if (!ORG) return;
+  if (activeSpaceKind && viewIs("spaces") && !spaceBusy){
+    const key = msgKey(activeSpaceKind, activeSpaceId);
+    if (!collDirty.has(key)){
+      const fresh = (await sGet(okey(key))) || [];
+      const cur = coll(key).cache || [];
+      if (fresh.length !== cur.length || JSON.stringify(fresh) !== JSON.stringify(cur)){ coll(key).cache = fresh; markSeen(activeSpaceKind, activeSpaceId); renderSpaceThread(); }
+    }
+  }
+  updateSpacesBadge();
+}
+// The thread you're actively looking at polls faster (3s) so new posts land quickly; the rest of
+// the workspace stays on the 8s poll. Both pause when the tab is hidden, so we don't hammer the backend.
 function startSpacePoll(){
   clearInterval(spacePollTimer);
-  spacePollTimer = setInterval(async () => {
-    if (!ORG || document.hidden) return;
-    if (activeSpaceKind && viewIs("spaces") && !spaceBusy){
-      const key = msgKey(activeSpaceKind, activeSpaceId);
-      if (!collDirty.has(key)){
-        const fresh = (await sGet(okey(key))) || [];
-        const cur = coll(key).cache || [];
-        if (fresh.length !== cur.length || JSON.stringify(fresh) !== JSON.stringify(cur)){ coll(key).cache = fresh; markSeen(activeSpaceKind, activeSpaceId); renderSpaceThread(); }
-      }
-    }
-    updateSpacesBadge();
-  }, 8000);
+  spacePollTimer = setInterval(() => { if (ORG && !document.hidden) activeThreadSyncOnce(); }, 3000);
 }
+// Coming back to the tab shouldn't wait for the next tick: resync everything immediately on focus.
+let _focusSyncAt = 0;
+function resyncOnFocus(){
+  if (!ORG || document.hidden) return;
+  const now = Date.now();
+  if (now - _focusSyncAt < 1000) return;                 // debounce focus+visibilitychange double-fire
+  _focusSyncAt = now;
+  wsSyncOnce(); activeThreadSyncOnce();
+}
+window.addEventListener("focus", resyncOnFocus);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) resyncOnFocus(); });
 
 /* spaces click delegation */
 document.addEventListener("click", e => {
@@ -4736,12 +4842,12 @@ document.addEventListener("click", e => {
     e.stopPropagation();
     const tid = ct.closest(".chat-item").dataset.tid;
     const t = chats().find(x => x.id === tid);
-    if (ct.dataset.act === "vis"){
+    if (ct.dataset.act === "share"){
       if (t.ownerId !== currentUser.id && !isAdmin()){ toast("Only the chat owner can change this."); return; }
-      t.visibility = t.visibility === "private" ? "team" : "private";
-      if (t.visibility === "private") t.ownerId = t.ownerId || currentUser.id;
-      saveChats(activeBrandId); renderChatList();
-      toast(t.visibility === "private" ? "Chat is now private to " + (t.ownerId === currentUser.id ? "you" : esc(t.ownerName || "its owner")) + "." : "Chat is now visible to the whole team.");
+      t.shared = !t.shared;
+      if (!t.ownerId) t.ownerId = currentUser.id;
+      saveChats(activeBrandId); renderChatList();   // saveChats rewrites both stores, moving the chat across
+      toast(t.shared ? "Chat shared to the workspace. Everyone can see it now." : "Chat is private to " + (t.ownerId === currentUser.id ? "you" : esc(t.ownerName || "its owner")) + " again.");
     }
     else if (ct.dataset.act === "pin"){ t.pinned = !t.pinned; saveChats(activeBrandId); renderChatList(); }
     else if (ct.dataset.act === "rename"){ startRename(tid); }
