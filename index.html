@@ -1906,9 +1906,37 @@ async function sSet(key, val, shared = true){
   }
 }
 const saveTimers = {};
+const savePending = {};                 // key -> {getVal, shared} for any debounced write not yet flushed
 function saveSoon(key, getVal, shared = true){
+  savePending[key] = { getVal, shared };
   clearTimeout(saveTimers[key]);
-  saveTimers[key] = setTimeout(() => sSet(key, getVal(), shared), 600);
+  saveTimers[key] = setTimeout(() => { delete savePending[key]; sSet(key, getVal(), shared); }, 600);
+}
+/* Flush every pending debounced write immediately. Called when the tab is hidden or
+   is being unloaded so a create/edit made moments earlier is never lost on a quick
+   reload or tab close (previously the 500-600ms debounce could drop it). */
+function flushPendingWrites(){
+  // saveSoon-based writes (chats, brands, integrations, settings, prefs, session …)
+  for (const key of Object.keys(savePending)){
+    const pend = savePending[key]; delete savePending[key];
+    clearTimeout(saveTimers[key]); saveTimers[key] = null;
+    try{ sSet(key, pend.getVal(), pend.shared); }catch(e){}
+  }
+  // collection-based writes (tasks, projects, events, spaces, dms, notifications, assets, folders, profiles, activity)
+  if (typeof collDirty !== "undefined"){
+    for (const name of Array.from(collDirty)){
+      clearTimeout(collTimers[name]);
+      const c = coll(name);
+      try{ sSet(okey(name), c.cache || [], c.shared); }catch(e){}
+      collDirty.delete(name);
+    }
+  }
+}
+if (typeof window !== "undefined"){
+  // visibilitychange fires reliably before the page is frozen/discarded on mobile and desktop;
+  // pagehide covers bfcache + tab close. Both flush so no debounced write is lost.
+  document.addEventListener("visibilitychange", () => { if (document.hidden) flushPendingWrites(); });
+  window.addEventListener("pagehide", flushPendingWrites);
 }
 
 /* ---------------- STATE ---------------- */
