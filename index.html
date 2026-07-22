@@ -852,6 +852,26 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
   .mode-hint{display:none}
   .bubble,.img-card,.file-card,.status-line,.mem-flag{max-width:95%}
 }
+/* --- Part 3: narrow-width layout hardening --- */
+.roll-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.roll-scroll .roll-table{min-width:520px}
+@media(max-width:560px){
+  /* ops-layer rows (follow-ups, dependencies, activity) stack instead of colliding */
+  .ops-row{flex-wrap:wrap;gap:8px}
+  .ops-main{flex:1 1 100%;min-width:0}
+  .ops-ico{order:0}
+  .ops-fu{margin-left:0;order:2}
+  .fu-actions{width:100%;flex-wrap:wrap;order:3;gap:8px}
+  .fu-actions .mini-btn{flex:1 1 auto;text-align:center}
+  /* recap header controls wrap */
+  .recap-ctl{flex-wrap:wrap}
+  /* calendar day view: tighter time gutter so rows never spill */
+  .cal-day{padding:0 2px}
+  .cd-time{width:50px;min-width:50px}
+  .cd-hour{gap:6px;padding:3px 2px;box-sizing:border-box}
+  .cd-slot{min-width:0}
+  .cd-slot .cal-ev{box-sizing:border-box;max-width:100%}
+}
 /* ============================================================
    DESIGN SYSTEM v3 — de-decorate the app, restrict gold, flatten
    cards, enforce type contrast. Depth = surface elevation + hairlines.
@@ -4046,7 +4066,7 @@ async function renderRecap(){
   if (!canSeeRecapOf(recapUser)) recapUser = currentUser.id;   // data-layer guard: members can only view their own
   const uid = recapUser, r = computeRecap(uid, recapWeekOffset);
   const totalActs = r.acts.length;
-  let h = '<div class="panel-head"><div><h2>Weekly Recap</h2><p class="sub">' + esc(fmtDay(r.wb.start)) + ' – ' + esc(fmtDay(r.wb.end)) + (recapWeekOffset===0?' · this week':'') + '</p></div><div style="display:flex;gap:8px;align-items:center">';
+  let h = '<div class="panel-head"><div><h2>Weekly Recap</h2><p class="sub">' + esc(fmtDay(r.wb.start)) + ' – ' + esc(fmtDay(r.wb.end)) + (recapWeekOffset===0?' · this week':'') + '</p></div><div class="recap-ctl" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
   if (isAdmin()) h += '<select class="af-select" data-act="recapPerson">' + TEAM.map(u => '<option value="' + u.id + '"' + (uid===u.id?" selected":"") + '>' + esc(u.name) + (u.id===currentUser.id?" (you)":"") + '</option>').join("") + '</select>';
   h += '<button class="btn-ghost" data-act="recapWeek" data-d="-1">‹ Prev</button><button class="btn-ghost" data-act="recapWeek" data-d="0">This week</button><button class="btn-ghost" data-act="recapWeek" data-d="1">Next ›</button>' +
     '<button class="btn-ghost" data-act="opsExport" data-kind="recap">⤓ CSV</button></div></div>';
@@ -4115,10 +4135,10 @@ function renderRollup(){
   ACT_TYPES.forEach(t => { const v = byType[t[0]]||0; h += '<div class="roll-bar"><span class="rb-lbl">' + esc(t[1]) + '</span><span class="rb-track"><span class="rb-fill" style="width:' + (v/maxT*100) + '%"></span></span><span class="rb-val">' + v + '</span></div>'; });
   h += '</div></div></div>';
   // per person
-  h += '<div class="spec-block"><div class="sb-head">Per-person this week</div><div class="sb-body"><table class="roll-table"><thead><tr><th>Person</th>' + ACT_TYPES.map(t => '<th>' + esc(t[1]) + '</th>').join("") + '<th>Total</th></tr></thead><tbody>';
+  h += '<div class="spec-block"><div class="sb-head">Per-person this week</div><div class="sb-body"><div class="roll-scroll"><table class="roll-table"><thead><tr><th>Person</th>' + ACT_TYPES.map(t => '<th>' + esc(t[1]) + '</th>').join("") + '<th>Total</th></tr></thead><tbody>';
   TEAM.forEach(u => { const ua = thisWeek.filter(a => a.createdBy === u.id); const c = {}; ACT_TYPES.forEach(t => c[t[0]] = ua.filter(a => a.type===t[0]).length);
     h += '<tr><td>' + esc(u.name) + '</td>' + ACT_TYPES.map(t => '<td>' + c[t[0]] + '</td>').join("") + '<td><b>' + ua.length + '</b></td></tr>'; });
-  h += '</tbody></table></div></div>';
+  h += '</tbody></table></div></div></div>';
   // open deps
   h += '<div class="spec-block"><div class="sb-head">All open dependencies · ' + openDeps.length + '</div><div class="sb-body">' + (openDeps.length ? openDeps.map(d => { const days = Math.max(0, Math.round((Date.now()-Date.parse(d.createdAt||nowISO()))/86400000)); return '<div class="md-act-line">' + esc(d.requesterName||teamName(d.requesterId)) + ' → ' + esc(d.oweeName||teamName(d.oweeId)) + ': ' + esc(d.note||"") + '<span class="t">' + days + 'd</span></div>'; }).join("") : '<div class="md-empty-row">No open dependencies.</div>') + '</div></div>';
   p.innerHTML = h;
