@@ -1141,6 +1141,66 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .roll-table td{color:var(--text-2)}
 .roll-table tbody tr:hover{background:var(--surface-2,rgba(255,255,255,.04))}
 
+/* ===== Pricing (per-seat) + calculator ===== */
+.seat-tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
+.seat-tier{border:1px solid var(--glass-border-soft);border-radius:var(--r-lg);background:var(--glass);backdrop-filter:blur(14px);padding:26px 24px;text-align:center}
+.seat-tier .st-rate{font-family:'Space Grotesk',sans-serif;font-size:34px;font-weight:700;letter-spacing:-.01em}
+.seat-tier .st-rate span{font-size:13px;font-weight:500;color:var(--muted);margin-left:4px}
+.seat-tier .st-band{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-top:8px}
+.seat-incl{text-align:center;color:var(--muted);font-size:13px;margin-top:20px;line-height:1.6}
+.calc{max-width:640px;margin:34px auto 0;border:1px solid var(--glass-border);border-radius:var(--r-lg);background:var(--glass);backdrop-filter:blur(18px);padding:26px 26px 24px}
+.calc-head{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.calc-head .sec-num{color:var(--gold)}
+.calc-body{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center}
+.calc-inputs{display:flex;flex-direction:column;gap:16px}
+.calc-field{display:flex;flex-direction:column;gap:8px;font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.calc-stepper{display:flex;align-items:stretch;border:1px solid var(--glass-border-soft);border-radius:var(--r-md);overflow:hidden;background:rgba(255,255,255,.03)}
+.calc-stepper input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600;text-align:center;-moz-appearance:textfield}
+.calc-stepper input::-webkit-outer-spin-button,.calc-stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.cs-btn{width:42px;background:rgba(255,255,255,.04);border:none;color:var(--muted);font-size:18px;cursor:pointer;transition:background .15s}
+.cs-btn:hover{background:rgba(255,255,255,.09);color:var(--text)}
+.calc-out{border-left:1px solid var(--glass-border-soft);padding-left:24px}
+.calc-total{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:40px;letter-spacing:-.02em;line-height:1}
+.calc-total small{font-size:15px;font-weight:500;color:var(--muted);margin-left:4px}
+.calc-rate{font-size:12.5px;color:var(--gold);margin-top:8px;font-weight:600}
+.calc-breakdown{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+.calc-save{font-size:12px;color:var(--text);margin-top:12px;line-height:1.5}
+.cs-tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(228,193,105,.4);border-radius:var(--r-full);padding:2px 8px;margin-right:6px}
+.calc .site-btn{margin-top:22px;width:100%}
+@media(max-width:640px){.calc-body{grid-template-columns:1fr}.calc-out{border-left:none;border-top:1px solid var(--glass-border-soft);padding-left:0;padding-top:20px}.seat-tiers{grid-template-columns:1fr}}
+
+/* ===== Billing (Settings) + usage banner ===== */
+.bill-legacy{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);border:1px solid var(--hairline);border-radius:var(--r-full);padding:2px 8px;margin-left:8px}
+.bill-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--hairline)}
+.bill-k{font-size:12.5px;color:var(--text-2);width:120px;flex-shrink:0}
+.bill-v{font-size:13px;color:var(--text)}
+.bill-full{color:var(--bad);font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;border:1px solid rgba(192,57,43,.4);border-radius:var(--r-full);padding:1px 7px;margin-left:4px}
+.bill-ctl{margin-left:auto;display:flex;align-items:center;gap:8px}
+.bill-seatnum{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;min-width:22px;text-align:center}
+.bill-bar{height:7px;border-radius:var(--r-full);background:var(--surface-2,rgba(255,255,255,.08));overflow:hidden;margin:8px 0}
+.bill-fill{display:block;height:100%;background:var(--gold);border-radius:var(--r-full)}
+.bill-note{font-size:12px;color:var(--text-2);margin:8px 0;line-height:1.5}
+.bill-total{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:14px;border-top:1px solid var(--hairline-strong)}
+.bill-total span{font-size:13px;color:var(--text-2)}
+.bill-total b{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700}
+.bill-total b .ops-dim{font-size:14px;font-weight:500}
+.bill-breakdown{font-size:11.5px;color:var(--text-3);text-align:right;margin-top:3px}
+.bill-sub{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin:20px 0 10px}
+.bill-usage{margin-bottom:12px}
+.bill-usage .bu-top{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2)}
+.bill-usage.warn .bill-fill{background:var(--gold)}
+.bill-usage.over .bill-fill{background:var(--bad)}
+.bill-usage.warn .bu-top,.bill-usage.over .bu-top{color:var(--text)}
+.bill-people{margin-top:8px}
+.bill-people summary{font-size:12px;color:var(--gold);cursor:pointer;padding:6px 0}
+.usage-banner{display:flex;gap:12px;align-items:flex-start;padding:13px 16px;border-radius:var(--r-md);margin-bottom:16px;font-size:12.5px;line-height:1.5}
+.usage-banner .ub-ico{width:20px;height:20px;min-width:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.usage-banner.warn{background:var(--accent-soft);border:1px solid rgba(228,193,105,.4);color:var(--text)}
+.usage-banner.warn .ub-ico{background:var(--gold);color:#141210}
+.usage-banner.over{background:rgba(192,57,43,.12);border:1px solid rgba(192,57,43,.45);color:var(--text)}
+:root[data-theme="dark"] .usage-banner.over{background:rgba(255,122,107,.14)}
+.usage-banner.over .ub-ico{background:var(--bad);color:#fff}
+
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ============================================================
@@ -1413,52 +1473,37 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 
       <section class="site-sec" id="site-pricing"><div class="site-wrap">
         <div class="sec-eyebrow c"><span class="sec-num">3.0</span>Pricing</div>
-        <h2 class="sec-title c">Priced by the size of your company, not padded per seat.</h2>
-        <p class="sec-sub c">Start small and grow into the whole platform. Pricing scales with your team and how many brands you run.</p>
-        <div class="price-grid">
-          <div class="price-card">
-            <div class="price-name">Starter</div><div class="price-for">Small team, one brand.</div>
-            <div class="price-amt"><b>$199</b> <span>/mo</span></div>
-            <div class="price-cap">Up to 5 people · 1 brand · standard AI allowance</div>
-            <ul class="price-feat">
-              <li>One encoded brand</li>
-              <li>Core workspace: tasks, calendar, spaces, DMs, approvals</li>
-              <li>My Day + People directory</li>
-              <li class="onb">$500 one-time onboarding</li>
-            </ul>
-            <button class="site-btn ghost" onclick="siteAuth('create')">Get Started</button>
-          </div>
-          <div class="price-card core">
-            <div class="price-tag">The core · most popular</div>
-            <div class="price-name">Team</div><div class="price-for">Your whole company, one brand.</div>
-            <div class="price-amt"><b>$499</b> <span>/mo</span></div>
-            <div class="price-cap">Unlimited people · 1 brand · large AI allowance</div>
-            <ul class="price-feat">
-              <li>Everything in Starter, plus:</li>
-              <li>AI brand chat &amp; AI spaces</li>
-              <li>Integrations: Slack, Teams, Zoom, webhooks</li>
-              <li>Full brand memory &amp; knowledge library</li>
-              <li>On-site brand assistant</li>
-              <li class="onb">$1,500 one-time onboarding</li>
-            </ul>
-            <button class="site-btn gold" onclick="siteAuth('create')">Get Started</button>
-          </div>
-          <div class="price-card">
-            <div class="price-name">Portfolio</div><div class="price-for">Agencies &amp; houses of brands.</div>
-            <div class="price-amt"><b>$1,299</b> <span>/mo</span></div>
-            <div class="price-plus">+$299 per extra brand</div>
-            <div class="price-cap">Unlimited people · up to 5 brands · highest AI allowance</div>
-            <ul class="price-feat">
-              <li>Everything in Team, plus:</li>
-              <li>Portfolio dashboard across brands</li>
-              <li>Per-brand voice &amp; guardrails</li>
-              <li>Priority support</li>
-              <li class="onb">Dedicated onboarding ($2,500 one-time)</li>
-            </ul>
-            <button class="site-btn ghost" onclick="siteAuth('create')">Get Started</button>
-          </div>
+        <h2 class="sec-title c">One simple price per seat. Volume rates as you grow.</h2>
+        <p class="sec-sub c">Every seat gets every feature. Seats and brands are the only meters — no tiers, no feature gates. The volume rate applies to your whole workspace once you cross a threshold.</p>
+
+        <div class="seat-tiers">
+          <div class="seat-tier"><div class="st-rate">$39<span>/seat/mo</span></div><div class="st-band">1–9 seats</div></div>
+          <div class="seat-tier"><div class="st-rate">$35<span>/seat/mo</span></div><div class="st-band">10–24 seats</div></div>
+          <div class="seat-tier"><div class="st-rate">$29<span>/seat/mo</span></div><div class="st-band">25+ seats</div></div>
         </div>
-        <p class="price-annual">Save two months with annual billing.</p>
+        <p class="seat-incl">1 brand included with every workspace · each additional brand $199/mo · AI usage is pooled and included, not billed separately.</p>
+
+        <div class="calc" id="pricingCalc">
+          <div class="calc-head"><span class="sec-num">3.1</span>Estimate your monthly price</div>
+          <div class="calc-body">
+            <div class="calc-inputs">
+              <label class="calc-field"><span>Seats</span>
+                <div class="calc-stepper"><button type="button" class="cs-btn" data-calc="seats" data-d="-1">–</button><input id="calcSeats" type="number" min="1" value="8" inputmode="numeric"><button type="button" class="cs-btn" data-calc="seats" data-d="1">+</button></div>
+              </label>
+              <label class="calc-field"><span>Brands</span>
+                <div class="calc-stepper"><button type="button" class="cs-btn" data-calc="brands" data-d="-1">–</button><input id="calcBrands" type="number" min="1" value="1" inputmode="numeric"><button type="button" class="cs-btn" data-calc="brands" data-d="1">+</button></div>
+              </label>
+            </div>
+            <div class="calc-out">
+              <div class="calc-total"><span id="calcTotal">$312</span><small>/mo</small></div>
+              <div class="calc-rate" id="calcRate">$39 per seat · 8 seats</div>
+              <div class="calc-breakdown" id="calcBreakdown"></div>
+              <div class="calc-save" id="calcSave"></div>
+            </div>
+          </div>
+          <button class="site-btn gold" onclick="siteAuth('create')">Get Started</button>
+        </div>
+
         <p class="price-note">Final billing activates with SYN Core (Stripe). Every Get Started routes into workspace creation now.</p>
       </div></section>
 
@@ -2223,7 +2268,7 @@ async function loadChats(brandId){
 const SITE_PAGES = ["home","terms","privacy","acceptable-use"];
 let _skipHash = false;
 function appIsOn(){ return document.getElementById("app").classList.contains("on"); }
-function showSite(){ document.getElementById("site").classList.add("on"); document.getElementById("authScreen").classList.remove("on"); document.getElementById("app").classList.remove("on"); initSiteMotion(); }
+function showSite(){ document.getElementById("site").classList.add("on"); document.getElementById("authScreen").classList.remove("on"); document.getElementById("app").classList.remove("on"); initSiteMotion(); if (typeof wireCalc === "function") wireCalc(); }
 /* Subtle scroll-reveal (fade + slight rise). Presentation only; respects reduced-motion. */
 let _revObs = null;
 function initSiteMotion(){
@@ -2378,7 +2423,7 @@ async function authSubmit(){
   if (authMode === "create"){
     const company = val("aCompany").trim();
     if (!company) return authErr("Enter your company name.");
-    const org = { id: uid("o"), name: company, secret: uid("s") + Math.random().toString(36).slice(2) + Date.now().toString(36), createdAt: new Date().toISOString() };
+    const org = { id: uid("o"), name: company, secret: uid("s") + Math.random().toString(36).slice(2) + Date.now().toString(36), createdAt: new Date().toISOString(), seats: DEFAULT_SEATS, pricingModel: "per-seat", legacy: false };
     ORGS.push(org);
     await sSet("syn5:orgs", ORGS);
     const u = { id: uid("u"), name, email: em, pwHash: await hashPw(pass, em), role: "Admin", createdAt: new Date().toISOString() };
@@ -2394,6 +2439,11 @@ async function authSubmit(){
     if (!org) return authErr("That team code isn't valid right now. Codes rotate every 30 minutes; get the current one from your admin.");
     const team = (await sGet("syn5:" + org.id + ":team")) || [];
     if (team.find(t => t.email.toLowerCase() === em)) return authErr("That email already has an account in " + org.name + ". Sign in instead.");
+    // Seat enforcement (non-legacy workspaces): admitting past the paid seat count is blocked.
+    const paidSeats = (typeof org.seats === "number") ? org.seats : DEFAULT_SEATS;
+    if (!org.legacy && org.pricingModel !== "legacy" && team.length >= paidSeats){
+      return authErr(org.name + " is at its seat limit (" + team.length + " of " + paidSeats + " seats used). Ask a workspace admin to add a seat in Settings › Billing, then try again.");
+    }
     const u = { id: uid("u"), name, email: em, pwHash: await hashPw(pass, em), role: "Member", createdAt: new Date().toISOString() };
     team.push(u);
     await sSet("syn5:" + org.id + ":team", team);
@@ -2438,6 +2488,8 @@ async function enterOrg(org, u){
   await loadSeen();
   await loadPrefs();
   await loadIntegrations();
+  await loadUsage();
+  if (markLegacyIfNeeded(ORG)) await persistOrg();   // grandfather any pre-pricing workspace: no seat lock, no throttle
   await initSpaces();
   wireWorkspaceBus();
   refreshMyAvatar();
@@ -2959,6 +3011,11 @@ async function send(){
   renderChatList(); renderThread();
 
   if (mode === "image"){
+    const imgGate = gateAI("image");
+    if (!imgGate.ok){   // pool spent: explain in-thread rather than silently failing
+      t.msgs.push({ role:"syn", displayText: imgGate.reason, rawText: imgGate.reason, verdict:null, at: new Date().toISOString() });
+      saveChats(activeBrandId); renderThread(); return;
+    }
     t.msgs.push({ role:"syn", text: buildImagePrompt(brand(), text || "See attached reference files."), mode:"image", verdict:null, needsApproval:true, at: new Date().toISOString() });
     saveChats(activeBrandId); renderThread(); return;
   }
@@ -3014,6 +3071,12 @@ async function generate(){
   const brandWork = (modelPick === "smart") || mode === "image";
   const HISTORY_WINDOW = 10;
 
+  // AI fair-use metering: classify this message and apply the soft throttle if the pool is spent.
+  let effModelPick = modelPick;
+  const gate = gateAI(modelPick === "smart" ? "smart" : "standard");
+  if (gate.downgrade) effModelPick = "fast";
+  if (gate.reason) toast(gate.reason);
+
   let raw = "";
   try{
     const history = t.msgs.filter(m => m.mode !== "image").slice(-HISTORY_WINDOW).map(m => {
@@ -3038,7 +3101,7 @@ async function generate(){
         method:"POST", headers:{ "Content-Type":"application/json" },
         signal: abortCtl.signal,
         body: JSON.stringify({
-          model: MODELS[modelPick], max_tokens: 8000, stream: true,
+          model: MODELS[effModelPick], max_tokens: 8000, stream: true,
           system: buildSystemPrompt(b, brandRelevant), messages: msgs,
           tools: [{ type:"web_search_20250305", name:"web_search" }]
         })
@@ -3759,6 +3822,8 @@ function localParse(text){
 async function runParse(){
   const text = (document.getElementById("parseInput").value || "").trim();
   if (!text){ toast("Paste something to parse first."); return; }
+  const pGate = gateAI("parse");   // meter transcript parses; soft — parse still runs, warning shown
+  if (pGate.reason) toast(pGate.reason);
   const btn = document.getElementById("parseRun"); btn.textContent = "Extracting…"; btn.disabled = true;
   let result = null;
   if (aiReady()){
@@ -4061,7 +4126,171 @@ function updateOpsBadges(){
   const rb = document.querySelector('.nav-btn[data-view="rollup"]'); if (rb) rb.style.display = isAdmin() ? "" : "none";
 }
 
-/* ---------------- DASHBOARD ---------------- */
+/* ==================================================================
+   PRICING + AI FAIR USE  (per-seat model, pooled allowance, seat lock)
+   Single source of truth used by both the marketing site and the app.
+   ================================================================== */
+const SEAT_PRICE = { s1: 39, s10: 35, s25: 29 };  // 1-9 / 10-24 / 25+
+const BRAND_PRICE = 199;                          // per additional brand / mo (1 included)
+const DEFAULT_SEATS = 5;                          // seats a new workspace starts with
+// per-seat monthly AI allowance, pooled across the workspace
+const AI_ALLOWANCE = { standard: 500, smart: 100, image: 20, parse: 20 };
+const AI_LABELS = { standard: "Standard messages", smart: "Smart / brand messages", image: "Image generations", parse: "Transcript parses" };
+
+function seatRate(seats){ seats = Math.max(1, seats || 1); if (seats >= 25) return SEAT_PRICE.s25; if (seats >= 10) return SEAT_PRICE.s10; return SEAT_PRICE.s1; }
+function priceFor(seats, brands){
+  seats = Math.max(1, Math.floor(seats || 1)); brands = Math.max(1, Math.floor(brands || 1));
+  const rate = seatRate(seats), seatCost = rate * seats, extraBrands = brands - 1, brandCost = extraBrands * BRAND_PRICE;
+  return { seats, brands, rate, seatCost, extraBrands, brandCost, total: seatCost + brandCost };
+}
+function nextThreshold(seats){ seats = Math.max(1, seats || 1); if (seats < 10) return { at: 10, rate: SEAT_PRICE.s10 }; if (seats < 25) return { at: 25, rate: SEAT_PRICE.s25 }; return null; }
+// What the next volume break saves, measured at the threshold seat count vs the current bracket rate.
+function thresholdSavings(seats){ const nt = nextThreshold(seats); if (!nt) return null; const cur = seatRate(seats); return { at: nt.at, rate: nt.rate, saving: (cur - nt.rate) * nt.at }; }
+function fmtMoney(n){ return "$" + Math.round(n).toLocaleString(); }
+
+/* ---- workspace pricing state (seats, legacy grandfather flag) ---- */
+function orgSeats(){ return (ORG && typeof ORG.seats === "number") ? ORG.seats : DEFAULT_SEATS; }
+function seatsUsed(){ return (TEAM || []).length; }
+function brandCount(){ return Math.max(1, (BRANDS || []).length || 1); }
+function isLegacyOrg(o){ o = o || ORG; return !!(o && o.legacy); }
+// A workspace with no pricingModel marker predates this change: grandfather it (no seat lock, no throttle).
+function markLegacyIfNeeded(o){ if (o && o.pricingModel === undefined && o.legacy === undefined){ o.legacy = true; o.pricingModel = "legacy"; return true; } return false; }
+async function persistOrg(){
+  if (!ORG) return;
+  const all = (await sGet("syn5:orgs")) || [];
+  const i = all.findIndex(o => o.id === ORG.id);
+  if (i >= 0){ all[i] = Object.assign({}, all[i], { seats: ORG.seats, legacy: ORG.legacy, pricingModel: ORG.pricingModel }); }
+  ORGS = all; await sSet("syn5:orgs", all);
+}
+function seatLimitReached(){ return !isLegacyOrg() && seatsUsed() >= orgSeats(); }
+
+/* ---- AI usage: per-workspace + per-user, pooled, monthly ---- */
+let USAGE = null;
+function usagePeriod(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); }
+function usageKey(){ return okey("usage:" + usagePeriod()); }
+async function loadUsage(){ USAGE = (await sGet(usageKey())) || { period: usagePeriod(), byUser: {} }; if (!USAGE.byUser) USAGE.byUser = {}; }
+function saveUsage(){ if (USAGE) saveSoon(usageKey(), () => USAGE); }
+function recordAI(kind, uid){
+  if (!USAGE) USAGE = { period: usagePeriod(), byUser: {} };
+  uid = uid || (currentUser && currentUser.id); if (!uid) return;
+  const u = USAGE.byUser[uid] = USAGE.byUser[uid] || { standard:0, smart:0, image:0, parse:0 };
+  u[kind] = (u[kind] || 0) + 1;
+  saveUsage();
+  if (isAdmin()) maybeWarnUsage(kind);
+}
+function pooledUsed(kind){ let n = 0; if (USAGE && USAGE.byUser) Object.values(USAGE.byUser).forEach(u => n += (u[kind] || 0)); return n; }
+function pooledAllowance(kind){ return AI_ALLOWANCE[kind] * Math.max(orgSeats(), seatsUsed()); }   // pool scales with paid seats
+function usageRatio(kind){ const a = pooledAllowance(kind); return a ? pooledUsed(kind) / a : 0; }
+function anyPoolWarn(){ return !isLegacyOrg() && Object.keys(AI_ALLOWANCE).some(k => usageRatio(k) >= 0.8); }
+function poolExhausted(kind){ return !isLegacyOrg() && usageRatio(kind) >= 1; }
+let _usageWarned = {};
+function maybeWarnUsage(kind){
+  if (isLegacyOrg()) return;
+  const r = usageRatio(kind);
+  if (r >= 1 && !_usageWarned[kind + ":100"]){ _usageWarned[kind + ":100"] = 1; toast("Workspace " + AI_LABELS[kind].toLowerCase() + " allowance reached — SYN keeps working on a soft throttle. Add seats in Settings › Billing to lift it."); }
+  else if (r >= 0.8 && r < 1 && !_usageWarned[kind + ":80"]){ _usageWarned[kind + ":80"] = 1; toast("Heads up: the workspace has used " + Math.round(r*100) + "% of its " + AI_LABELS[kind].toLowerCase() + " for this period."); }
+}
+/* Gate an AI action. Returns {ok, throttled, downgrade, reason}. NEVER silently fails — caller shows reason. */
+function gateAI(kind){
+  if (isLegacyOrg()) { recordAI(kind); return { ok:true }; }
+  if (kind === "image" && poolExhausted("image")){
+    return { ok:false, reason:"Your workspace has used all " + pooledAllowance("image") + " image generations for this period. Image generation is paused until the period resets or you add seats in Settings › Billing. Text and brand replies still work." };
+  }
+  if (kind === "smart" && poolExhausted("smart")){
+    recordAI("standard");   // soft throttle: the request still runs, on the standard model
+    return { ok:true, downgrade:true, reason:"Smart / brand-message allowance is used up for this period, so SYN answered on the standard model. Add seats in Settings › Billing to restore brand-smart replies." };
+  }
+  recordAI(kind);
+  return { ok:true };
+}
+
+/* ---- marketing pricing calculator (live) ---- */
+function updateCalc(){
+  const si = document.getElementById("calcSeats"), bi = document.getElementById("calcBrands");
+  if (!si || !bi) return;
+  let seats = Math.max(1, Math.floor(+si.value || 1)), brands = Math.max(1, Math.floor(+bi.value || 1));
+  const price = priceFor(seats, brands);
+  const el = id => document.getElementById(id);
+  el("calcTotal").textContent = fmtMoney(price.total);
+  el("calcRate").textContent = fmtMoney(price.rate) + " per seat · " + seats + " seat" + (seats===1?"":"s");
+  el("calcBreakdown").innerHTML = seats + " × " + fmtMoney(price.rate) + " = " + fmtMoney(price.seatCost) + (price.brandCost ? " &nbsp;+&nbsp; " + price.extraBrands + " extra brand" + (price.extraBrands===1?"":"s") + " × " + fmtMoney(BRAND_PRICE) + " = " + fmtMoney(price.brandCost) : " &nbsp;·&nbsp; 1 brand included");
+  const sv = thresholdSavings(seats);
+  el("calcSave").innerHTML = sv
+    ? '<span class="cs-tag">Volume break</span> At <b>' + sv.at + ' seats</b> every seat is <b>' + fmtMoney(sv.rate) + '</b> — about <b>' + fmtMoney(sv.saving) + '/mo</b> less than ' + sv.at + ' seats at ' + fmtMoney(price.rate) + '.'
+    : '<span class="cs-tag">Best rate</span> You are at the lowest per-seat rate (' + fmtMoney(price.rate) + ').';
+}
+function wireCalc(){
+  const c = document.getElementById("pricingCalc"); if (!c || c._wired) return; c._wired = true;
+  c.addEventListener("click", e => { const b = e.target.closest("[data-calc]"); if (!b) return; const inp = document.getElementById(b.dataset.calc === "seats" ? "calcSeats" : "calcBrands"); inp.value = Math.max(1, (+inp.value||1) + (+b.dataset.d)); updateCalc(); });
+  c.addEventListener("input", e => { if (e.target.id === "calcSeats" || e.target.id === "calcBrands") updateCalc(); });
+  updateCalc();
+}
+
+/* ---- admin Billing section (Settings) ---- */
+function renderBilling(){
+  if (!isAdmin()) return "";
+  const used = seatsUsed(), seats = orgSeats(), legacy = isLegacyOrg();
+  const rate = seatRate(seats), brands = brandCount();
+  const price = priceFor(seats, brands);
+  const sv = thresholdSavings(seats);
+  let h = '<div class="spec-block"><div class="sb-head">Billing' + (legacy ? ' <span class="bill-legacy">Legacy plan</span>' : '') + '</div><div class="sb-body">';
+  // seats
+  h += '<div class="bill-row"><div class="bill-k">Seats</div><div class="bill-v"><b>' + used + '</b> of ' + seats + ' used' +
+    (seatLimitReached() ? ' <span class="bill-full">Full</span>' : '') + '</div>' +
+    '<div class="bill-ctl"><button class="mini-btn" data-act="billSeats" data-d="-1"' + (seats <= Math.max(1, used) ? " disabled" : "") + '>–</button>' +
+    '<span class="bill-seatnum">' + seats + '</span>' +
+    '<button class="mini-btn gold" data-act="billSeats" data-d="1">+ Add seat</button></div></div>';
+  h += '<div class="bill-bar"><span class="bill-fill" style="width:' + Math.min(100, used/seats*100) + '%"></span></div>';
+  // rate + threshold
+  h += '<div class="bill-row"><div class="bill-k">Rate per seat</div><div class="bill-v"><b>' + fmtMoney(rate) + '</b> / seat / mo' +
+    ' <span class="ops-dim">(' + (seats>=25?"25+":seats>=10?"10–24":"1–9") + ' seats)</span></div></div>';
+  if (sv) h += '<div class="bill-note">Reach <b>' + sv.at + ' seats</b> and every seat drops to <b>' + fmtMoney(sv.rate) + '</b> — about <b>' + fmtMoney(sv.saving) + '/mo</b> less than ' + sv.at + ' seats at today\'s rate.</div>';
+  else h += '<div class="bill-note">You are on the best volume rate (' + fmtMoney(rate) + '/seat).</div>';
+  // brands
+  h += '<div class="bill-row"><div class="bill-k">Brands</div><div class="bill-v"><b>' + brands + '</b> · 1 included' + (price.extraBrands > 0 ? ' · ' + price.extraBrands + ' extra × ' + fmtMoney(BRAND_PRICE) + ' = ' + fmtMoney(price.brandCost) + '/mo' : '') + '</div></div>';
+  // total
+  h += '<div class="bill-total"><span>Monthly total</span><b>' + fmtMoney(price.total) + '<span class="ops-dim">/mo</span></b></div>';
+  h += '<div class="bill-breakdown">' + used + '–' + seats + ' seats × ' + fmtMoney(rate) + ' = ' + fmtMoney(price.seatCost) + (price.brandCost ? '  +  ' + fmtMoney(price.brandCost) + ' brands' : '') + '</div>';
+  // AI usage
+  h += '<div class="bill-sub">AI fair use · this period (' + usagePeriod() + ')</div>';
+  if (legacy) h += '<div class="f-hint">This is a grandfathered workspace — usage is tracked but never throttled.</div>';
+  Object.keys(AI_ALLOWANCE).forEach(k => {
+    const usedK = pooledUsed(k), allow = pooledAllowance(k), r = allow ? usedK/allow : 0;
+    const cls = r >= 1 ? "over" : r >= 0.8 ? "warn" : "";
+    h += '<div class="bill-usage ' + cls + '"><div class="bu-top"><span>' + AI_LABELS[k] + '</span><span>' + usedK + ' / ' + allow + (r>=1?' · throttled':r>=0.8?' · '+Math.round(r*100)+'%':'') + '</span></div>' +
+      '<div class="bill-bar"><span class="bill-fill" style="width:' + Math.min(100, r*100) + '%"></span></div></div>';
+  });
+  // per-person breakdown
+  const rows = (TEAM||[]).map(u => { const uu = (USAGE&&USAGE.byUser&&USAGE.byUser[u.id]) || {}; return { u, s:uu.standard||0, sm:uu.smart||0, im:uu.image||0, pa:uu.parse||0 }; });
+  h += '<details class="bill-people"><summary>Per-person usage</summary><table class="roll-table"><thead><tr><th>Person</th><th>Standard</th><th>Smart</th><th>Images</th><th>Parses</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + esc(r.u.name) + '</td><td>' + r.s + '</td><td>' + r.sm + '</td><td>' + r.im + '</td><td>' + r.pa + '</td></tr>').join("") + '</tbody></table></details>';
+  h += '<div class="f-hint" style="margin-top:10px">Every seat includes all features. AI usage is pooled across the workspace and included, not billed separately. Final billing activates with SYN Core (Stripe).</div>';
+  return h + '</div></div>';
+}
+// Admin-only banner surfacing the pooled AI usage state (warn at 80%, throttle notice at 100%).
+function usageBannerHtml(){
+  if (!isAdmin() || isLegacyOrg()) return "";
+  const over = Object.keys(AI_ALLOWANCE).filter(k => usageRatio(k) >= 1);
+  const warn = Object.keys(AI_ALLOWANCE).filter(k => usageRatio(k) >= 0.8 && usageRatio(k) < 1);
+  if (over.length){
+    return '<div class="usage-banner over"><span class="ub-ico">!</span><div><b>AI allowance reached for ' + over.map(k => AI_LABELS[k].toLowerCase()).join(", ") + '.</b> SYN keeps working on a soft throttle (standard model; image generation paused). Add seats in Settings › Billing to lift it.</div></div>';
+  }
+  if (warn.length){
+    return '<div class="usage-banner warn"><span class="ub-ico">•</span><div>The workspace has used 80%+ of its ' + warn.map(k => AI_LABELS[k].toLowerCase()).join(", ") + ' allowance this period. Consider adding seats to grow the pool.</div></div>';
+  }
+  return "";
+}
+function billAdjustSeats(delta){
+  if (!isAdmin() || !ORG) return;
+  const cur = orgSeats(), used = seatsUsed();
+  let next = cur + delta;
+  if (next < Math.max(1, used)){ toast("You have " + used + " member" + (used===1?"":"s") + " — remove someone before dropping below " + used + " seats."); return; }
+  if (next < 1) next = 1;
+  ORG.seats = next; if (ORG.legacy){ ORG.legacy = false; ORG.pricingModel = "per-seat"; }  // adjusting seats opts a legacy ws into the new model
+  persistOrg();
+  renderSettings();
+  toast(delta > 0 ? "Seat added — " + next + " seats." : "Seat removed — " + next + " seats.");
+}
 async function renderDashboard(){
   for (const b of BRANDS) await loadChats(b.id);
   const p = document.getElementById("dashPanel");
@@ -4402,6 +4631,7 @@ function renderSettings(){
       '<div class="code-sub">Rotates every 30 minutes · <span id="codeMinsLeft">' + codeMinutesLeft() + '</span> min left on this code</div>' +
       '<div class="f-hint" style="text-align:center">Give this code to teammates. They pick Join Team on the sign-in screen, enter it, and create their own account in this workspace.</div>' +
       '</div></div>';
+    html += renderBilling();          // admin-only Billing
   }
 
   html += '<div class="spec-block"><div class="sb-head">Workspace</div><div class="sb-body">' +
@@ -5860,6 +6090,7 @@ function renderMyDay(){
     (aiReady() ? '<button class="head-btn md-plan" data-wact="planMyDay" id="mdPlanBtn">✦ Plan my day</button>' : '') + '</div>';
   h += '<div class="md-ask"><input id="mdAsk" placeholder="Ask SYN anything…"><button class="btn-gold" data-wact="mdAsk">Ask</button></div>';
   h += '<div class="md-plan-out" id="mdPlanOut" style="display:none"></div>';
+  h += usageBannerHtml();
 
   // Friendly empty state: nothing due, no events, no unreads, no pending approvals
   if (!myDue.length && !events.length && !threads.length && !(isAdmin() && pend)){
@@ -6568,6 +6799,7 @@ document.addEventListener("click", e => {
   else if (a === "depResolve"){ resolveDep(act.dataset.id); }
   else if (a === "recapWeek"){ recapWeekOffset = +act.dataset.d; renderRecap(); }
   else if (a === "recapAI"){ recapAINarrative(); }
+  else if (a === "billSeats"){ billAdjustSeats(+act.dataset.d); }
   else if (a === "openBrand"){ selectBrand(act.dataset.bid); }
   else if (a === "toggleMotion"){ SETTINGS.motion = SETTINGS.motion === false ? true : false; document.body.classList.toggle("no-motion", SETTINGS.motion === false); saveSettings(); renderSettings(); }
   else if (a === "toggleCalTasks"){ SETTINGS.calShowTasks = SETTINGS.calShowTasks === false ? true : false; saveSettings(); renderSettings(); if (viewIs("calendar")) renderCalendar(); }
