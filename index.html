@@ -1998,11 +1998,23 @@ function lsOk(){
 
 /* ----- SYN Core cloud tier: D1-backed KV over GET/PUT /kv/<key> (origin-locked, no auth header) ----- */
 function cloudBase(){ return (SYN_CORE_URL && SYN_CORE_URL.startsWith("http")) ? SYN_CORE_URL : ""; }
+const _sleep = ms => new Promise(r => setTimeout(r, ms));
 async function cloudGet(key){
-  const res = await fetch(cloudBase() + "/kv/" + encodeURIComponent(key), { method:"GET" });
-  if (!res.ok) throw new Error("cloud get " + res.status);
-  const j = await res.json();
-  return (j && j.value != null) ? JSON.parse(j.value) : null;   // stored value is a JSON string, exactly like localStorage
+  // Retry transient failures (network blip, timeout, 5xx/429) so a momentary hiccup never
+  // surfaces as "empty". Only a genuine, persistent failure throws — callers decide what to do.
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++){
+    try{
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 6000);
+      const res = await fetch(cloudBase() + "/kv/" + encodeURIComponent(key), { method:"GET", signal: ctl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error("cloud get " + res.status);
+      const j = await res.json();
+      return (j && j.value != null) ? JSON.parse(j.value) : null;   // stored value is a JSON string, exactly like localStorage
+    }catch(e){ lastErr = e; if (attempt < 2) await _sleep(350 * (attempt + 1)); }
+  }
+  throw lastErr || new Error("cloud get failed");
 }
 async function cloudPut(key, str){
   const res = await fetch(cloudBase() + "/kv/" + encodeURIComponent(key), {
@@ -2065,6 +2077,14 @@ async function sGet(key, shared = true){
     try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }catch(e){ return null; }
   }
   return mem[key] || null;
+}
+/* Authoritative read for identity/registry keys (org registry, team rosters). When SYN Core is
+   live it MUST come from the cloud — a failure THROWS so callers surface it and retry, and never
+   silently fabricate an empty/stale registry (which was making existing users look brand-new and
+   re-onboard into a fresh workspace). In device/local mode, local storage is authoritative. */
+async function sGetStrict(key){
+  if (cloudOk) return await cloudGet(key);   // throws (after retries) on persistent failure
+  return await sGet(key, true);
 }
 async function sSet(key, val, shared = true){
   mem[key] = val;                       // keep the newest value in memory as a safety net
@@ -2313,8 +2333,13 @@ async function boot(){
   cloudOk = await cloudHealth();
   if (cloudOk){
     persistMode = "cloud"; persistOk = true;
+    try{ localStorage.setItem("syn5:cloudSeen", "1"); }catch(e){}   // remember this device has reached SYN Core
     try{ const moved = await migrateLocalToCloud(); if (moved) console.log("SYN Core: migrated " + moved + " local key(s) to the cloud."); }catch(e){}
   } else {
+    // If SYN Core is configured AND this device has reached it before, its data lives in the cloud —
+    // do NOT silently drop to device mode and offer a fresh workspace during an outage. Block + retry.
+    let seen = false; try{ seen = localStorage.getItem("syn5:cloudSeen") === "1"; }catch(e){}
+    if (cloudBase() && seen) return bootCloudError();
     persistMode = window.storage ? "shared" : (lsOk() ? "device" : "memory");
     persistOk = persistMode !== "memory";
   }
@@ -2326,19 +2351,40 @@ async function boot(){
     : persistMode === "device" ? "Saved to this browser only. SYN Core wasn't reachable, so cross-device team sync is off right now."
     : "Storage unavailable; this session is in-memory only.";
 
-  ORGS = (await sGet("syn5:orgs")) || [];
+  // Registry is identity-critical: never fabricate an empty one from a failed cloud read.
+  try{ ORGS = (await sGetStrict("syn5:orgs")) || []; }
+  catch(e){ return bootCloudError(); }
   document.getElementById("bootScreen").classList.remove("on");
 
   const sess = await sGet("syn5:session", false);
   if (sess && sess.orgId){
     const org = ORGS.find(o => o.id === sess.orgId);
     if (org){
-      const team = (await sGet("syn5:" + org.id + ":team")) || [];
+      let team;
+      try{ team = (await sGetStrict("syn5:" + org.id + ":team")) || []; }
+      catch(e){ return bootCloudError(); }   // logged-in user + unreachable cloud: block+retry, don't dump to marketing
       const u = team.find(t => t.id === sess.userId);
       if (u){ await enterOrg(org, u); return; }
     }
+    // session's org/user was readable but is genuinely gone -> stale session, fall through to the site
   }
   showSite(); routeSite();     // logged-out visitors land on the public marketing site
+}
+// SYN Core is live but unreachable right now: block on a retry screen. Never sign an existing user
+// out to the marketing site (where they'd re-onboard) and never proceed with an empty registry.
+function bootCloudError(){
+  const bs = document.getElementById("bootScreen");
+  bs.classList.add("on");
+  bs.innerHTML = '<div style="text-align:center;max-width:360px;padding:0 24px">' +
+    '<div class="boot-orb"><img src="' + LOGO + '" onerror="logoFail(this)" alt=""></div>' +
+    '<div class="boot-txt" style="margin-top:16px">Can’t reach SYN Core right now.</div>' +
+    '<div style="font-size:13px;color:var(--muted);line-height:1.6;margin:10px 0 20px">Your workspace is safe in the cloud. We won’t sign you in until we can load it, so nothing is lost or duplicated.</div>' +
+    '<button class="site-btn gold" id="bootRetry">Retry</button></div>';
+  const btn = document.getElementById("bootRetry");
+  if (btn) btn.addEventListener("click", () => { bs.innerHTML = '<div><div class="boot-orb"><img src="' + LOGO + '" onerror="logoFail(this)" alt=""></div><div class="boot-txt">Reconnecting…</div></div>'; boot(); });
+  // also auto-retry a few times in the background
+  if (!bootCloudError._tries) bootCloudError._tries = 0;
+  if (bootCloudError._tries < 4){ bootCloudError._tries++; setTimeout(() => { if (document.getElementById("bootScreen").classList.contains("on")) boot(); }, 3000); }
 }
 
 /* ---------------- WORKSPACE JOIN CODES (rotate every 30 min) ---------------- */
@@ -2402,12 +2448,17 @@ async function authSubmit(){
 
   // Always work from the latest workspace registry (cloud when live) so sign-in and join
   // see workspaces created in another browser, not just whatever was loaded at boot.
-  ORGS = (await sGet("syn5:orgs")) || [];
+  // Identity-critical: a failed cloud read must surface as "retry", never as an empty registry
+  // that makes an existing user look brand-new.
+  try{ ORGS = (await sGetStrict("syn5:orgs")) || []; }
+  catch(e){ return authErr("Couldn’t reach SYN Core to verify your account. Check your connection and try again — your workspace is safe."); }
 
   if (authMode === "signin"){
     for (const org of ORGS){
-      const team = (await sGet("syn5:" + org.id + ":team")) || [];
-      const u = team.find(t => t.email.toLowerCase() === em);
+      let team;
+      try{ team = (await sGetStrict("syn5:" + org.id + ":team")) || []; }
+      catch(e){ return authErr("Couldn’t reach SYN Core to verify your account. Check your connection and try again — your workspace is safe."); }
+      const u = team.find(t => (t.email || "").trim().toLowerCase() === em);
       if (u && (await hashPw(pass, em)) === u.pwHash){
         await sSet("syn5:session", { orgId: org.id, userId: u.id }, false);
         await enterOrg(org, u); return;
@@ -2437,8 +2488,10 @@ async function authSubmit(){
     if (!code) return authErr("Enter your team code.");
     const org = ORGS.find(o => orgCode(o, 0) === code || orgCode(o, -1) === code);
     if (!org) return authErr("That team code isn't valid right now. Codes rotate every 30 minutes; get the current one from your admin.");
-    const team = (await sGet("syn5:" + org.id + ":team")) || [];
-    if (team.find(t => t.email.toLowerCase() === em)) return authErr("That email already has an account in " + org.name + ". Sign in instead.");
+    let team;
+    try{ team = (await sGetStrict("syn5:" + org.id + ":team")) || []; }
+    catch(e){ return authErr("Couldn’t reach SYN Core to join right now. Check your connection and try again."); }   // never overwrite the roster from an empty read
+    if (team.find(t => (t.email || "").trim().toLowerCase() === em)) return authErr("That email already has an account in " + org.name + ". Sign in instead.");
     // Seat enforcement (non-legacy workspaces): admitting past the paid seat count is blocked.
     const paidSeats = (typeof org.seats === "number") ? org.seats : DEFAULT_SEATS;
     if (!org.legacy && org.pricingModel !== "legacy" && team.length >= paidSeats){
@@ -4157,9 +4210,15 @@ function isLegacyOrg(o){ o = o || ORG; return !!(o && o.legacy); }
 function markLegacyIfNeeded(o){ if (o && o.pricingModel === undefined && o.legacy === undefined){ o.legacy = true; o.pricingModel = "legacy"; return true; } return false; }
 async function persistOrg(){
   if (!ORG) return;
-  const all = (await sGet("syn5:orgs")) || [];
+  // Read the live registry authoritatively. If the cloud can't be read, ABORT rather than
+  // overwrite the registry with an empty/stale list (which could wipe every org). Also never
+  // drop the current org from the list.
+  let all;
+  try{ all = (await sGetStrict("syn5:orgs")) || []; }
+  catch(e){ console.error("persistOrg: registry unreachable, skipping write to avoid clobbering it"); return; }
   const i = all.findIndex(o => o.id === ORG.id);
-  if (i >= 0){ all[i] = Object.assign({}, all[i], { seats: ORG.seats, legacy: ORG.legacy, pricingModel: ORG.pricingModel }); }
+  if (i >= 0) all[i] = Object.assign({}, all[i], { seats: ORG.seats, legacy: ORG.legacy, pricingModel: ORG.pricingModel });
+  else all.push(ORG);   // registry lost track of this org somehow: re-add it, never leave it out
   ORGS = all; await sSet("syn5:orgs", all);
 }
 function seatLimitReached(){ return !isLegacyOrg() && seatsUsed() >= orgSeats(); }
