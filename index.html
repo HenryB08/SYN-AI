@@ -3292,57 +3292,11 @@ function setVerdict(idx, approved){
   saveApprovals(); saveChats(activeBrandId);
   renderThread(); updatePendBadge();
 }
-let apprTab = "pending";
-async function renderApprovals(){
-  for (const b of BRANDS) await loadChats(b.id);
-  const p = document.getElementById("apprPanel");
-  const pend = [];
-  BRANDS.forEach(b => (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach((m, i) => {
-    if (needsVerdict(m) && !m.verdict) pend.push({ b, c, m, i });
-  })));
-  let html = '<div class="panel-head"><div><h2>Approvals</h2><p class="sub">Every generation, every verdict, every approver, timestamped forever. The audit trail is the moat.</p></div>' +
-    '<button class="head-btn ghost" data-act="exportAppr">Export CSV</button></div>';
-  html += '<div class="appr-tabs">' +
-    '<button class="mode-btn ' + (apprTab === "pending" ? "active" : "") + '" data-act="apprTab" data-tab="pending">Pending (' + pend.length + ')</button>' +
-    '<button class="mode-btn ' + (apprTab === "history" ? "active" : "") + '" data-act="apprTab" data-tab="history">History (' + APPROVALS.length + ')</button></div>';
-
-  if (apprTab === "pending"){
-    if (!pend.length) html += '<div class="empty-log">Queue is clear. Everything generated has a verdict.</div>';
-    else pend.forEach((x, n) => {
-      html += '<div class="log-item"><span class="l-verdict pd">Pending</span>' +
-        '<span class="l-txt">' + esc((x.m.displayText || x.m.text || "").slice(0, 200)) + "</span>" +
-        '<span class="l-meta">' + esc(x.b.name) + "<br>" + esc(x.c.name) + "</span>" +
-        '<span class="l-btns"><button class="act-btn approve" data-act="qApprove" data-n="' + n + '">✓</button>' +
-        '<button class="act-btn reject" data-act="qReject" data-n="' + n + '">✕</button></span></div>';
-    });
-    p.dataset.pend = "1";
-    p._pend = pend;
-  } else {
-    if (!APPROVALS.length) html += '<div class="empty-log">No verdicts yet.</div>';
-    else APPROVALS.forEach(l => {
-      html += '<div class="log-item"><span class="l-verdict ' + (l.approved ? "ap" : "rj") + '">' + (l.approved ? "Approved" : "Rejected") + "</span>" +
-        '<span class="l-txt">' + esc(l.text) + "</span>" +
-        '<span class="l-meta">' + esc(l.brand) + " · " + esc(l.user) + "<br>" + esc(fmtTime(l.at)) + "</span></div>";
-    });
-  }
-  p.innerHTML = html;
-  p._pend = pend;
-}
-function queueVerdict(n, approved){
-  const p = document.getElementById("apprPanel");
-  const x = (p._pend || [])[n];
-  if (!x) return;
-  x.m.verdict = approved ? "ap" : "rj";
-  APPROVALS.unshift({ id: uid("a"), brand: x.b.name, chat: x.c.name, user: currentUser.name, text: (x.m.displayText || x.m.text || "").slice(0, 400), approved, at: new Date().toISOString() });
-  saveApprovals(); saveChats(x.b.id);
-  renderApprovals(); updatePendBadge();
-}
-function exportApprovals(){
-  const rows = [["Verdict","Brand","Chat","Approver","Time","Content"]];
-  APPROVALS.forEach(l => rows.push([l.approved ? "Approved" : "Rejected", l.brand, l.chat, l.user, l.at, l.text.replace(/\n/g, " ")]));
-  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\n");
-  doDownload({ name:"SYN_Approval_Audit_Trail.csv", content: csv });
-}
+/* The standalone Approvals PANEL was removed in the v3 migration — verdicts now happen inline in
+   chat (setVerdict, above) and the audit trail is recorded in APPROVALS (surfaced as "Verdicts
+   Logged" on the Portfolio dashboard and included in the workspace backup). The old renderApprovals/
+   queueVerdict/exportApprovals wrote to a #apprPanel element that no longer exists and were
+   unreachable (no nav, no view). Removed as dead code. */
 
 /* ---------------- PROFILE ---------------- */
 function renderProfile(){
@@ -6854,10 +6808,6 @@ document.addEventListener("click", e => {
   else if (a === "upKnow") document.getElementById("kInput").click();
   else if (a === "delKnow"){ brand().knowledge.splice(+act.dataset.i, 1); saveBrands(); renderProfile(); }
   else if (a === "delMem"){ const b = brand(); b.memories = b.memories.filter(m => m.id !== act.dataset.mid); saveBrands(); renderProfile(); }
-  else if (a === "apprTab"){ apprTab = act.dataset.tab; renderApprovals(); }
-  else if (a === "qApprove") queueVerdict(+act.dataset.n, true);
-  else if (a === "qReject") queueVerdict(+act.dataset.n, false);
-  else if (a === "exportAppr") exportApprovals();
   else if (a === "aPrev"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; assetPreview(x); }
   else if (a === "aDl"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; assetDownload(x); }
   else if (a === "aBrowse"){ assetBrowse(); }
