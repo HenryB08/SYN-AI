@@ -970,6 +970,108 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
 .si-snip{font-size:11.5px;color:var(--text-3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .si-snip mark,.si-title mark{background:rgba(228,193,105,.24);color:var(--text);border-radius:3px;padding:0 2px}
 
+/* ===== Integrations (rebuilt) ===== */
+.int-section-lbl{font-family:'IBM Plex Mono',monospace;font-size:var(--micro-size,9px);letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin:20px 0 11px;display:flex;align-items:center;gap:9px}
+.int-section-lbl:first-child{margin-top:2px}
+.int-section-lbl .isl-count{background:var(--surface-2,rgba(255,255,255,.06));border:1px solid var(--hairline);border-radius:var(--r-full);padding:1px 8px;font-size:9px;color:var(--text-2)}
+.int-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.int-card2{border:1px solid var(--hairline);background:var(--surface-1);border-radius:var(--r-md);padding:16px 17px;display:flex;flex-direction:column;gap:0}
+.int-card2 .ic-top{display:flex;align-items:flex-start;gap:13px}
+.int-logo2{width:40px;height:40px;min-width:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--surface-2,rgba(255,255,255,.05));border:1px solid var(--hairline)}
+.int-logo2 svg{width:24px;height:24px;display:block}
+.int-card2 .ic-name{font-size:14px;font-weight:700;line-height:1.2}
+.int-card2 .ic-desc{font-size:11.5px;color:var(--text-2);margin-top:3px;line-height:1.45}
+.int-card2 .ic-connect{margin-top:14px;align-self:flex-start}
+.int-conn-state{margin-top:13px;padding-top:13px;border-top:1px solid var(--hairline)}
+.int-conn-row{display:flex;align-items:center;gap:9px;font-size:11.5px;color:var(--text-2)}
+.int-dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px rgba(46,125,70,.16)}
+.int-conn-date{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.06em;color:var(--text-3);margin-left:auto}
+.int-checks{margin-top:13px;display:flex;flex-direction:column;gap:2px}
+.int-checks .icl{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:5px}
+.chk{display:flex;align-items:center;gap:10px;padding:6px 2px;font-size:12.5px;color:var(--text);cursor:pointer;user-select:none}
+.chk input{position:absolute;opacity:0;width:0;height:0}
+.chk .box{width:17px;height:17px;min-width:17px;border-radius:var(--r-xs,4px);border:1.5px solid var(--hairline-strong);display:inline-flex;align-items:center;justify-content:center;transition:all .15s;color:transparent}
+.chk .box svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.chk input:checked + .box{background:var(--gold);border-color:var(--gold);color:#fff}
+.chk input:focus-visible + .box{outline:2px solid var(--gold);outline-offset:2px}
+.int-conn-foot{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.int-status2{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;border-radius:var(--r-full);border:1px solid var(--hairline);color:var(--text-3);margin-left:auto}
+.int-status2.on{color:var(--good);border-color:rgba(46,125,70,.4)}
+/* connect modal */
+.intm-hero{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.intm-hero .int-logo2{width:46px;height:46px}
+.intm-hero .int-logo2 svg{width:28px;height:28px}
+.intm-desc{font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:16px}
+.intm-list{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:9px}
+.intm-list li{display:flex;gap:10px;font-size:12.5px;color:var(--text-2);line-height:1.45}
+.intm-list li .ib{color:var(--gold);flex-shrink:0}
+
+/* ===== Assets (rebuilt) ===== */
+#assetsPanel{max-width:1200px}
+.assets-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.assets-toolbar .at-spacer{flex:1}
+.view-toggle{display:inline-flex;border:1px solid var(--hairline);border-radius:var(--r-sm);overflow:hidden}
+.view-toggle button{padding:7px 11px;font-size:11px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:6px}
+.view-toggle button.active{background:var(--surface-2,rgba(255,255,255,.07));color:var(--text)}
+.view-toggle button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.af-select{background:var(--surface-1);border:1px solid var(--hairline);border-radius:var(--r-sm);color:var(--text);font-size:12px;padding:8px 11px;outline:none;font-family:inherit}
+.af-select:focus{border-color:rgba(228,193,105,.5)}
+.folder-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.folder-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:var(--r-full);border:1px solid var(--hairline);background:var(--surface-1);font-size:12px;font-weight:600;color:var(--text-2);transition:all .15s}
+.folder-chip.active{background:var(--accent-soft);border-color:rgba(228,193,105,.45);color:var(--gold)}
+.folder-chip svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.7}
+.folder-chip .fc-n{font-family:'IBM Plex Mono',monospace;font-size:9px;opacity:.7}
+/* dropzone */
+.asset-dropzone{position:relative}
+.asset-drop-hint{border:1.5px dashed var(--hairline-strong);border-radius:var(--r-md);padding:34px 20px;text-align:center;color:var(--text-2);transition:all .18s;cursor:pointer}
+.asset-drop-hint:hover{border-color:rgba(228,193,105,.5);color:var(--text)}
+.asset-drop-hint .adh-ico{width:40px;height:40px;margin:0 auto 12px;color:var(--text-3)}
+.asset-drop-hint .adh-ico svg{width:40px;height:40px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.asset-drop-hint b{color:var(--text);font-weight:700}
+.asset-drop-hint .adh-sub{font-size:11px;color:var(--text-3);margin-top:6px}
+.asset-view.drag-over::after{content:"Drop files to upload";position:fixed;inset:14px 14px 14px 314px;z-index:40;border:2px dashed var(--gold);border-radius:var(--r-lg);background:rgba(228,193,105,.08);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--gold);pointer-events:none;letter-spacing:.02em}
+.app.sb-collapsed .asset-view.drag-over::after{left:80px}
+.app.focus-mode .asset-view.drag-over::after{left:14px}
+/* upload tray */
+.upload-tray{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.upload-row{display:flex;align-items:center;gap:12px;border:1px solid var(--hairline);border-radius:var(--r-sm);padding:11px 14px;background:var(--surface-1)}
+.upload-row .ur-name{font-size:12.5px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upload-row .ur-bar{width:120px;height:6px;border-radius:var(--r-full);background:var(--surface-2,rgba(255,255,255,.08));overflow:hidden}
+.upload-row .ur-fill{height:100%;background:var(--gold);width:0;transition:width .2s}
+.upload-row .ur-pct{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-3);min-width:34px;text-align:right}
+.upload-row.err{border-color:rgba(192,57,43,.5)}
+.upload-row.err .ur-msg{font-size:11px;color:var(--bad)}
+.upload-row.done .ur-fill{background:var(--good)}
+/* asset grid + list */
+.asset-card{position:relative}
+.a-vis{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);white-space:nowrap}
+.a-vis svg{width:11px;height:11px;min-width:11px;fill:none;stroke:currentColor;stroke-width:1.7}
+.a-menu-btn{position:absolute;top:11px;right:11px;width:28px;height:28px;border-radius:var(--r-sm);display:inline-flex;align-items:center;justify-content:center;color:var(--text-3);opacity:0;transition:opacity .15s}
+.asset-card:hover .a-menu-btn,.asset-row:hover .a-menu-btn{opacity:1}
+.a-menu-btn:hover{background:var(--surface-2,rgba(255,255,255,.08));color:var(--text)}
+.asset-list{display:flex;flex-direction:column;gap:1px;border:1px solid var(--hairline);border-radius:var(--r-md);overflow:hidden}
+.asset-row{display:flex;align-items:center;gap:14px;padding:12px 15px;background:var(--surface-1);position:relative}
+.asset-row + .asset-row{border-top:1px solid var(--hairline)}
+.asset-row .ar-ext{width:34px;height:34px;min-width:34px;border-radius:8px;background:var(--surface-2,rgba(255,255,255,.06));border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-2);text-transform:uppercase}
+.asset-row .ar-name{font-size:13px;font-weight:600;flex:1;min-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asset-row .fc-prev,.asset-row .fc-dl{padding:7px 13px;font-size:11px;white-space:nowrap}
+.asset-row .ar-col{font-size:11px;color:var(--text-3);white-space:nowrap}
+.asset-row .ar-col.owner{width:120px;overflow:hidden;text-overflow:ellipsis}
+.asset-row .a-vis{width:96px}
+.asset-row .a-menu-btn{position:static;opacity:1;margin-left:4px}
+@media(max-width:720px){.asset-row .ar-col.owner,.asset-row .ar-col.date{display:none}}
+/* visibility modal */
+.vis-opt{display:flex;gap:12px;align-items:flex-start;padding:13px 14px;border:1px solid var(--hairline);border-radius:var(--r-md);cursor:pointer;margin-bottom:9px;transition:all .15s}
+.vis-opt:hover{border-color:var(--hairline-strong)}
+.vis-opt.sel{border-color:rgba(228,193,105,.55);background:var(--accent-soft)}
+.vis-opt .vo-radio{width:18px;height:18px;min-width:18px;border-radius:50%;border:1.5px solid var(--hairline-strong);margin-top:1px;position:relative}
+.vis-opt.sel .vo-radio{border-color:var(--gold)}
+.vis-opt.sel .vo-radio::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--gold)}
+.vis-opt .vo-title{font-size:13px;font-weight:700}
+.vis-opt .vo-sub{font-size:11.5px;color:var(--text-2);margin-top:2px;line-height:1.4}
+.vis-people{margin:4px 0 14px;padding:12px 14px;border:1px solid var(--hairline);border-radius:var(--r-md);max-height:190px;overflow-y:auto}
+.vis-people .vp-lbl{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:9px}
+
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ============================================================
@@ -1648,6 +1750,45 @@ input[type=color]::-webkit-color-swatch{border-radius:10px;border:none}
       <button class="btn-danger" id="pmDelete" style="display:none;margin-right:auto">Delete project</button>
       <button class="btn-ghost" data-close="projVeil">Cancel</button>
       <button class="btn-gold" id="pmSave">Save Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- INTEGRATION CONNECT MODAL -->
+<div class="modal-veil" id="intVeil">
+  <div class="modal" style="max-width:480px">
+    <div class="m-head"><h3 id="imTitle">Connect</h3><button class="m-close" data-close="intVeil" aria-label="Close">✕</button></div>
+    <div class="m-body" id="imBody"></div>
+    <div class="m-foot">
+      <button class="btn-ghost" data-close="intVeil">Cancel</button>
+      <button class="btn-gold" id="imConnect">Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- ASSET VISIBILITY MODAL -->
+<div class="modal-veil" id="visVeil">
+  <div class="modal" style="max-width:460px">
+    <div class="m-head"><h3>Asset visibility</h3><button class="m-close" data-close="visVeil" aria-label="Close">✕</button></div>
+    <div class="m-body" id="visBody"></div>
+    <div class="m-foot">
+      <button class="btn-ghost" data-close="visVeil">Cancel</button>
+      <button class="btn-gold" id="visSave">Save visibility</button>
+    </div>
+  </div>
+</div>
+
+<!-- ASSET FOLDER MODAL -->
+<div class="modal-veil" id="folderVeil">
+  <div class="modal" style="max-width:400px">
+    <div class="m-head"><h3>New folder</h3><button class="m-close" data-close="folderVeil" aria-label="Close">✕</button></div>
+    <div class="m-body">
+      <label class="f-label" for="folderName">Folder name</label>
+      <input class="f-input" id="folderName" placeholder="e.g. Launch campaign" autocomplete="off">
+    </div>
+    <div class="m-foot">
+      <button class="btn-ghost" data-close="folderVeil">Cancel</button>
+      <button class="btn-gold" id="folderSave">Create folder</button>
     </div>
   </div>
 </div>
@@ -2949,32 +3090,326 @@ function renderProfile(){
 }
 
 /* ---------------- ASSETS ---------------- */
+/* Upload constraints */
+const ASSET_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const ASSET_TYPES = ["png","jpg","jpeg","gif","webp","svg","pdf","txt","md","csv","json","doc","docx","rtf","xls","xlsx","ppt","pptx"];
+const ASSET_BINARY = ["png","jpg","jpeg","gif","webp","pdf","xls","xlsx","ppt","pptx","docx"];
+function fmtBytes(n){ n = n || 0; if (n < 1024) return n + " B"; if (n < 1048576) return (n/1024).toFixed(0) + " KB"; return (n/1048576).toFixed(1) + " MB"; }
+function visLabel(v){ return v === "workspace" ? "Workspace" : v === "specific" ? "Shared" : "Private"; }
+function visIcon(v){
+  if (v === "workspace") return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>';
+  if (v === "specific") return '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6.2a3 3 0 0 1 0 5.6M18 19a5 5 0 0 0-3-4.6"/></svg>';
+  return '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9" rx="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>';
+}
+/* per-brand asset view state */
+let assetView = "grid";      // grid | list
+let assetFolder = "";        // "" = all, "__none__" = unfiled, or folderId
+let assetTypeFilter = "";
+let assetOwnerFilter = "";
+
+/* Normalized, visibility-gated asset list for a brand (uploads + chat-generated deliverables).
+   Uploads pass through canSeeAsset; chat files inherit their chat's privacy via canSee — so this
+   accessor never returns an asset the current user is not entitled to, at the data layer. */
 function brandAssets(b){
   const out = [];
-  (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach((m, i) => (m.files || []).forEach(f => out.push({ f, chat: c.name, at: m.at }))));
-  return out.reverse();
+  Assets.list(a => a.brandId === b.id && canSeeAsset(a)).forEach(a => out.push({
+    id: a.id, source: "upload", f: { name: a.name, content: a.content || "", dataUrl: a.dataUrl || null },
+    name: a.name, ext: a.ext || extOf(a.name), size: a.size || 0, at: a.createdAt,
+    folderId: a.folderId || null, ownerId: a.createdBy, ownerName: a.createdByName || teamName(a.createdBy),
+    visibility: a.visibility || "private", rec: a
+  }));
+  (CHATS[b.id] || []).filter(canSee).forEach(c => c.msgs.forEach(m => (m.files || []).forEach(f => out.push({
+    id: c.id + ":" + f.name + ":" + (m.at || ""), source: "chat", f: f,
+    name: f.name, ext: extOf(f.name), size: (f.content || "").length, at: m.at,
+    folderId: null, ownerId: c.ownerId, ownerName: teamName(c.ownerId),
+    visibility: c.shared ? "workspace" : "private", chat: c.name, rec: null
+  }))));
+  return out.sort((x, y) => new Date(y.at || 0) - new Date(x.at || 0));
 }
+function brandFolders(b){ return AFolders.list(f => f.brandId === b.id).sort((a, c) => (a.name || "").localeCompare(c.name || "")); }
+
 function renderAssets(){
   const b = brand();
-  if (!b){ document.getElementById("assetsPanel").innerHTML = '<div class="empty-log">No brands yet, so no assets yet.</div>'; return; }
-  const list = brandAssets(b);
   const p = document.getElementById("assetsPanel");
-  let html = '<div class="panel-head"><div><h2>' + esc(b.name) + ' · Assets</h2><p class="sub">Every deliverable SYN has produced for this brand, saved and ready.</p></div></div>';
-  if (!list.length) html += '<div class="empty-log">No files yet. Ask SYN for a document, sheet, or one-pager in the workspace and it lands here automatically.</div>';
-  else{
+  if (!b){ p.innerHTML = '<div class="empty-log">No brands yet, so no assets yet.</div>'; return; }
+  const all = brandAssets(b);
+  const folders = brandFolders(b);
+
+  // filters
+  let list = all.slice();
+  if (assetFolder === "__none__") list = list.filter(x => !x.folderId);
+  else if (assetFolder) list = list.filter(x => x.folderId === assetFolder);
+  if (assetTypeFilter) list = list.filter(x => (x.ext || "") === assetTypeFilter);
+  if (assetOwnerFilter) list = list.filter(x => x.ownerId === assetOwnerFilter);
+
+  const types = Array.from(new Set(all.map(x => x.ext).filter(Boolean))).sort();
+  const owners = Array.from(new Set(all.map(x => x.ownerId).filter(Boolean)));
+
+  let html = '<div class="panel-head"><div><h2>' + esc(b.name) + ' · Assets</h2><p class="sub">Uploads and every deliverable SYN has produced — organized, permissioned, ready.</p></div>' +
+    '<button class="btn-gold" data-act="aBrowse">Upload</button></div>';
+
+  // toolbar: view toggle + filters
+  html += '<div class="assets-toolbar">' +
+    '<div class="view-toggle"><button class="' + (assetView === "grid" ? "active" : "") + '" data-act="aView" data-v="grid" aria-label="Grid view"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>Grid</button>' +
+    '<button class="' + (assetView === "list" ? "active" : "") + '" data-act="aView" data-v="list" aria-label="List view"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>List</button></div>' +
+    '<div class="at-spacer"></div>' +
+    '<select class="af-select" data-act="aFilterType"><option value="">All types</option>' + types.map(t => '<option value="' + esc(t) + '"' + (assetTypeFilter === t ? " selected" : "") + '>.' + esc(t) + '</option>').join("") + '</select>' +
+    '<select class="af-select" data-act="aFilterOwner"><option value="">Any owner</option>' + owners.map(o => '<option value="' + esc(o) + '"' + (assetOwnerFilter === o ? " selected" : "") + '>' + esc(teamName(o)) + (o === (currentUser && currentUser.id) ? " (you)" : "") + '</option>').join("") + '</select>' +
+    '</div>';
+
+  // folder bar
+  html += '<div class="folder-bar">' +
+    '<button class="folder-chip' + (assetFolder === "" ? " active" : "") + '" data-act="aFolder" data-f=""><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>All<span class="fc-n">' + all.length + '</span></button>' +
+    '<button class="folder-chip' + (assetFolder === "__none__" ? " active" : "") + '" data-act="aFolder" data-f="__none__">Unfiled<span class="fc-n">' + all.filter(x => !x.folderId).length + '</span></button>';
+  folders.forEach(f => {
+    html += '<button class="folder-chip' + (assetFolder === f.id ? " active" : "") + '" data-act="aFolder" data-f="' + f.id + '"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>' + esc(f.name) + '<span class="fc-n">' + all.filter(x => x.folderId === f.id).length + '</span></button>';
+  });
+  html += '<button class="folder-chip" data-act="aNewFolder" style="border-style:dashed">+ Folder</button></div>';
+
+  // upload tray placeholder (populated live during uploads)
+  html += '<div class="upload-tray" id="uploadTray"></div>';
+
+  // dropzone + content
+  html += '<div class="asset-dropzone">';
+  if (!all.length){
+    html += '<div class="asset-drop-hint" data-act="aBrowse"><div class="adh-ico"><svg viewBox="0 0 24 24"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>' +
+      '<b>Drop files here or click to browse</b><div class="adh-sub">Images, PDFs, docs, sheets · up to ' + fmtBytes(ASSET_MAX_BYTES) + ' · new uploads are private to you</div></div>';
+  } else if (!list.length){
+    html += '<div class="empty-log">No assets match these filters.</div>';
+  } else if (assetView === "grid"){
     html += '<div class="asset-grid">';
     list.forEach((x, i) => {
-      html += '<div class="asset-card"><div class="fc-ico">.' + esc(extOf(x.f.name) || "txt") + '</div>' +
-        '<div class="a-name">' + esc(x.f.name) + '</div>' +
-        '<div class="a-meta">' + esc(x.chat) + (x.at ? " · " + esc(fmtTime(x.at)) : "") + '</div>' +
+      html += '<div class="asset-card">' +
+        (x.source === "upload" ? '<button class="a-menu-btn" data-act="aMenu" data-i="' + i + '" aria-label="Asset options">⋯</button>' : "") +
+        '<div class="fc-ico">.' + esc(x.ext || "txt") + '</div>' +
+        '<div class="a-name">' + esc(x.name) + '</div>' +
+        '<div class="a-meta">' + esc(x.ownerName || "") + (x.at ? " · " + esc(fmtTime(x.at)) : "") + ' · ' + fmtBytes(x.size) + '</div>' +
+        '<div class="a-vis">' + visIcon(x.visibility) + visLabel(x.visibility) + '</div>' +
         '<div class="a-btns"><button class="fc-prev" data-act="aPrev" data-i="' + i + '">Preview</button>' +
         '<button class="fc-dl" data-act="aDl" data-i="' + i + '">Download</button></div></div>';
     });
     html += "</div>";
+  } else {
+    html += '<div class="asset-list">';
+    list.forEach((x, i) => {
+      html += '<div class="asset-row">' +
+        '<div class="ar-ext">' + esc(x.ext || "txt") + '</div>' +
+        '<div class="ar-name">' + esc(x.name) + '</div>' +
+        '<div class="a-vis">' + visIcon(x.visibility) + visLabel(x.visibility) + '</div>' +
+        '<div class="ar-col owner">' + esc(x.ownerName || "") + '</div>' +
+        '<div class="ar-col date">' + (x.at ? esc(fmtTime(x.at)) : "") + '</div>' +
+        '<div class="ar-col">' + fmtBytes(x.size) + '</div>' +
+        '<button class="fc-prev" data-act="aPrev" data-i="' + i + '">Preview</button>' +
+        '<button class="fc-dl" data-act="aDl" data-i="' + i + '">Download</button>' +
+        (x.source === "upload" ? '<button class="a-menu-btn" data-act="aMenu" data-i="' + i + '" aria-label="Asset options">⋯</button>' : "") +
+        '</div>';
+    });
+    html += "</div>";
   }
+  html += "</div>"; // dropzone
+
   p.innerHTML = html;
   p._assets = list;
 }
+
+/* preview / download that understand both text content and binary dataURLs */
+function assetPreview(x){
+  const f = x.f;
+  if (f.dataUrl){
+    document.getElementById("prevTitle").textContent = f.name;
+    const ext = extOf(f.name);
+    const inner = (ASSET_BINARY.includes(ext) && !/pdf/.test(ext) ? '<img src="' + f.dataUrl + '" style="max-width:100%;height:auto;display:block;margin:0 auto">' : '<iframe src="' + f.dataUrl + '" style="border:0;width:100%;height:100%"></iframe>');
+    document.getElementById("prevFrame").srcdoc = '<html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh">' + inner + '</body></html>';
+    document.getElementById("prevVeil").classList.add("open");
+    return;
+  }
+  doPreview(f);
+}
+function assetDownload(x){
+  const f = x.f;
+  if (f.dataUrl){
+    const a = document.createElement("a"); a.href = f.dataUrl; a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove(); return;
+  }
+  doDownload(f);
+}
+
+/* ---- upload pipeline (drag-drop + click-to-browse, progress, errors) ---- */
+function assetBrowse(){
+  let inp = document.getElementById("assetFileInput");
+  if (!inp){
+    inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.id = "assetFileInput";
+    inp.accept = ASSET_TYPES.map(t => "." + t).join(",");
+    inp.style.display = "none"; document.body.appendChild(inp);
+    inp.addEventListener("change", () => { handleAssetFiles(inp.files); inp.value = ""; });
+  }
+  inp.click();
+}
+function uploadTray(){ return document.getElementById("uploadTray"); }
+function handleAssetFiles(fileList){
+  const b = brand();
+  if (!b){ toast("Select a brand first."); return; }
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  const tray = uploadTray();
+  files.forEach(file => {
+    const ext = extOf(file.name);
+    const rowId = "up_" + Math.random().toString(36).slice(2, 8);
+    const row = document.createElement("div");
+    row.className = "upload-row"; row.id = rowId;
+    // validate type
+    if (!ASSET_TYPES.includes(ext)){
+      row.classList.add("err");
+      row.innerHTML = '<div class="ur-name">' + esc(file.name) + '</div><div class="ur-msg">Unsupported file type (.' + esc(ext || "?") + ')</div>';
+      if (tray){ tray.appendChild(row); setTimeout(() => row.remove(), 6000); }
+      toast("Skipped " + file.name + " — unsupported type."); return;
+    }
+    // validate size
+    if (file.size > ASSET_MAX_BYTES){
+      row.classList.add("err");
+      row.innerHTML = '<div class="ur-name">' + esc(file.name) + '</div><div class="ur-msg">Too large (' + fmtBytes(file.size) + ' · max ' + fmtBytes(ASSET_MAX_BYTES) + ')</div>';
+      if (tray){ tray.appendChild(row); setTimeout(() => row.remove(), 6000); }
+      toast("Skipped " + file.name + " — over the size limit."); return;
+    }
+    row.innerHTML = '<div class="ur-name">' + esc(file.name) + '</div><div class="ur-bar"><div class="ur-fill"></div></div><div class="ur-pct">0%</div>';
+    if (tray) tray.appendChild(row);
+    const fill = row.querySelector(".ur-fill"), pct = row.querySelector(".ur-pct");
+    const reader = new FileReader();
+    reader.onprogress = e => { if (e.lengthComputable){ const p = Math.round(e.loaded / e.total * 100); if (fill) fill.style.width = p + "%"; if (pct) pct.textContent = p + "%"; } };
+    reader.onerror = () => { row.classList.add("err"); row.innerHTML = '<div class="ur-name">' + esc(file.name) + '</div><div class="ur-msg">Read failed — try again</div>'; };
+    reader.onload = () => {
+      const binary = ASSET_BINARY.includes(ext);
+      const rec = {
+        brandId: b.id, name: file.name, ext: ext, size: file.size,
+        content: binary ? "" : String(reader.result || ""),
+        dataUrl: binary ? String(reader.result || "") : null,
+        folderId: (assetFolder && assetFolder !== "__none__") ? assetFolder : null,
+        visibility: "private", sharedWith: []
+      };
+      Assets.create(rec);
+      if (fill) fill.style.width = "100%"; if (pct) pct.textContent = "Done";
+      row.classList.add("done");
+      setTimeout(() => { row.remove(); }, 1200);
+      renderAssets();
+    };
+    if (ASSET_BINARY.includes(ext)) reader.readAsDataURL(file); else reader.readAsText(file);
+  });
+}
+/* drag feedback on the assets view */
+let assetDragDepth = 0;
+function wireAssetDnD(){
+  const view = document.getElementById("view-assets");
+  if (!view || view._dndWired) return;
+  view._dndWired = true;
+  view.classList.add("asset-view");
+  view.addEventListener("dragenter", e => { e.preventDefault(); assetDragDepth++; view.classList.add("drag-over"); });
+  view.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; });
+  view.addEventListener("dragleave", e => { assetDragDepth = Math.max(0, assetDragDepth - 1); if (!assetDragDepth) view.classList.remove("drag-over"); });
+  view.addEventListener("drop", e => { e.preventDefault(); assetDragDepth = 0; view.classList.remove("drag-over"); if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) handleAssetFiles(e.dataTransfer.files); });
+}
+
+/* ---- asset options menu (owner/admin: change visibility, move, delete) ---- */
+function openAssetMenu(i, anchor){
+  const x = document.getElementById("assetsPanel")._assets[i];
+  if (!x || x.source !== "upload"){ return; }
+  closeAssetMenu();
+  const canEdit = canEditAsset(x.rec);
+  const folders = brandFolders(brand());
+  const menu = document.createElement("div");
+  menu.className = "ctx-menu open"; menu.id = "assetCtxMenu";
+  let items = '<button class="ctx-item" data-aact="vis" data-i="' + i + '"><span class="ci-ico">' + visIcon(x.visibility) + '</span>Change visibility</button>';
+  items += '<button class="ctx-item" data-aact="move" data-i="' + i + '">Move to folder…</button>';
+  items += '<button class="ctx-item danger" data-aact="del" data-i="' + i + '">Delete asset</button>';
+  menu.innerHTML = canEdit ? items : '<div class="ctx-item" style="color:var(--text-3);cursor:default">Only the owner can manage this asset.</div>';
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.position = "fixed"; menu.style.top = (r.bottom + 6) + "px";
+  menu.style.left = Math.max(10, Math.min(r.left - 140, window.innerWidth - 230)) + "px"; menu.style.zIndex = 90;
+  menu._moveFolders = folders;
+}
+function closeAssetMenu(){ const m = document.getElementById("assetCtxMenu"); if (m) m.remove(); }
+document.addEventListener("click", e => {
+  const it = e.target.closest("#assetCtxMenu [data-aact]");
+  if (it){ e.stopPropagation(); const act = it.dataset.aact, i = +it.dataset.i; closeAssetMenu(); assetMenuAction(act, i); return; }
+  if (!e.target.closest("#assetCtxMenu") && !e.target.closest('[data-act="aMenu"]')) closeAssetMenu();
+});
+function assetMenuAction(act, i){
+  const x = document.getElementById("assetsPanel")._assets[i];
+  if (!x || !x.rec) return;
+  if (act === "vis") openVisibilityModal(x.rec.id);
+  else if (act === "move") openMoveMenu(x.rec.id);
+  else if (act === "del"){ if (!confirm("Delete " + x.name + "? This can't be undone.")) return; Assets.remove(x.rec.id); toast("Asset deleted."); renderAssets(); }
+}
+function openMoveMenu(assetId){
+  const a = Assets.get(assetId); if (!a) return;
+  const folders = brandFolders(brand());
+  const names = ["Unfiled"].concat(folders.map(f => f.name));
+  const ids = [null].concat(folders.map(f => f.id));
+  const pick = prompt("Move to which folder?\n" + names.map((n, k) => k + ": " + n).join("\n") + "\n\n(or type a new folder name)", "");
+  if (pick == null) return;
+  const num = parseInt(pick, 10);
+  if (!isNaN(num) && num >= 0 && num < ids.length){ Assets.update(assetId, { folderId: ids[num] }); }
+  else if (pick.trim()){ const nf = AFolders.create({ brandId: brand().id, name: pick.trim() }); Assets.update(assetId, { folderId: nf.id }); }
+  toast("Moved."); renderAssets();
+}
+
+/* ---- visibility modal ---- */
+let visEditId = null, visPick = "private", visPeople = new Set();
+function openVisibilityModal(assetId){
+  const a = Assets.get(assetId); if (!a) return;
+  if (!canEditAsset(a)){ toast("Only the owner can change visibility."); return; }
+  visEditId = assetId; visPick = a.visibility || "private"; visPeople = new Set(a.sharedWith || []);
+  renderVisibilityModal();
+  document.getElementById("visVeil").classList.add("open");
+}
+function renderVisibilityModal(){
+  const body = document.getElementById("visBody");
+  const opt = (v, title, sub) => '<div class="vis-opt' + (visPick === v ? " sel" : "") + '" data-visopt="' + v + '"><span class="vo-radio"></span><div><div class="vo-title">' + title + '</div><div class="vo-sub">' + sub + '</div></div></div>';
+  let html = opt("private", "Private", "Only you can see this asset.") +
+    opt("specific", "Specific people", "Choose workspace members who can see it.") +
+    opt("workspace", "Workspace", "Everyone in the workspace can see it.");
+  if (visPick === "specific"){
+    html += '<div class="vis-people"><div class="vp-lbl">Share with</div>';
+    (TEAM || []).filter(u => u.id !== (currentUser && currentUser.id)).forEach(u => {
+      html += '<label class="chk"><input type="checkbox" data-visperson="' + u.id + '"' + (visPeople.has(u.id) ? " checked" : "") + '><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span>' + esc(u.name) + '</label>';
+    });
+    if (!(TEAM || []).some(u => u.id !== (currentUser && currentUser.id))) html += '<div class="vo-sub">No other members in this workspace yet.</div>';
+    html += '</div>';
+  }
+  body.innerHTML = html;
+}
+
+/* visibility modal wiring */
+document.addEventListener("click", e => {
+  const opt = e.target.closest("#visBody [data-visopt]");
+  if (opt){ visPick = opt.dataset.visopt; renderVisibilityModal(); return; }
+});
+document.addEventListener("change", e => {
+  const cb = e.target.closest("#visBody [data-visperson]");
+  if (cb){ if (cb.checked) visPeople.add(cb.dataset.visperson); else visPeople.delete(cb.dataset.visperson); return; }
+  // asset filter selects
+  const ft = e.target.closest('[data-act="aFilterType"]');
+  if (ft){ assetTypeFilter = ft.value; renderAssets(); return; }
+  const fo = e.target.closest('[data-act="aFilterOwner"]');
+  if (fo){ assetOwnerFilter = fo.value; renderAssets(); return; }
+});
+function saveVisibility(){
+  if (!visEditId) return;
+  const patch = { visibility: visPick, sharedWith: visPick === "specific" ? Array.from(visPeople) : [] };
+  Assets.update(visEditId, patch);
+  document.getElementById("visVeil").classList.remove("open");
+  toast("Visibility updated: " + visLabel(visPick) + ".");
+  renderAssets();
+}
+function saveFolder(){
+  const nm = document.getElementById("folderName").value.trim();
+  if (!nm){ toast("Name the folder."); return; }
+  const b = brand(); if (!b) return;
+  const f = AFolders.create({ brandId: b.id, name: nm });
+  document.getElementById("folderVeil").classList.remove("open");
+  assetFolder = f.id; renderAssets();
+}
+/* ---------------- ASSETS end ---------------- */
 
 /* ---------------- DASHBOARD ---------------- */
 async function renderDashboard(){
@@ -3170,44 +3605,121 @@ async function researchBrand(){
 }
 
 /* ---------------- INTEGRATIONS UI ---------------- */
-const INT_LOGO = { slack:["S","#7C3AED"], teams:["T","#5059C9"], zoom:["Z","#2D8CFF"], zapier:["Z","#EE7A38"] };
-function googleCalIntCard(){
-  return '<div class="int-card"><div class="int-head"><span class="int-logo" style="background:rgba(66,133,244,.16);color:#5B9BF6">G</span>' +
-    '<div><div class="int-name">Google Calendar</div><div class="int-sub">Add-to-Google links + .ics export</div></div>' +
-    '<span class="int-status on">Active</span></div>' +
-    '<div class="int-body"><button class="btn-ghost" data-act="exportIcs">Export workspace .ics</button>' +
-    '<div class="int-note">Per-event "Add to Google Calendar" and .ics export work today. Live two-way sync arrives with SYN Core.</div></div></div>';
-}
-function stagedIntCard(name, glyph, col, sub){
-  return '<div class="int-card"><div class="int-head"><span class="int-logo" style="background:' + col + '22;color:' + col + '">' + glyph + '</span>' +
-    '<div><div class="int-name">' + esc(name) + '</div><div class="int-sub">' + esc(sub) + '</div></div>' +
-    '<span class="int-status staged">Connects with SYN Core</span></div>' +
-    '<div class="int-body"><button class="btn-ghost" data-wact="intStaged" data-n="' + esc(name) + '">Connect</button>' +
-    '<div class="int-note">Requires SYN Core for secure OAuth. Not connected yet.</div></div></div>';
+/* Real brand marks as inline SVG */
+const INT_SVG = {
+  slack: '<svg viewBox="0 0 24 24"><path d="M6 14.5a1.9 1.9 0 1 1-1.9-1.9H6v1.9Z" fill="#E01E5A"/><path d="M7 14.5a1.9 1.9 0 0 1 3.8 0v4.6a1.9 1.9 0 0 1-3.8 0v-4.6Z" fill="#E01E5A"/><path d="M9.5 6a1.9 1.9 0 1 1 1.9-1.9V6H9.5Z" fill="#36C5F0"/><path d="M9.5 7a1.9 1.9 0 0 1 0 3.8H4.9a1.9 1.9 0 0 1 0-3.8h4.6Z" fill="#36C5F0"/><path d="M18 9.5a1.9 1.9 0 1 1 1.9 1.9H18V9.5Z" fill="#2EB67D"/><path d="M17 9.5a1.9 1.9 0 0 1-3.8 0V4.9a1.9 1.9 0 0 1 3.8 0v4.6Z" fill="#2EB67D"/><path d="M14.5 18a1.9 1.9 0 1 1-1.9 1.9V18h1.9Z" fill="#ECB22E"/><path d="M14.5 17a1.9 1.9 0 0 1 0-3.8h4.6a1.9 1.9 0 0 1 0 3.8h-4.6Z" fill="#ECB22E"/></svg>',
+  teams: '<svg viewBox="0 0 24 24"><circle cx="16.7" cy="6.2" r="2.3" fill="#7B83EB"/><path d="M13.5 9.2h6.4c.6 0 1.1.5 1.1 1.1v3.4a3.1 3.1 0 0 1-3.1 3.1 3.1 3.1 0 0 1-3.1-3.1V9.2Z" fill="#5059C9"/><rect x="3" y="6.6" width="11" height="11" rx="1.6" fill="#4B53BC"/><path d="M5.7 9.4h5.6M8.5 9.4v6" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>',
+  zoom: '<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3.4" fill="#2D8CFF"/><path d="M6 10.3h6.1c.9 0 1.6.7 1.6 1.6v2.2c0 .9-.7 1.6-1.6 1.6H6c-.9 0-1.6-.7-1.6-1.6v-2.2c0-.9.7-1.6 1.6-1.6Z" fill="#fff"/><path d="M15 12.2l3.2-2.1a.5.5 0 0 1 .8.4v3.6a.5.5 0 0 1-.8.4L15 12.8v-.6Z" fill="#fff"/></svg>',
+  googlecal: '<svg viewBox="0 0 24 24"><rect x="5" y="5.5" width="14" height="13.5" rx="1.8" fill="#fff" stroke="#dadce0" stroke-width="0.8"/><path d="M5 7.3c0-1 .8-1.8 1.8-1.8h10.4c1 0 1.8.8 1.8 1.8v1.4H5V7.3Z" fill="#4285F4"/><path d="M5 15.3h14v1.9c0 1-.8 1.8-1.8 1.8H6.8c-1 0-1.8-.8-1.8-1.8v-1.9Z" fill="#34A853"/><rect x="4" y="8.7" width="1.8" height="6.6" fill="#EA4335"/><rect x="18.2" y="8.7" width="1.8" height="6.6" fill="#FBBC04"/><text x="12" y="14.3" font-size="6.2" font-weight="700" fill="#4285F4" text-anchor="middle" font-family="Arial,sans-serif">31</text></svg>',
+  notion: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.4" fill="#fff" stroke="#111" stroke-width="1.3"/><path d="M9 15.5v-7l6 7v-7" stroke="#111" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  stripe: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3.6" fill="#635BFF"/><path d="M11.4 9.3c0-.55.46-.86 1.2-.86 1.06 0 2.4.32 3.46.9V6.05A9 9 0 0 0 12.6 5.5c-2.32 0-3.87 1.2-3.87 3.22 0 3.15 4.32 2.64 4.32 4 0 .65-.57.86-1.36.86-1.15 0-2.63-.47-3.8-1.1v3.06c1.3.56 2.62.8 3.8.8 2.38 0 4.02-1.16 4.02-3.22-.02-3.4-4.33-2.79-4.33-4.12Z" fill="#fff"/></svg>',
+  zapier: '<svg viewBox="0 0 24 24"><path d="M12 3.5v17M3.5 12h17M6 6l12 12M18 6L6 18" stroke="#FF4F00" stroke-width="2.3" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="#FF4F00"/></svg>'
+};
+const INT_CATALOG = [
+  { key:"slack",     name:"Slack",            color:"#611f69", kind:"webhook", desc:"Post workspace notifications straight to a Slack channel." },
+  { key:"teams",     name:"Microsoft Teams",  color:"#5059C9", kind:"webhook", desc:"Send activity updates to a Microsoft Teams channel." },
+  { key:"zoom",      name:"Zoom",             color:"#2D8CFF", kind:"webhook", desc:"Get a ping with the meeting link whenever an event is scheduled." },
+  { key:"googlecal", name:"Google Calendar",  color:"#4285F4", kind:"native",  desc:"Add events to Google Calendar and export your workspace as .ics." },
+  { key:"notion",    name:"Notion",           color:"#111111", kind:"webhook", desc:"Mirror tasks and deliverables into a Notion database." },
+  { key:"stripe",    name:"Stripe",           color:"#635BFF", kind:"webhook", desc:"Receive billing and subscription events in the workspace feed." },
+  { key:"zapier",    name:"Zapier",           color:"#FF4F00", kind:"webhook", desc:"Fire a webhook to Zapier, Make, or any endpoint you choose." }
+];
+function intMeta(key){ return INT_CATALOG.find(x => x.key === key) || { key, name:key, color:"#888", kind:"webhook", desc:"" }; }
+function intConnected(key){ const c = INTS[key]; const m = intMeta(key); return m.kind === "native" ? !!(c && c.connected) : !!(c && c.url); }
+function intLogo(key){ return '<span class="int-logo2">' + (INT_SVG[key] || "") + '</span>'; }
+
+function intCard(m){
+  const key = m.key, cfg = INTS[key] || {}, connected = intConnected(key), admin = isAdmin();
+  let h = '<div class="int-card2"><div class="ic-top">' + intLogo(key) +
+    '<div style="flex:1"><div class="ic-name">' + esc(m.name) + '</div><div class="ic-desc">' + esc(m.desc) + '</div></div>' +
+    '<span class="int-status2' + (connected ? " on" : "") + '">' + (connected ? "Connected" : "Available") + '</span></div>';
+  if (!connected){
+    h += admin
+      ? '<button class="btn-gold ic-connect" data-wact="intConnect" data-k="' + key + '">Connect</button>'
+      : '<div class="int-note" style="margin-top:12px">Managed by a workspace admin.</div>';
+    return h + '</div>';
+  }
+  // connected state
+  h += '<div class="int-conn-state"><div class="int-conn-row"><span class="int-dot"></span>Connected' +
+    (cfg.connectedAt ? '<span class="int-conn-date">' + esc(fmtTime(cfg.connectedAt)) + '</span>' : '') + '</div>';
+  if (m.kind === "webhook"){
+    const on = cfg.on || {};
+    h += '<div class="int-checks"><div class="icl">Notify on</div>' +
+      INT_EVENTS.map(ev => '<label class="chk"><input type="checkbox" data-wact="intToggle" data-k="' + key + '" data-e="' + ev[0] + '"' + (on[ev[0]] !== false ? " checked" : "") + (admin ? "" : " disabled") + '><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span>' + esc(ev[1]) + '</label>').join("") +
+      '</div>';
+  } else {
+    h += '<div style="margin-top:12px"><button class="btn-ghost" data-act="exportIcs">Export workspace .ics</button></div>';
+  }
+  if (admin){
+    h += '<div class="int-conn-foot">' +
+      (m.kind === "webhook" ? '<button class="btn-ghost" data-wact="intTest" data-k="' + key + '">Send test</button>' : '') +
+      '<button class="btn-ghost" data-wact="intDisconnect" data-k="' + key + '">Disconnect</button></div>';
+  }
+  return h + '</div></div>'; // close .int-conn-state and .int-card2
 }
 function renderIntegrations(){
+  const connected = INT_CATALOG.filter(m => intConnected(m.key));
+  const available = INT_CATALOG.filter(m => !intConnected(m.key));
   let h = '<div class="spec-block"><div class="sb-head">Integrations</div><div class="sb-body">';
-  if (!isAdmin()){
-    const active = INT_HOOKS.filter(x => INTS[x[0]] && INTS[x[0]].url).map(x => x[1]);
-    h += '<div class="int-note">Workspace integrations are managed by an admin.' + (active.length ? ' Active: ' + esc(active.join(", ")) + '.' : ' None connected yet.') + '</div>';
-    h += googleCalIntCard();
+  if (!isAdmin() && !connected.length){
+    h += '<div class="int-note">Workspace integrations are managed by an admin. None are connected yet.</div>';
     return h + '</div></div>';
   }
-  h += googleCalIntCard();
-  INT_HOOKS.forEach(hook => {
-    const key = hook[0], name = hook[1], cfg = INTS[key] || {}, on = cfg.on || {}, lg = INT_LOGO[key], connected = !!cfg.url;
-    h += '<div class="int-card"><div class="int-head"><span class="int-logo" style="background:' + lg[1] + '22;color:' + lg[1] + '">' + lg[0] + '</span>' +
-      '<div><div class="int-name">' + name + '</div><div class="int-sub">' + (key === "zapier" ? "Generic webhook · Zapier / Make / anything" : "Incoming webhook · posts workspace notifications") + '</div></div>' +
-      '<span class="int-status' + (connected ? " on" : "") + '">' + (connected ? "Connected" : "Not connected") + '</span></div>' +
-      '<div class="int-body"><div class="int-url-row"><input data-int-url="' + key + '" placeholder="Paste ' + esc(name) + ' webhook URL" value="' + esc(cfg.url || "") + '">' +
-      '<button class="btn-gold" data-wact="intSave" data-k="' + key + '">Save</button>' +
-      (connected ? '<button class="btn-ghost" data-wact="intTest" data-k="' + key + '">Send test</button><button class="btn-ghost" data-wact="intClear" data-k="' + key + '">Remove</button>' : "") + '</div>' +
-      '<div class="int-toggles">' + INT_EVENTS.map(ev => '<button class="int-tog' + (on[ev[0]] !== false ? " on" : "") + '" data-wact="intToggle" data-k="' + key + '" data-e="' + ev[0] + '"><span class="dot"></span>' + ev[1] + '</button>').join("") + '</div></div></div>';
-  });
-  h += stagedIntCard("Zoom Meetings", "Z", "#2D8CFF", "Auto-create Zoom links on events. Meeting links can be added manually on any event today.");
-  h += stagedIntCard("Google Drive", "D", "#34A853", "Sync generated files and assets to a shared Drive folder.");
-  h += '<div class="int-note">Webhook posts go directly from your browser (fire-and-forget; delivery confirmation and retries arrive with SYN Core). Add a Join link to any event from the event editor.</div>';
+  if (connected.length){
+    h += '<div class="int-section-lbl">Connected <span class="isl-count">' + connected.length + '</span></div>';
+    h += '<div class="int-grid">' + connected.map(intCard).join("") + '</div>';
+  }
+  if (isAdmin() && available.length){
+    h += '<div class="int-section-lbl">Available <span class="isl-count">' + available.length + '</span></div>';
+    h += '<div class="int-grid">' + available.map(intCard).join("") + '</div>';
+  }
+  h += '<div class="int-note">Webhook posts go directly from your browser (fire-and-forget; delivery confirmation and retries arrive with SYN Core).</div>';
   return h + '</div></div>';
+}
+/* Connect modal */
+let intModalKey = null;
+function openIntegrationModal(key){
+  const m = intMeta(key); intModalKey = key;
+  const cfg = INTS[key] || {};
+  document.getElementById("imTitle").textContent = "Connect " + m.name;
+  const bullets = {
+    webhook: ['Paste an incoming webhook URL from ' + m.name + '.', 'SYN posts a short message for each event you enable below.', 'Nothing is sent until you pick which events notify.'],
+    native:  ['Adds a one-click "Add to Google Calendar" link to every event.', 'Exports your whole workspace calendar as a standard .ics file.', 'No account connection or webhook required.']
+  }[m.kind];
+  let body = '<div class="intm-hero">' + intLogo(key) + '<div><div class="ic-name" style="font-size:16px">' + esc(m.name) + '</div><div class="ic-desc">' + esc(m.desc) + '</div></div></div>';
+  body += '<ul class="intm-list">' + bullets.map(b => '<li><span class="ib">✓</span>' + esc(b) + '</li>').join("") + '</ul>';
+  if (m.kind === "webhook"){
+    body += '<label class="f-label" for="imUrl">Webhook URL</label>' +
+      '<input class="f-input" id="imUrl" placeholder="https://hooks.' + esc(key) + '.com/…" value="' + esc(cfg.url || "") + '" autocomplete="off">';
+  }
+  document.getElementById("imBody").innerHTML = body;
+  document.getElementById("imConnect").textContent = "Connect " + m.name;
+  document.getElementById("intVeil").classList.add("open");
+  if (m.kind === "webhook") setTimeout(() => { const u = document.getElementById("imUrl"); if (u) u.focus(); }, 60);
+}
+function intConnectSave(){
+  const key = intModalKey; if (!key) return;
+  const m = intMeta(key);
+  INTS[key] = INTS[key] || { on:{} };
+  if (m.kind === "webhook"){
+    const inp = document.getElementById("imUrl");
+    const url = inp ? inp.value.trim() : "";
+    if (!url){ toast("Paste a webhook URL to connect."); return; }
+    INTS[key].url = url;
+  } else {
+    INTS[key].connected = true;
+  }
+  INTS[key].connectedAt = nowISO();
+  saveIntegrations();
+  document.getElementById("intVeil").classList.remove("open");
+  renderSettings();
+  toast(m.name + " connected.");
+}
+function intDisconnect(key){
+  const m = intMeta(key);
+  if (INTS[key]){ INTS[key].url = ""; INTS[key].connected = false; INTS[key].connectedAt = null; }
+  saveIntegrations(); renderSettings();
+  toast(m.name + " disconnected.");
 }
 
 /* ---------------- SETTINGS ---------------- */
@@ -3370,7 +3882,7 @@ function setView(v){
   if (v === "spaces") renderSpaces();
   if (v === "profile") renderProfile();
   if (v === "settings") renderSettings();
-  if (v === "assets") renderAssets();
+  if (v === "assets"){ wireAssetDnD(); renderAssets(); }
   if (v === "dashboard") renderDashboard();
   if (window.innerWidth <= 900) document.getElementById("sidebar").classList.remove("open");
 }
@@ -3505,15 +4017,32 @@ const DMs      = entity("dms", () => ({ members:[], lastAt:null }));
 const Notifs   = entity("notifications", () => ({ forUserId:null, type:"", text:"", link:null, read:false }));
 const Activity = entity("activity", () => ({ actorId:null, actorName:"", type:"", text:"", refType:null, refId:null }));
 const Profiles = entity("profiles", () => ({ avatar:null, accent:null }));   // per-user, id = userId
+const Assets   = entity("assets", () => ({ brandId:null, name:"", ext:"", size:0, content:"", dataUrl:null, folderId:null, visibility:"private", sharedWith:[] }));
+const AFolders = entity("afolders", () => ({ brandId:null, name:"" }));
 
-const WS_KEYS = ["tasks","projects","events","spaces","dms","notifications","activity","profiles"];
+const WS_KEYS = ["tasks","projects","events","spaces","dms","notifications","activity","profiles","assets","afolders"];
+
+/* Asset visibility gate — enforced at the data-access layer, mirroring canSeeTask/canSee.
+   Every read of uploaded assets goes through this (never rendered-only). Admins see all;
+   workspace is open; owner always sees their own; specific-people checks the sharedWith list;
+   private is owner-only (default for new uploads). */
+function canSeeAsset(a){
+  if (isAdmin()) return true;
+  const me = currentUser && currentUser.id;
+  if (a.createdBy === me) return true;
+  if (a.visibility === "workspace") return true;
+  if (a.visibility === "specific") return !!(me && (a.sharedWith || []).includes(me));
+  return false; // private
+}
+function canEditAsset(a){ return isAdmin() || (currentUser && a.createdBy === currentUser.id); }
 
 /* ---------- per-org integrations config (admin-managed, shared) ---------- */
 let INTS = {};
 async function loadIntegrations(){ INTS = (await sGet(okey("integrations"))) || {}; }
 function saveIntegrations(){ saveSoon(okey("integrations"), () => INTS); }
 const INT_EVENTS = [["assigned","Task assigned"],["approval","Approval requested"],["event","Event created"],["mention","@mention"]];
-const INT_HOOKS = [["slack","Slack"],["teams","Microsoft Teams"],["zoom","Zoom"],["zapier","Webhook / Zapier"]];
+/* webhook-firing integrations (keys + display names), derived from the catalog */
+const INT_HOOKS = INT_CATALOG.filter(m => m.kind === "webhook").map(m => [m.key, m.name]);
 /* Fire-and-forget browser POST (no-cors: request is really sent, response is opaque) */
 function postWebhook(url, payload){ if (!url) return; try{ fetch(url, { method:"POST", mode:"no-cors", body: JSON.stringify(payload) }).catch(() => {}); }catch(e){} }
 function fireIntegrations(eventType, text){
@@ -4617,6 +5146,8 @@ document.addEventListener("click", e => {
   if (a === "profSaveAccent"){ const hx = normHex(document.getElementById("profAccent").value) || document.getElementById("profAccentPick").value; saveMyProfile({ accent: hx }); applyPersonalAccent(); if (viewIs("settings")) renderSettings(); toast("Personal accent applied to your My Day and Portfolio."); return; }
   if (a === "profClearAccent"){ saveMyProfile({ accent:null }); applyPersonalAccent(); if (viewIs("settings")) renderSettings(); toast("Reverted to the brand accent."); return; }
   // Integrations
+  if (a === "intConnect"){ openIntegrationModal(w.dataset.k); return; }
+  if (a === "intDisconnect"){ intDisconnect(w.dataset.k); return; }
   if (a === "intSave"){ const k = w.dataset.k; const inp = document.querySelector('[data-int-url="' + k + '"]'); const url = inp ? inp.value.trim() : ""; INTS[k] = INTS[k] || { on:{} }; INTS[k].url = url; saveIntegrations(); renderSettings(); const nm = (INT_HOOKS.find(x => x[0] === k) || [,k])[1]; toast(url ? (nm + " webhook saved.") : (nm + " webhook cleared.")); return; }
   if (a === "intClear"){ const k = w.dataset.k; if (INTS[k]) INTS[k].url = ""; saveIntegrations(); renderSettings(); toast("Webhook removed."); return; }
   if (a === "intToggle"){ const k = w.dataset.k, ev = w.dataset.e; INTS[k] = INTS[k] || { url:"", on:{} }; INTS[k].on = INTS[k].on || {}; INTS[k].on[ev] = INTS[k].on[ev] === false ? true : false; saveIntegrations(); renderSettings(); return; }
@@ -5330,8 +5861,13 @@ document.addEventListener("click", e => {
   else if (a === "qApprove") queueVerdict(+act.dataset.n, true);
   else if (a === "qReject") queueVerdict(+act.dataset.n, false);
   else if (a === "exportAppr") exportApprovals();
-  else if (a === "aPrev"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; doPreview(x.f); }
-  else if (a === "aDl"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; doDownload(x.f); }
+  else if (a === "aPrev"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; assetPreview(x); }
+  else if (a === "aDl"){ const x = document.getElementById("assetsPanel")._assets[+act.dataset.i]; assetDownload(x); }
+  else if (a === "aBrowse"){ assetBrowse(); }
+  else if (a === "aView"){ assetView = act.dataset.v; renderAssets(); }
+  else if (a === "aFolder"){ assetFolder = act.dataset.f; renderAssets(); }
+  else if (a === "aNewFolder"){ document.getElementById("folderName").value = ""; document.getElementById("folderVeil").classList.add("open"); setTimeout(() => document.getElementById("folderName").focus(), 60); }
+  else if (a === "aMenu"){ e.stopPropagation(); openAssetMenu(+act.dataset.i, act); }
   else if (a === "openBrand"){ selectBrand(act.dataset.bid); }
   else if (a === "toggleMotion"){ SETTINGS.motion = SETTINGS.motion === false ? true : false; document.body.classList.toggle("no-motion", SETTINGS.motion === false); saveSettings(); renderSettings(); }
   else if (a === "toggleCalTasks"){ SETTINGS.calShowTasks = SETTINGS.calShowTasks === false ? true : false; saveSettings(); renderSettings(); if (viewIs("calendar")) renderCalendar(); }
@@ -5455,6 +5991,10 @@ document.getElementById("pmColor").addEventListener("input", function(){ const h
 document.getElementById("planRun").addEventListener("click", planWithSYN);
 document.getElementById("evSave").addEventListener("click", saveEventModal);
 document.getElementById("evDelete").addEventListener("click", deleteEventNow);
+document.getElementById("visSave").addEventListener("click", saveVisibility);
+document.getElementById("folderSave").addEventListener("click", saveFolder);
+document.getElementById("folderName").addEventListener("keydown", e => { if (e.key === "Enter") saveFolder(); });
+document.getElementById("imConnect").addEventListener("click", intConnectSave);
 
 boot();
 </script>
