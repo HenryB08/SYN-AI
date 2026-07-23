@@ -159,10 +159,7 @@ body.no-motion .blob{animation:none!important}
 @keyframes float{50%{transform:translateY(-9px)}}
 
 .auth-card{width:100%;max-width:430px;border-radius:6px;padding:42px 40px 34px;text-align:center;animation:rise .5s cubic-bezier(.2,.8,.3,1)}
-/* SIGN-IN — Option A (full-viewport background). Chosen because threshold.png is portrait 281x500:
-   a true 50/50 split (B) would need to fill ~720x900 per half, upscaling the 281px source ~2.5x
-   (soft). Instead the "threshold" portal is composited as a centered vertical light shaft inside a
-   CSS luminous-dark field (no dead regions, no upscale beyond ~1.2x), card centered over a scrim.
+/* SIGN-IN — full-viewport dark field, card centered over a subtle scrim. No imagery.
    The scene is pinned DARK in both themes — sign-in is where the dark workspace begins. */
 .auth-scene{padding:24px;align-items:center;justify-content:center;overflow:hidden;
   background:radial-gradient(90% 70% at 50% -6%, #241f18 0%, #14131a 46%, #0a0a0d 100%);
@@ -173,9 +170,6 @@ body.no-motion .blob{animation:none!important}
   --hairline:rgba(255,255,255,.08);--glass-border:rgba(255,255,255,.12);--glass-border-soft:rgba(255,255,255,.07);
   --gold:#E2E2E2;--gold-ink:#0A0A0A;--btn:#E2E2E2;--btn-ink:#050608;color-scheme:dark}
 .auth-bg{position:absolute;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
-/* threshold.png NATIVE 281x500 (portrait) — sized to its natural height, never stretched wide */
-.auth-bg img{width:auto;height:min(96%,600px);aspect-ratio:281/500;object-fit:cover;opacity:.9;
-  -webkit-mask-image:radial-gradient(60% 78% at 50% 48%,#000 26%,transparent 80%);mask-image:radial-gradient(60% 78% at 50% 48%,#000 26%,transparent 80%)}
 .auth-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(58% 62% at 50% 46%, transparent 34%, rgba(8,8,11,.62) 100%)}
 .auth-scene .auth-card{position:relative;z-index:1;margin:auto;background:rgba(18,17,24,.80);backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);border:1px solid rgba(255,255,255,.12);box-shadow:0 24px 70px rgba(0,0,0,.6)}
 @media(max-width:560px){.auth-bg img{height:min(70%,460px);opacity:.7}}
@@ -1698,71 +1692,93 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
 :root[data-theme="light"] .proof-who{background:rgba(17,17,17,.05)}
 
 /* =====================================================================
-   LUMINOUS TECH — light-first marketing skin, scoped to #site only.
-   The app (#app) and auth stay on the global dark-default tokens; this
-   block re-derives the token layer from the pearl/champagne imagery.
-   Palette sampled from img/*.png (see docs/luminous-identity.md).
+   DARK PRO — dark-only marketing surface, scoped to #site only.
+   Reference tier: Linear / Vercel / Stripe docs. Near-black base,
+   hairline structure, monospace labels, gold as accent only.
+   The app (#app) keeps its own light/dark toggle; this block is fixed dark.
    ===================================================================== */
 #site{
-  --bg:#FBF4E9;                          /* pearl base */
-  --surface-0:#FFFFFF;
-  --surface-1:#FBF6EE;
-  --surface-2:#F5ECDD;
-  --surface-3:#EDE0CC;
-  --hairline:rgba(74,58,36,.12);         /* warm grey */
-  --hairline-strong:rgba(74,58,36,.22);
-  --glass:rgba(255,251,243,.72);
-  --glass-border:rgba(74,58,36,.14);
-  --glass-border-soft:rgba(74,58,36,.09);
-  --text:#241E17;                        /* warm charcoal */
-  --text-2:rgba(36,30,23,.76);
-  --text-3:rgba(36,30,23,.62);
-  --text-4:rgba(36,30,23,.62);
-  --muted:rgba(36,30,23,.64);
-  --faint:rgba(36,30,23,.66);
-  --gold:#8A6410;                        /* champagne-gold accent for text/links (AA on pearl) */
-  --gold-hover:#6F4F09;
-  --gold-active:#5B4007;
-  --gold-ink:#241E17;
-  --btn:#B8892E;                         /* champagne-gold primary fill */
-  --btn-ink:#241E17;                     /* charcoal ink on gold (AA) */
-  --btn-hover:#A3781F;
-  --btn-active:#8C6415;
-  --accent-soft:rgba(138,100,16,.10);
-  --good:#2E7D46;
-  --bad:#C0392B;
-  --amber:#8A6414;
-  color-scheme:light;
-  background:
-    radial-gradient(120% 90% at 82% -8%, #FDF5E2 0%, rgba(253,245,226,0) 55%),
-    radial-gradient(100% 70% at 0% 4%, #FCEEDA 0%, rgba(252,238,218,0) 46%),
-    linear-gradient(180deg,#FBF4E9 0%, #F7EEDF 100%);
+  --bg:#08080A;                          /* near-black base */
+  --surface-0:#0E0E11;                   /* raised */
+  --surface-1:#0E0E11;
+  --surface-2:#141418;
+  --surface-3:#1A1A1F;
+  --hairline:rgba(255,255,255,.07);      /* border hairline */
+  --hairline-strong:rgba(255,255,255,.14); /* border emphasis */
+  --glass:rgba(14,14,17,.72);
+  --glass-border:rgba(255,255,255,.10);
+  --glass-border-soft:rgba(255,255,255,.06);
+  --text:#FAFAFA;
+  --text-2:#A1A1A6;                      /* muted */
+  --text-3:#A1A1A6;
+  --text-4:#6E6E73;                      /* dim */
+  --muted:#A1A1A6;
+  --faint:#6E6E73;
+  --gold:#CBA85E;                        /* gold — ACCENT ONLY (hairlines, mono labels, focus, one numeral) */
+  --gold-hover:#D8B970;
+  --gold-active:#BE9A4E;
+  --gold-ink:#08080A;
+  --btn:#FFFFFF;                         /* primary CTA: white fill */
+  --btn-ink:#0A0A0C;                     /* near-black ink on white */
+  --btn-hover:#EDEDED;
+  --btn-active:#DADADA;
+  --accent-soft:rgba(203,168,94,.10);
+  --good:#4ADE80;
+  --bad:#F87171;
+  --amber:#CBA85E;
+  color-scheme:dark;
+  background:var(--bg);
   color:var(--text);
 }
-/* nav / chrome to pearl glass */
-#site .site-nav{background:rgba(251,246,238,.80);border-bottom-color:var(--hairline)}
-#site .grad,#site .sh-title .grad,#site .grad-text{background:linear-gradient(100deg,#B8892E,#7A560C 92%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
-#site .sh-badge,#site .sh-point{background:rgba(255,255,255,.55);border-color:var(--hairline)}
-#site .site-btn.ghost{background:rgba(255,255,255,.5);border-color:var(--glass-border);color:var(--text-2)}
-#site .site-btn.ghost:hover{background:#fff;color:var(--text);border-color:var(--hairline-strong)}
-#site .site-btn.gold{background:var(--btn);color:var(--btn-ink)}   /* champagne fill #B8892E + charcoal ink = 5.2:1 (was --gold #8A6410 = 3.07) */
-#site .site-btn.gold:hover{filter:brightness(1.04)}
-#site .pillar-ico{background:rgba(184,137,46,.10);border-color:rgba(138,100,16,.22);color:var(--gold)}
-#site .cmp-col.syn{background:linear-gradient(160deg,#fff,#F7EEDF)}
-#site .cmp-col.syn::before{box-shadow:0 0 0 1px rgba(138,100,16,.18),0 18px 44px rgba(138,100,16,.14)}
-#site .sec-eyebrow span.line{background:rgba(138,100,16,.45)}
-#site .site-cta-band{background:linear-gradient(135deg,rgba(184,137,46,.14),rgba(255,255,255,.5));border-color:var(--glass-border)}
-#site .proof-line{background:rgba(74,58,36,.08)}
-#site .proof-who{background:rgba(74,58,36,.06)}
+/* AMBIENT — one fixed layer behind all content: 1px grid drift + soft bloom + fine grain.
+   GPU-cheap (transform/opacity only), sits at z-index:-1 so section content paints over it. */
+#site .site-ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;contain:strict}
+#site > *:not(.site-ambient){position:relative;z-index:1}
+#site .sa-grid,#site .sa-bloom,#site .sa-grain{position:absolute;inset:-120px;will-change:transform}
+#site .sa-grid{
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:80px 80px;
+  animation:sa-drift 72s linear infinite;
+}
+#site .sa-bloom{
+  background:radial-gradient(38% 42% at 50% 42%,rgba(203,168,94,.055),rgba(203,168,94,0) 70%);
+  animation:sa-bloom 96s ease-in-out infinite;
+}
+#site .sa-grain{
+  inset:0;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  will-change:auto;
+}
+@keyframes sa-drift{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(80px,80px,0)}}
+@keyframes sa-bloom{
+  0%{transform:translate3d(-6%,-3%,0)}
+  50%{transform:translate3d(7%,4%,0)}
+  100%{transform:translate3d(-6%,-3%,0)}
+}
+/* nav / chrome — dark hairline structure */
+#site .site-nav{background:rgba(8,8,10,.72);border-bottom-color:var(--hairline)}
+#site .grad,#site .sh-title .grad,#site .grad-text{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--text);-webkit-text-fill-color:currentColor}
+#site .sh-badge,#site .sh-point{background:var(--surface-2);border-color:var(--hairline)}
+#site .site-btn.ghost{background:transparent;border-color:var(--hairline-strong);color:var(--text-2)}
+#site .site-btn.ghost:hover{background:rgba(255,255,255,.05);color:var(--text);border-color:var(--hairline-strong)}
+#site .site-btn.gold{background:var(--btn);color:var(--btn-ink)}   /* primary CTA: white fill + near-black ink */
+#site .site-btn.gold:hover{background:var(--btn-hover)}
+#site .pillar-ico{background:rgba(203,168,94,.08);border-color:rgba(203,168,94,.24);color:var(--gold)}
+#site .cmp-col.syn{background:var(--surface-1)}
+#site .cmp-col.syn::before{box-shadow:0 0 0 1px var(--hairline-strong)}
+#site .sec-eyebrow span.line{background:rgba(203,168,94,.45)}
+#site .site-cta-band{background:var(--surface-1);border-color:var(--hairline)}
+#site .proof-line{background:rgba(255,255,255,.05)}
+#site .proof-who{background:rgba(255,255,255,.04)}
 #site .logo-slot{border-color:var(--hairline-strong)}
 #site .site-foot{border-top-color:var(--hairline)}
 #site .pillar-shot{background:var(--surface-2)}
 /* feather the top edge of every product micro-shot so it dissolves into the card (no hard line) */
 #site .pillar-shot img{-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 15%);mask-image:linear-gradient(180deg,transparent 0%,#000 15%)}
-/* the pearl field is the environment — no dark particle canvas on the luminous hero */
+/* no dark particle canvas on the marketing hero — it is type-led */
 #site #heroFx{display:none}
-/* the crystal hero-core IS the hero visual now; the dark product screenshot would read as a
-   hard-edged dark rectangle on the pearl field (against the no-boxes rule), so it's retired here. */
 
 /* SYN 2.0 announcement strip — slim, text + hairlines only (no art). */
 .syn2-strip{position:relative;display:flex;align-items:center;cursor:pointer;border-bottom:1px solid var(--hairline);background:var(--surface-1)}
@@ -1829,6 +1845,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
 
 <!-- ============ PUBLIC MARKETING SITE ============ -->
 <div class="site" id="site">
+  <div class="site-ambient" aria-hidden="true"><div class="sa-grid"></div><div class="sa-bloom"></div><div class="sa-grain"></div></div>
   <nav class="site-nav">
     <div class="site-nav-inner">
       <div class="site-brand" onclick="goSite('home')">
@@ -1854,7 +1871,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
         <div class="syn2-inner">
           <span class="syn2-label">Now running</span>
           <span class="syn2-word">SYN&nbsp;2.0</span>
-          <span class="syn2-sub">The luminous release — a brighter workspace, one brain across every surface.</span>
+          <span class="syn2-sub">One brain across every surface your team works on.</span>
           <span class="syn2-cta">See what's new →</span>
         </div>
       </a>
@@ -2842,8 +2859,7 @@ function initHeroFx(){
   document.addEventListener("visibilitychange", () => play(!document.hidden && st.vis !== false));
   play(true);
 }
-/* Parallax: the product screenshot and the luminous hero field drift slower than the page,
-   and the hero crossfades out as it scrolls so the crystal melts into the section below. */
+/* Parallax: the product screenshot drifts slower than the page for a subtle depth cue. */
 let _parWired = false;
 function initParallax(){
   if (_parWired || reduceMotion()) return;
