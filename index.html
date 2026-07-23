@@ -1595,6 +1595,42 @@ button,.chat-item,.md-row,.ops-row,.search-item,.team-row,.notif-item,.asset-row
 }
 
 
+/* ===================== DARK PRO Phase 5 — pricing rebuild ===================== */
+/* Three volume rates on one horizontal row, separated by vertical hairlines — no cards. */
+#site .seat-tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:var(--s6);
+  border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+#site .seat-tier{border:0!important;background:none!important;border-radius:0!important;
+  backdrop-filter:none!important;box-shadow:none!important;padding:var(--s5) var(--s4)!important;text-align:center}
+#site .seat-tier + .seat-tier{border-left:1px solid var(--hairline)!important}
+#site .seat-tier:hover{background:none!important;transform:none!important;border-color:var(--hairline)!important}
+#site .seat-tier .st-rate{font-family:var(--mono)!important;font-size:46px;font-weight:500;letter-spacing:-.04em;color:var(--text);line-height:1}
+#site .seat-tier .st-rate span{font-family:var(--mono)!important;font-size:12px;font-weight:400;color:var(--text-4);letter-spacing:0;margin-left:6px}
+#site .seat-tier .st-band{font-family:var(--mono)!important;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-4);margin-top:12px}
+#site .seat-incl{max-width:56ch;margin:var(--s4) auto 0;color:var(--text-3);font-size:13px}
+
+/* Calculator: tight bordered panel, 4px radius, hairline border, mono numerals, sharp steppers. */
+#site .calc{max-width:640px;margin:var(--s6) auto 0;border:1px solid var(--hairline)!important;
+  border-radius:var(--r-input)!important;background:var(--surface-1)!important;backdrop-filter:none!important;padding:24px}
+#site .calc-head{font-family:var(--mono)!important;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-4);margin-bottom:20px}
+#site .calc-field span{color:var(--text-4)}
+#site .calc-stepper{border:1px solid var(--hairline);border-radius:var(--r-input);background:var(--bg);overflow:hidden}
+#site .calc-stepper input{font-family:var(--mono)!important;font-weight:500;font-size:20px}
+#site .cs-btn{width:42px;background:rgba(255,255,255,.03);color:var(--text-2);border-radius:0}
+#site .cs-btn:hover{background:rgba(255,255,255,.08);color:var(--text)}
+#site .calc-out{border-left:1px solid var(--hairline)}
+#site .calc-total{font-family:var(--mono)!important;font-weight:500;letter-spacing:-.03em}
+#site .calc-total small{font-family:var(--mono)!important;color:var(--text-4)}
+#site .calc-rate{color:var(--gold)}
+#site .calc-breakdown,#site .calc-save{color:var(--text-3);font-family:var(--mono)}
+
+/* Feature table — every seat gets every feature, hairline separators, mono check marks. */
+#site .feat-table{max-width:760px;margin:var(--s7) auto 0;border-top:1px solid var(--hairline)}
+#site .ft-head{display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:13px 4px;
+  border-bottom:1px solid var(--hairline);font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-4)}
+#site .ft-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:14px 4px;border-bottom:1px solid var(--hairline)}
+#site .ft-name{font-size:14px;color:var(--text-2);line-height:1.5}
+#site .ft-chk{font-family:var(--mono);font-size:13px;color:var(--gold);white-space:nowrap;letter-spacing:.04em}
+
 /* ===== GUIDE (signed-in manual) ===== */
 .gd-head{margin-bottom:18px}
 .gd-head p{font-size:14px;color:var(--text-3);max-width:60ch;line-height:1.7;margin-top:6px}
@@ -2010,7 +2046,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
         <p class="seat-incl">1 brand included with every workspace · each additional brand $199/mo · AI usage is pooled and included, not billed separately.</p>
 
         <div class="calc" id="pricingCalc">
-          <div class="calc-head"><span class="sec-num">6.1</span>Estimate your monthly price</div>
+          <div class="calc-head">Estimate your monthly price</div>
           <div class="calc-body">
             <div class="calc-inputs">
               <label class="calc-field"><span>Seats</span>
@@ -2030,6 +2066,17 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
           <button class="site-btn gold" onclick="siteAuth('create')">Get Started</button>
         </div>
 
+        <div class="feat-table">
+          <div class="ft-head"><span>Included in every seat</span><span>All workspaces</span></div>
+          <div class="ft-row"><span class="ft-name">Brand engine — voice, palette, approved &amp; banned claims, legal guardrails</span><span class="ft-chk">✓ Included</span></div>
+          <div class="ft-row"><span class="ft-name">Tasks, boards, projects, follow-ups &amp; cross-person dependencies</span><span class="ft-chk">✓ Included</span></div>
+          <div class="ft-row"><span class="ft-name">Calendar with per-event &amp; workspace <code>.ics</code> export</span><span class="ft-chk">✓ Included</span></div>
+          <div class="ft-row"><span class="ft-name">Spaces, DMs &amp; shared AI spaces</span><span class="ft-chk">✓ Included</span></div>
+          <div class="ft-row"><span class="ft-name">Assets with private / specific-people / workspace permissions</span><span class="ft-chk">✓ Included</span></div>
+          <div class="ft-row"><span class="ft-name">Compliance-aware AI that drafts in your voice with a verdict &amp; audit trail</span><span class="ft-chk">✓ Included</span></div>
+          <div class="ft-row"><span class="ft-name">Weekly recap, activity log &amp; company rollup (admin)</span><span class="ft-chk">✓ Included</span></div>
+          <div class="ft-row"><span class="ft-name">Pooled AI usage — included, never billed per message</span><span class="ft-chk">✓ Included</span></div>
+        </div>
         <p class="price-note">Final billing activates with SYN Core (Stripe). Every Get Started routes into workspace creation now.</p>
       </div></section>
 
