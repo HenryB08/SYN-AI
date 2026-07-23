@@ -13,8 +13,8 @@ await p.goto('file:///home/user/SYN-AI/index.html'); await p.waitForSelector('#s
 check('hero imagery reveals blur-to-sharp', await p.evaluate(()=>{ const h=document.getElementById('lumHero'); const img=h&&h.querySelector('img'); return !!img && img.classList.contains('in'); }));
 check('hero reveals visible', await p.evaluate(()=>parseFloat(getComputedStyle(document.querySelector('.sh-title')).opacity)===1));
 check('stagger delays assigned', await p.evaluate(()=>{
-  const d=[...document.querySelectorAll('.pillar-card')].map(e=>parseInt(e.style.getPropertyValue('--rvd')));
-  return d.length===6 && d[1]>d[0] && d[5]>d[4];
+  const d=[...document.querySelectorAll('.step-card')].map(e=>parseInt(e.style.getPropertyValue('--rvd')));
+  return d.length===3 && d[1]>d[0] && d[2]>d[1];
 }));
 // scroll to pricing -> count-up runs and lands on exact values
 await p.evaluate(()=>document.getElementById('site-pricing').scrollIntoView());
@@ -28,13 +28,14 @@ check('canvas paused off-screen', await p.evaluate(()=>_fxState.run===false));
 // parallax applied
 await p.evaluate(()=>{ document.getElementById('site').scrollTop=500; });
 await p.waitForTimeout(300);
-check('parallax transform set', await p.evaluate(()=>/translateY/.test(document.querySelector('#sp-home .hero-shot img').style.transform)));
-// nothing dead under cursor: hover a pillar card raises it
-await p.evaluate(()=>{ document.getElementById('site').scrollTop=0; });
-const card = await p.$('.pillar-card');
+check('parallax transform set', await p.evaluate(()=>/translateY/.test(document.getElementById('lumHero').style.transform)));
+// nothing dead under cursor: hover a step card raises it
+await p.evaluate(()=>{ const s=document.querySelector('#sp-home .step-grid'); if(s) s.scrollIntoView(); });
+await p.waitForTimeout(250);
+const card = await p.$('.step-card');
 await card.hover(); await p.waitForTimeout(350);
 check('card hover lifts', await p.evaluate(()=>{
-  const e=document.querySelector('.pillar-card:hover'); if(!e) return false;
+  const e=document.querySelector('.step-card:hover'); if(!e) return false;
   return getComputedStyle(e).transform !== 'none';
 }));
 await ctx.close();

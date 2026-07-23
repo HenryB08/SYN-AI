@@ -42,7 +42,7 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
   --text:#E2E2E2;                    /* primary */
   --text-2:rgba(226,226,226,.72);    /* secondary (#888-on-#111 territory, AA) */
   --text-3:rgba(226,226,226,.55);    /* tertiary */
-  --text-4:rgba(226,226,226,.40);    /* quaternary — labels / large only */
+  --text-4:rgba(226,226,226,.54);    /* quaternary — bumped to clear AA as text */
 
   /* Accent: syntrexio monochrome WHITE (corrected — see docs/syntrexio-identity-spec.md v2;
      the previous blue came from a stale cached source). Token keeps the historical --gold
@@ -108,7 +108,7 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
   --text:#131313;                    /* reference card-black as ink, ~16:1 on --bg */
   --text-2:rgba(19,19,19,.74);       /* #888-family, ~7:1 */
   --text-3:rgba(19,19,19,.62);       /* ~5:1 */
-  --text-4:rgba(19,19,19,.46);
+  --text-4:rgba(19,19,19,.60);
   --gold:#111111;                    /* monochrome accent inverts to near-black on light */
   --gold-hover:#000000;
   --gold-active:#333333;
@@ -119,7 +119,7 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
   --btn-active:#2E2E2E;
   --amber:#8A6414;                   /* escalation amber darkened for AA as text on light */
   --amber-soft:rgba(138,100,20,.14);
-  --good:#2E7D46;
+  --good:#237A3A;
   --bad:#C0392B;
   --info:#4A5560;
   --accent-soft:rgba(17,17,17,.08);
@@ -169,7 +169,7 @@ body.no-motion .blob{animation:none!important}
   /* pin dark tokens so the card + fields read correctly regardless of the site/app theme */
   --bg:#0a0a0d;--surface-0:#06070D;--surface-1:#101114;--surface-2:#16181D;
   --text:#E2E2E2;--text-2:rgba(226,226,226,.72);--text-3:rgba(226,226,226,.55);
-  --muted:rgba(226,226,226,.60);--faint:rgba(226,226,226,.42);
+  --muted:rgba(226,226,226,.66);--faint:rgba(226,226,226,.60);
   --hairline:rgba(255,255,255,.08);--glass-border:rgba(255,255,255,.12);--glass-border-soft:rgba(255,255,255,.07);
   --gold:#E2E2E2;--gold-ink:#0A0A0A;--btn:#E2E2E2;--btn-ink:#050608;color-scheme:dark}
 .auth-bg{position:absolute;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -271,7 +271,9 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 
 /* main */
 .main{flex:1;display:flex;flex-direction:column;min-width:0;gap:13px}
-.topbar{border-radius:var(--r-full);padding:10px 20px;display:flex;align-items:center;gap:14px}
+.topbar{border-radius:var(--r-full);padding:10px 20px;display:flex;align-items:center;gap:14px;min-width:0}
+.topbar .lock-chip{min-width:0;flex-shrink:1}
+@media(max-width:430px){.topbar{padding:10px 12px;gap:8px}.top-right{gap:6px}}
 .menu-btn{display:none;font-size:18px;color:var(--muted);padding:4px 8px}
 .lock-chip{display:flex;align-items:center;gap:10px;font-family:'Exo 2',sans-serif;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);overflow:hidden;white-space:nowrap}
 .chip-dot{width:9px;height:9px;min-width:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);transition:all .5s;animation:pulse 3s ease-in-out infinite}
@@ -614,6 +616,7 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 .pri-low{color:var(--good);border:1px solid rgba(127,217,154,.35)}
 .pri-med{color:var(--gold);border:1px solid rgba(136,136,136,.35)}
 .pri-high{color:#EE9A5B;border:1px solid rgba(232,99,43,.4)}
+:root[data-theme="light"] .pri-high{color:#A8551A}   /* light-orange fails on white (1.9); darker passes AA (5.3) */
 .pri-urgent{color:var(--bad);border:1px solid rgba(255,122,107,.45)}
 
 /* list view */
@@ -1644,7 +1647,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
    values here are deliberate, not un-tokenised theme misses. */
 .iso-band{position:relative;background:#09090b;color:#F4F1EA;padding:78px 0 20px;margin:0}
 .iso-band .sec-eyebrow{color:rgba(255,255,255,.5)}
-.iso-band .sec-eyebrow .sec-num{color:rgba(255,255,255,.4)}
+.iso-band .sec-eyebrow .sec-num{color:rgba(255,255,255,.6)}   /* .4 = 3.74 on the dark band; .6 clears AA */
 .iso-title{font-family:'Outfit',sans-serif;font-weight:800;font-size:clamp(30px,3.2vw,52px);letter-spacing:-.028em;line-height:1.1;max-width:22ch;margin:18px 0 0;color:#F4F1EA}
 .iso-sub{font-size:16px;line-height:1.75;color:rgba(255,255,255,.58);max-width:620px;margin-top:16px}
 .iso-grid{display:grid;grid-template-columns:repeat(3,1fr);margin-top:52px;border-top:1px solid rgba(255,255,255,.09)}
@@ -1717,9 +1720,9 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
   --text:#241E17;                        /* warm charcoal */
   --text-2:rgba(36,30,23,.76);
   --text-3:rgba(36,30,23,.62);
-  --text-4:rgba(36,30,23,.48);
+  --text-4:rgba(36,30,23,.62);
   --muted:rgba(36,30,23,.64);
-  --faint:rgba(36,30,23,.62);
+  --faint:rgba(36,30,23,.66);
   --gold:#8A6410;                        /* champagne-gold accent for text/links (AA on pearl) */
   --gold-hover:#6F4F09;
   --gold-active:#5B4007;
@@ -1745,7 +1748,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
 #site .sh-badge,#site .sh-point{background:rgba(255,255,255,.55);border-color:var(--hairline)}
 #site .site-btn.ghost{background:rgba(255,255,255,.5);border-color:var(--glass-border);color:var(--text-2)}
 #site .site-btn.ghost:hover{background:#fff;color:var(--text);border-color:var(--hairline-strong)}
-#site .site-btn.gold{box-shadow:0 2px 10px rgba(138,100,16,.28)}
+#site .site-btn.gold{background:var(--btn);color:var(--btn-ink);box-shadow:0 2px 10px rgba(138,100,16,.28)}   /* champagne fill #B8892E + charcoal ink = 5.2:1 (was --gold #8A6410 = 3.07) */
 #site .site-btn.gold:hover{box-shadow:0 10px 26px rgba(138,100,16,.30),0 0 0 1px rgba(138,100,16,.18)}
 #site .pillar-ico{background:rgba(184,137,46,.10);border-color:rgba(138,100,16,.22);color:var(--gold)}
 #site .cmp-col.syn{background:linear-gradient(160deg,#fff,#F7EEDF)}
@@ -1791,7 +1794,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
 .syn2-strip{position:relative;display:block;overflow:hidden;height:clamp(112px,13vw,168px);cursor:pointer;isolation:isolate;border-bottom:1px solid var(--hairline)}
 .syn2-art{position:absolute;inset:0;z-index:-1}
 .syn2-art img{width:100%;height:100%;object-fit:cover;object-position:50% 42%}
-.syn2-strip::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(251,244,233,.86) 0%,rgba(251,244,233,.55) 40%,rgba(251,244,233,.14) 72%,transparent 100%)}
+.syn2-strip::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(251,244,233,.92) 0%,rgba(251,244,233,.7) 46%,rgba(251,244,233,.42) 74%,rgba(251,244,233,.5) 100%)}   /* stronger + a right wash so the gold CTA stays AA over the bright ring */
 .syn2-inner{max-width:1160px;margin:0 auto;padding:0 32px;height:100%;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .syn2-label{font-family:ui-monospace,'SFMono-Regular',Menlo,monospace;font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(138,100,16,.4);border-radius:var(--r-full);padding:4px 11px}
 .syn2-word{font-family:'Outfit',sans-serif;font-weight:300;font-size:clamp(26px,3.4vw,42px);letter-spacing:-.02em;color:#2A2016;line-height:1}
