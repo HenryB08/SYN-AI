@@ -219,6 +219,11 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 .storage-pill{margin-left:auto;font-family:'Exo 2',sans-serif;font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;padding:4px 9px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft)}
 .storage-pill.ok{color:var(--good);border-color:rgba(127,217,154,.3)}
 .storage-pill.no{color:var(--bad);border-color:rgba(255,122,107,.3)}
+.storage-pill{transition:opacity .2s ease,box-shadow .3s ease}
+.storage-pill.syncing{opacity:.5}
+.storage-pill.sync-hit{animation:syncHit .9s ease}
+@keyframes syncHit{0%{box-shadow:0 0 0 0 var(--accent-soft)}35%{box-shadow:0 0 0 4px var(--accent-soft)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}}
+@media(prefers-reduced-motion:reduce){.storage-pill.sync-hit{animation:none}}
 
 .side-body{flex:1;overflow-y:auto;min-height:0;display:flex;flex-direction:column}
 .side-scroll{display:flex;flex-direction:column}
@@ -6126,26 +6131,61 @@ function checkDueSoon(){
   });
 }
 
-/* ---------- workspace sync poll (8s, pauses when hidden) ---------- */
-let wsPollTimer = null;
+/* ---------- workspace sync poll ----------
+   Background refetch of shared state from SYN Core so changes from other users (new tasks,
+   messages, and members joining) appear without a manual refresh. Polls ~12s while visible and
+   backs off to ~60s while the tab is hidden, and refetches immediately on focus / visibilitychange.
+   Unsaved local edits are never clobbered: dirty collections and a pending team write are skipped. */
+let wsPollTimer = null, wsHiddenTimer = null, wsPollWired = false, wsLastSync = 0;
+const WS_POLL_MS = 12000, WS_HIDDEN_MS = 60000;
 function collSig(arr){ let mx = ""; for (const x of arr){ if (x.updatedAt > mx) mx = x.updatedAt; } return arr.length + "|" + mx; }
+function teamSig(arr){ return (arr || []).map(u => u.id + ":" + u.name + ":" + u.role).sort().join(","); }
 async function wsSyncOnce(){
   if (!ORG) return;
+  pulseSync("start");
+  let applied = false;
   for (const name of WS_KEYS){
     if (collDirty.has(name)) continue;                   // don't clobber unsaved local edits
     const fresh = (await sGet(okey(name))) || [];
     const c = coll(name);
     if (collSig(fresh) !== collSig(c.cache || [])){
-      c.cache = fresh;
+      c.cache = fresh; applied = true;
       BUS.emit("change:" + name, { op:"sync" });
+    }
+  }
+  // Team roster (a member joining / leaving) lives under its own key, not a collection.
+  if (!savePending[okey("team")]){                       // skip if this user has an unsaved team edit in flight
+    const freshTeam = await sGet(okey("team"));
+    if (Array.isArray(freshTeam) && teamSig(freshTeam) !== teamSig(TEAM)){
+      TEAM = freshTeam; applied = true;
+      if (typeof renderSpaceRail === "function") renderSpaceRail();
+      if (viewIs("people") && typeof renderPeople === "function") renderPeople();
+      if (viewIs("settings") && typeof renderSettings === "function") renderSettings();
     }
   }
   checkDueSoon();
   renderBell();
+  wsLastSync = Date.now();
+  pulseSync(applied ? "hit" : "ok");
+}
+/* Nudge the SYNCED indicator so the user can see the poll working. */
+function pulseSync(phase){
+  const pill = document.getElementById("storagePill");
+  if (!pill) return;
+  if (phase === "start"){ pill.classList.add("syncing"); return; }
+  pill.classList.remove("syncing");
+  if (phase === "hit"){ pill.classList.add("sync-hit"); setTimeout(() => pill.classList.remove("sync-hit"), 900); }
+  if (wsLastSync) pill.title = pill.title.replace(/ · Last synced.*/, "") + " · Last synced just now";
 }
 function startWorkspacePoll(){
-  clearInterval(wsPollTimer);
-  wsPollTimer = setInterval(() => { if (ORG && !document.hidden) wsSyncOnce(); }, 8000);
+  clearInterval(wsPollTimer); clearInterval(wsHiddenTimer);
+  wsPollTimer   = setInterval(() => { if (ORG && !document.hidden) wsSyncOnce(); }, WS_POLL_MS);
+  wsHiddenTimer = setInterval(() => { if (ORG && document.hidden)  wsSyncOnce(); }, WS_HIDDEN_MS);
+  if (!wsPollWired){
+    wsPollWired = true;
+    window.addEventListener("focus", () => { if (ORG) wsSyncOnce(); });                       // immediate refetch on focus
+    document.addEventListener("visibilitychange", () => { if (ORG && !document.hidden) wsSyncOnce(); });
+  }
 }
 
 /* ---------- shared helpers ---------- */
