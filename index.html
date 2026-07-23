@@ -1542,6 +1542,14 @@ button,.chat-item,.md-row,.ops-row,.search-item,.team-row,.notif-item,.asset-row
 #site .ca-block a:hover{color:var(--gold);border-color:var(--gold)}
 #site .ca-block p{font-size:13px;color:var(--text-3);line-height:1.6;margin:6px 0 0}
 @media(max-width:860px){#site .contact-grid{grid-template-columns:1fr}}
+/* pricing volume rates stack on small screens (were a fixed 3-column row) */
+@media(max-width:600px){
+  #site .seat-tiers{grid-template-columns:1fr!important}
+  #site .seat-tier + .seat-tier{border-left:0!important;border-top:1px solid var(--hairline)!important}
+  #site .calc{max-width:100%!important;padding:16px!important}
+  #site .calc-body{grid-template-columns:1fr!important;gap:16px}
+  #site .calc-out{border-left:0!important;border-top:1px solid var(--hairline);padding-left:0!important;padding-top:16px}
+}
 /* ===== marketing AI assistant — monochrome, proxied through the Cloudflare Worker ===== */
 #site .syn-asst-launch{position:fixed;right:22px;bottom:22px;z-index:40;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;background:rgba(14,14,17,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);border-radius:var(--r-btn);color:var(--text-2);box-shadow:0 8px 26px rgba(0,0,0,.4);transition:color .15s var(--ease-reveal),border-color .15s var(--ease-reveal)}
 #site .syn-asst-launch:hover{color:var(--text);border-color:rgba(255,255,255,.24)}
@@ -8279,6 +8287,13 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape"){
     if (document.getElementById("searchVeil").classList.contains("open")){ closeSearch(); return; }
     if (ctxMenuEl){ closeChatMenu(); return; }
+    // close any open modal (task, event, brand, space, DM, plan, project, integration, visibility, preview…)
+    const openVeil = document.querySelector(".modal-veil.open");
+    if (openVeil){ openVeil.classList.remove("open"); return; }
+    // notifications / quick-add popovers
+    const notif = document.getElementById("notifPanel");
+    if (notif && getComputedStyle(notif).display !== "none"){ notif.style.display = "none"; return; }
+    if (typeof closeQuickAdd === "function" && document.querySelector(".qa-pop.open")){ closeQuickAdd(); return; }
     if (document.getElementById("app").classList.contains("focus-mode")){ toggleFocus(); return; }
   }
 });
