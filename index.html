@@ -1235,6 +1235,11 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 .bill-usage.warn .bu-top,.bill-usage.over .bu-top{color:var(--text)}
 .bill-people{margin-top:8px}
 .bill-people summary{font-size:12px;color:var(--gold);cursor:pointer;padding:6px 0}
+.bill-spend{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+.bill-spend .bs-amt{font-family:'Outfit',sans-serif;font-weight:800;font-size:34px;letter-spacing:-.02em;color:var(--text)}
+.bill-spend .bs-cap{font-family:'Exo 2',sans-serif;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-4)}
+.bill-cost{margin-bottom:8px}
+.roll-table td.cap-hit{color:var(--amber);font-weight:700}
 .usage-banner{display:flex;gap:12px;align-items:flex-start;padding:13px 16px;border-radius:var(--r-md);margin-bottom:16px;font-size:12.5px;line-height:1.5}
 .usage-banner .ub-ico{width:20px;height:20px;min-width:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
 .usage-banner.warn{background:var(--amber-soft);border:1px solid rgba(232,180,76,.4);color:var(--text)}
@@ -3464,8 +3469,8 @@ async function send(){
   renderChatList(); renderThread();
 
   if (mode === "image"){
-    const imgGate = gateAI("image");
-    if (!imgGate.ok){   // pool spent: explain in-thread rather than silently failing
+    const imgGate = gateAI("image", "image");
+    if (!imgGate.ok){   // daily cap or pool spent: explain in-thread rather than silently failing
       t.msgs.push({ role:"syn", displayText: imgGate.reason, rawText: imgGate.reason, verdict:null, at: new Date().toISOString() });
       saveChats(activeBrandId); renderThread(); return;
     }
@@ -3524,9 +3529,18 @@ async function generate(){
   const brandWork = (modelPick === "smart") || mode === "image";
   const HISTORY_WINDOW = 10;
 
-  // AI fair-use metering: classify this message and apply the soft throttle if the pool is spent.
+  // AI metering: daily hard cap first (a real cost firewall), then the monthly soft throttle.
   let effModelPick = modelPick;
-  const gate = gateAI(modelPick === "smart" ? "smart" : "standard");
+  const gate = gateAI(modelPick === "smart" ? "smart" : "fast", modelPick === "smart" ? "smart_msg" : "fast_msg");
+  if (!gate.ok){                       // daily cap hit — explain in-thread, everything non-AI still works
+    live.remove();
+    t.msgs.push({ role:"syn", text: gate.reason, displayText: gate.reason, rawText:"", files:[], mode:"copy", verdict:null, needsApproval:false, at:new Date().toISOString() });
+    saveChats(activeBrandId);
+    busy = false; abortCtl = null;
+    sendBtn.textContent = "↑"; sendBtn.classList.remove("stop"); sendBtn.title = "Send";
+    renderThread();
+    return;
+  }
   if (gate.downgrade) effModelPick = "fast";
   if (gate.reason) toast(gate.reason);
 
@@ -3554,7 +3568,7 @@ async function generate(){
         method:"POST", headers:{ "Content-Type":"application/json" },
         signal: abortCtl.signal,
         body: JSON.stringify({
-          model: MODELS[effModelPick], max_tokens: 8000, stream: true,
+          model: MODELS[effModelPick], max_tokens: AI_MAX_TOKENS.chat, stream: true,
           system: buildSystemPrompt(b, brandRelevant), messages: msgs,
           tools: [{ type:"web_search_20250305", name:"web_search" }]
         })
@@ -4236,14 +4250,20 @@ function localParse(text){
 async function runParse(){
   const text = (document.getElementById("parseInput").value || "").trim();
   if (!text){ toast("Paste something to parse first."); return; }
-  const pGate = gateAI("parse");   // meter transcript parses; soft — parse still runs, warning shown
+  const pGate = gateAI("parse", "parse");   // daily hard cap on AI parses; local fallback still runs
+  if (!pGate.ok){
+    toast(pGate.reason);
+    parsed = localParse(text);   // caps stop the API call, not the feature — fall back to local extraction
+    renderParseConfirm();
+    return;
+  }
   if (pGate.reason) toast(pGate.reason);
   const btn = document.getElementById("parseRun"); btn.textContent = "Extracting…"; btn.disabled = true;
   let result = null;
   if (aiReady()){
     try{
       const sys = "You extract structured CRM data from a sales rep's notes. Return ONLY minified JSON, no prose, shaped as {\"activities\":[{\"type\":one of call|meeting|email|sample|application|note,\"relatedName\":string,\"companyName\":string,\"outcome\":string,\"notes\":string,\"date\":\"YYYY-MM-DD\"}],\"tasks\":[{\"title\":string,\"dueDate\":\"YYYY-MM-DD\"|null}],\"followUps\":[{\"note\":string,\"date\":\"YYYY-MM-DD\"|null}]}. Use today " + todayISO() + " for relative dates.";
-      const raw = await aiText(sys, text, 1800);
+      const raw = await aiText(sys, text, AI_MAX_TOKENS.parse);
       const m = raw.match(/\{[\s\S]*\}/);
       result = JSON.parse(m ? m[0] : raw);
     }catch(e){ result = null; }
@@ -4443,7 +4463,8 @@ async function recapAINarrative(){
   el.textContent = "Writing…";
   try{
     const facts = "Rep: " + teamName(uid) + ". Activities by type: " + ACT_TYPES.map(t => t[1] + "=" + (r.counts[t[0]]||0)).join(", ") + ". Tasks completed: " + r.tasksCompleted.length + ". Tasks open: " + r.tasksOpen.length + ". Follow-ups next week: " + r.followUpsNext.map(f=>f.title).join("; ") + ". Open dependencies: " + r.deps.map(d=>d.note).join("; ") + ".";
-    const txt = await aiText("You are a sales operations lead writing a crisp 3-4 sentence weekly recap for a rep, then a short 'Suggested for next week' list of 2-3 bullet follow-ups. No em dashes. Base it only on the facts given.", facts, 700);
+    recordCost("recap");   // batch-eligible, non-interactive (AI_BATCH_ELIGIBLE): tracked, not daily-capped
+    const txt = await aiText("You are a sales operations lead writing a crisp 3-4 sentence weekly recap for a rep, then a short 'Suggested for next week' list of 2-3 bullet follow-ups. No em dashes. Base it only on the facts given.", facts, AI_MAX_TOKENS.recap);
     el.innerHTML = renderMD(txt);
   }catch(e){ el.textContent = templateNarrative(uid, r); toast("SYN is offline; kept the summary."); }
 }
@@ -4551,6 +4572,25 @@ const DEFAULT_SEATS = 5;                          // seats a new workspace start
 const AI_ALLOWANCE = { standard: 500, smart: 100, image: 20, parse: 20 };
 const AI_LABELS = { standard: "Standard messages", smart: "Smart / brand messages", image: "Image generations", parse: "Transcript parses" };
 
+/* ===================================================================
+   AI COST CONTROL — one config block (steps 4-6 of the cost audit).
+   Every AI-consuming feature is metered against a per-user DAILY cap.
+   =================================================================== */
+// Per-user, per-day hard caps on API-consuming features only. Non-AI work is never capped.
+const AI_DAILY_CAPS = { fast: 50, smart: 10, image: 5, parse: 5 };
+// Human labels for the four capped feature classes.
+const AI_CAP_LABELS = { fast: "fast messages", smart: "smart messages", image: "image generations", parse: "transcript parses" };
+// Max output tokens per feature — a task parse doesn't need 8000 (step 3). Central + self-documenting.
+const AI_MAX_TOKENS = { chat: 4000, space: 3000, plan_tasks: 900, plan_day: 900, research: 2500, parse: 1200, recap: 700 };
+// History windows (input trim): the AI space used to replay its ENTIRE thread on every call — a real cost bug.
+const SPACE_HISTORY_WINDOW = 12;
+// Estimated $/call at current pricing (Haiku $1/$5, Sonnet $3/$15 per MTok, cache reads ~0.1x),
+// measured POST-optimization. The live cost meter multiplies real per-type call counts by these.
+const AI_COST_EST = { fast_msg: 0.004, smart_msg: 0.024, space: 0.020, plan_tasks: 0.008, plan_day: 0.003, research: 0.045, parse: 0.002, recap: 0.0015, image: 0.040 };
+const AI_COST_LABELS = { fast_msg: "Fast chat", smart_msg: "Smart chat", space: "AI space", plan_tasks: "Task planner", plan_day: "Plan my day", research: "Brand research", parse: "Transcript parse", recap: "Weekly recap", image: "Image generation" };
+// Non-interactive generation that can move to the Batch API later for ~50% off.
+const AI_BATCH_ELIGIBLE = { recap: true };
+
 function seatRate(seats){ seats = Math.max(1, seats || 1); if (seats >= 25) return SEAT_PRICE.s25; if (seats >= 10) return SEAT_PRICE.s10; return SEAT_PRICE.s1; }
 function priceFor(seats, brands){
   seats = Math.max(1, Math.floor(seats || 1)); brands = Math.max(1, Math.floor(brands || 1));
@@ -4561,6 +4601,8 @@ function nextThreshold(seats){ seats = Math.max(1, seats || 1); if (seats < 10) 
 // What the next volume break saves, measured at the threshold seat count vs the current bracket rate.
 function thresholdSavings(seats){ const nt = nextThreshold(seats); if (!nt) return null; const cur = seatRate(seats); return { at: nt.at, rate: nt.rate, saving: (cur - nt.rate) * nt.at }; }
 function fmtMoney(n){ return "$" + Math.round(n).toLocaleString(); }
+// Small-dollar formatter for the AI cost meter: cents-precision under $100, whole dollars above.
+function fmtSpend(n){ n = n || 0; if (n === 0) return "$0.00"; if (n < 100) return "$" + n.toFixed(2); return "$" + Math.round(n).toLocaleString(); }
 
 /* ---- workspace pricing state (seats, legacy grandfather flag) ---- */
 function orgSeats(){ return (ORG && typeof ORG.seats === "number") ? ORG.seats : DEFAULT_SEATS; }
@@ -4588,10 +4630,11 @@ function seatLimitReached(){ return !isLegacyOrg() && seatsUsed() >= orgSeats();
 let USAGE = null;
 function usagePeriod(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); }
 function usageKey(){ return okey("usage:" + usagePeriod()); }
-async function loadUsage(){ USAGE = (await sGet(usageKey())) || { period: usagePeriod(), byUser: {} }; if (!USAGE.byUser) USAGE.byUser = {}; }
+async function loadUsage(){ USAGE = (await sGet(usageKey())) || { period: usagePeriod(), byUser: {} }; normalizeUsage(); }
+function normalizeUsage(){ if (!USAGE) USAGE = { period: usagePeriod(), byUser:{} }; if (!USAGE.byUser) USAGE.byUser = {}; if (!USAGE.daily) USAGE.daily = {}; if (!USAGE.calls) USAGE.calls = {}; }
 function saveUsage(){ if (USAGE) saveSoon(usageKey(), () => USAGE); }
 function recordAI(kind, uid){
-  if (!USAGE) USAGE = { period: usagePeriod(), byUser: {} };
+  normalizeUsage();
   uid = uid || (currentUser && currentUser.id); if (!uid) return;
   const u = USAGE.byUser[uid] = USAGE.byUser[uid] || { standard:0, smart:0, image:0, parse:0 };
   u[kind] = (u[kind] || 0) + 1;
@@ -4610,17 +4653,49 @@ function maybeWarnUsage(kind){
   if (r >= 1 && !_usageWarned[kind + ":100"]){ _usageWarned[kind + ":100"] = 1; toast("Workspace " + AI_LABELS[kind].toLowerCase() + " allowance reached — SYN keeps working on a soft throttle. Add seats in Settings › Billing to lift it."); }
   else if (r >= 0.8 && r < 1 && !_usageWarned[kind + ":80"]){ _usageWarned[kind + ":80"] = 1; toast("Heads up: the workspace has used " + Math.round(r*100) + "% of its " + AI_LABELS[kind].toLowerCase() + " for this period."); }
 }
-/* Gate an AI action. Returns {ok, throttled, downgrade, reason}. NEVER silently fails — caller shows reason. */
-function gateAI(kind){
-  if (isLegacyOrg()) { recordAI(kind); return { ok:true }; }
-  if (kind === "image" && poolExhausted("image")){
+
+/* ---- Per-user DAILY caps (step 4) + per-workspace overrides (step 5) + cost tracking (step 6) ---- */
+// Effective daily cap for a feature; a paid tier can raise it per workspace via ORG.aiCaps (AI credits).
+function dailyCap(kind){
+  const base = AI_DAILY_CAPS[kind] || 0;
+  const over = ORG && ORG.aiCaps && typeof ORG.aiCaps[kind] === "number" ? ORG.aiCaps[kind] : null;
+  return over != null ? Math.max(base, over) : base;   // overrides only ever raise the ceiling
+}
+function dailyBucket(uid){
+  normalizeUsage();
+  const day = todayISO();
+  // keep only today's bucket set — daily counts reset at midnight and old days are pruned
+  Object.keys(USAGE.daily).forEach(d => { if (d !== day) delete USAGE.daily[d]; });
+  const d = USAGE.daily[day] = USAGE.daily[day] || {};
+  return d[uid] = d[uid] || { fast:0, smart:0, image:0, parse:0 };
+}
+function dailyUsed(kind, uid){ uid = uid || (currentUser && currentUser.id); if (!uid) return 0; const day = (USAGE && USAGE.daily && USAGE.daily[todayISO()]) || {}; return (day[uid] && day[uid][kind]) || 0; }
+function dailyExhausted(kind, uid){ return dailyUsed(kind, uid) >= dailyCap(kind); }
+function recordDaily(kind, uid){ uid = uid || (currentUser && currentUser.id); if (!uid || !kind) return; const b = dailyBucket(uid); b[kind] = (b[kind] || 0) + 1; saveUsage(); }
+function recordCost(callType){ if (!callType) return; normalizeUsage(); USAGE.calls[callType] = (USAGE.calls[callType] || 0) + 1; saveUsage(); }
+function estMonthSpend(){ normalizeUsage(); let d = 0; Object.keys(USAGE.calls).forEach(k => d += (USAGE.calls[k] || 0) * (AI_COST_EST[k] || 0)); return d; }
+const CAP_MSG = "You've used today's AI allowance, resets at midnight; everything else keeps working.";
+
+/* Unified gate for every AI-consuming call. capKind ∈ {fast,smart,image,parse}; callType keys AI_COST_EST.
+   Order: (1) per-user DAILY hard cap — a real cost firewall, applies to every workspace; (2) pooled MONTHLY
+   soft throttle (legacy workspaces exempt); then record daily + monthly + cost. NEVER silently fails. */
+function gateAI(capKind, callType){
+  const monthlyKind = capKind === "fast" ? "standard" : capKind;   // monthly ledger uses "standard" for fast
+  callType = callType || (capKind === "fast" ? "fast_msg" : capKind === "smart" ? "smart_msg" : capKind);
+  // (1) daily hard cap — enforced for AI features only; everything non-AI is untouched
+  if (dailyExhausted(capKind)){
+    return { ok:false, capped:true, reason:"You've used today's " + (AI_CAP_LABELS[capKind] || "AI") + " allowance (" + dailyCap(capKind) + "/day). " + CAP_MSG };
+  }
+  // (2) pooled monthly logic (unchanged behavior; legacy exempt from throttle)
+  if (isLegacyOrg()){ recordDaily(capKind); recordAI(monthlyKind); recordCost(callType); return { ok:true }; }
+  if (capKind === "image" && poolExhausted("image")){
     return { ok:false, reason:"Your workspace has used all " + pooledAllowance("image") + " image generations for this period. Image generation is paused until the period resets or you add seats in Settings › Billing. Text and brand replies still work." };
   }
-  if (kind === "smart" && poolExhausted("smart")){
-    recordAI("standard");   // soft throttle: the request still runs, on the standard model
+  if (capKind === "smart" && poolExhausted("smart")){
+    recordDaily("fast"); recordAI("standard"); recordCost("fast_msg");   // soft throttle: runs on the standard model
     return { ok:true, downgrade:true, reason:"Smart / brand-message allowance is used up for this period, so SYN answered on the standard model. Add seats in Settings › Billing to restore brand-smart replies." };
   }
-  recordAI(kind);
+  recordDaily(capKind); recordAI(monthlyKind); recordCost(callType);
   return { ok:true };
 }
 
@@ -4680,11 +4755,33 @@ function renderBilling(){
     h += '<div class="bill-usage ' + cls + '"><div class="bu-top"><span>' + AI_LABELS[k] + '</span><span>' + usedK + ' / ' + allow + (r>=1?' · throttled':r>=0.8?' · '+Math.round(r*100)+'%':'') + '</span></div>' +
       '<div class="bill-bar"><span class="bill-fill" style="width:' + Math.min(100, r*100) + '%"></span></div></div>';
   });
-  // per-person breakdown
+  // ---- Live cost meter (step 6): estimated $ this month from actual tracked per-type call counts ----
+  normalizeUsage();
+  const spend = estMonthSpend();
+  const callTypes = Object.keys(AI_COST_EST).filter(k => (USAGE.calls[k] || 0) > 0);
+  h += '<div class="bill-sub">Estimated AI spend · this month</div>';
+  h += '<div class="bill-spend"><span class="bs-amt">' + fmtSpend(spend) + '</span><span class="bs-cap">estimated actual API cost</span></div>';
+  if (callTypes.length){
+    h += '<table class="roll-table bill-cost"><thead><tr><th>Feature</th><th>Calls</th><th>Est. cost</th></tr></thead><tbody>' +
+      callTypes.sort((a,b)=>(USAGE.calls[b]*AI_COST_EST[b])-(USAGE.calls[a]*AI_COST_EST[a])).map(k =>
+        '<tr><td>' + esc(AI_COST_LABELS[k] || k) + (AI_BATCH_ELIGIBLE[k] ? ' <span class="ops-auto">batch-eligible</span>' : '') + '</td><td>' + USAGE.calls[k] + '</td><td>' + fmtSpend(USAGE.calls[k]*AI_COST_EST[k]) + '</td></tr>').join("") +
+      '</tbody></table>';
+  } else h += '<div class="f-hint">No AI calls yet this month.</div>';
+  h += '<div class="f-hint" style="margin-top:6px">Estimated from tracked call counts at current model pricing — a live read on real burn, no Anthropic console needed.</div>';
+
+  // ---- Per-member usage: today (daily caps) + this month ----
+  const dayBucket = (USAGE.daily && USAGE.daily[todayISO()]) || {};
+  const capKinds = Object.keys(AI_DAILY_CAPS);
+  h += '<div class="bill-sub">Per-member usage · today</div>';
+  h += '<table class="roll-table"><thead><tr><th>Person</th>' + capKinds.map(k => '<th>' + AI_CAP_LABELS[k].replace(/s$/,"").replace("fast message","Fast").replace("smart message","Smart").replace("image generation","Images").replace("transcript parse","Parses") + '</th>').join("") + '</tr></thead><tbody>' +
+    (TEAM||[]).map(u => { const d = dayBucket[u.id] || {}; return '<tr><td>' + esc(u.name) + '</td>' + capKinds.map(k => { const used = d[k]||0, cap = dailyCap(k); return '<td' + (used>=cap ? ' class="cap-hit"' : '') + '>' + used + ' / ' + cap + '</td>'; }).join("") + '</tr>'; }).join("") +
+    '</tbody></table>';
+
+  // per-person monthly breakdown (unchanged)
   const rows = (TEAM||[]).map(u => { const uu = (USAGE&&USAGE.byUser&&USAGE.byUser[u.id]) || {}; return { u, s:uu.standard||0, sm:uu.smart||0, im:uu.image||0, pa:uu.parse||0 }; });
-  h += '<details class="bill-people"><summary>Per-person usage</summary><table class="roll-table"><thead><tr><th>Person</th><th>Standard</th><th>Smart</th><th>Images</th><th>Parses</th></tr></thead><tbody>' +
+  h += '<details class="bill-people"><summary>Per-person usage · this month</summary><table class="roll-table"><thead><tr><th>Person</th><th>Standard</th><th>Smart</th><th>Images</th><th>Parses</th></tr></thead><tbody>' +
     rows.map(r => '<tr><td>' + esc(r.u.name) + '</td><td>' + r.s + '</td><td>' + r.sm + '</td><td>' + r.im + '</td><td>' + r.pa + '</td></tr>').join("") + '</tbody></table></details>';
-  h += '<div class="f-hint" style="margin-top:10px">Every seat includes all features. AI usage is pooled across the workspace and included, not billed separately. Final billing activates with SYN Core (Stripe).</div>';
+  h += '<div class="f-hint" style="margin-top:10px">Every seat includes all features. Per-user daily caps keep AI cost bounded; a future paid tier can raise them per workspace. AI usage is pooled and included, not billed separately. Final billing activates with SYN Core (Stripe).</div>';
   return h + '</div></div>';
 }
 // Admin-only banner surfacing the pooled AI usage state (warn at 80%, throttle notice at 100%).
@@ -4863,6 +4960,9 @@ async function researchBrand(){
   else { typedName = raw; }
   const name = typedName || nameField || (site ? nameFromUrl(site) : "") || (ORG ? ORG.name : "");
   if (!name && !site){ status.textContent = "Enter a company name or a website URL first."; return; }
+  const rGate = gateAI("smart", "research");   // Sonnet + live web search; counts against the smart cap
+  if (!rGate.ok){ status.textContent = rGate.reason; return; }
+  if (rGate.reason) toast(rGate.reason);
   researching = true;
   const btn = document.getElementById("bmResearch");
   btn.textContent = "Researching…";
@@ -4871,7 +4971,7 @@ async function researchBrand(){
     const res = await fetch(apiBase() + "/v1/messages", {
       method:"POST", headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
-        model:"claude-sonnet-4-6", max_tokens:2500,
+        model: MODELS.smart, max_tokens: AI_MAX_TOKENS.research,
         system: "You are a brand researcher. Research the company on the live web and return ONLY a JSON object, no markdown fences, no commentary, with exactly these keys: name (the company's proper display name), industry (short string), voice (2-3 sentence brand voice description), audience (1-2 sentences), products (array of strings), approvedClaims (array of strings, verifiable claims from their site), bannedClaims (array of strings, phrases this company should avoid for legal or accuracy reasons), legal (1-3 sentences of legal/regulatory constraints for this industry), imageStyle (2-3 sentences describing photography/visual style fitting the brand), palette (array of up to 5 objects {name, hex} matching the brand's real colors), accent (single hex string, the brand's primary color). If unsure of a field, give a sensible industry-appropriate value. Never invent certifications.",
         messages: [{ role:"user", content: "Research this company from the live web" + (site ? ", reading their website directly at " + site : "") + ", and fill the brand profile. " + (site ? ("Website: " + site + (typedName || nameField ? (" (company: " + (typedName || nameField) + ")") : "")) : ("Company: " + name)) }],
         tools: [{ type:"web_search_20250305", name:"web_search" }]
@@ -6151,6 +6251,9 @@ async function planWithSYN(){
   if (!goal){ t.focus(); return; }
   const btn = document.getElementById("planRun");
   const status = document.getElementById("planStatus");
+  const pGate = gateAI("smart", "plan_tasks");   // the planner drafts real board tasks — smart model, smart cap
+  if (!pGate.ok){ status.textContent = pGate.reason; return; }
+  if (pGate.reason) toast(pGate.reason);
   btn.textContent = "Planning…"; btn.disabled = true;
   status.textContent = "SYN is breaking this down into tasks…";
   const today = new Date().toISOString().slice(0,10);
@@ -6159,7 +6262,7 @@ async function planWithSYN(){
     const res = await fetch(apiBase() + "/v1/messages", {
       method:"POST", headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
-        model: MODELS.smart, max_tokens: 1500,
+        model: MODELS[pGate.downgrade ? "fast" : "smart"], max_tokens: AI_MAX_TOKENS.plan_tasks,
         system: "You are a project planner. Break the user's goal into concrete, actionable tasks. Respond with ONLY task lines, one per line, each EXACTLY in this format and nothing else:\n[[TASK: title | assignee | YYYY-MM-DD | priority | project]]\nAssignee must be one of these team members or left blank: " + names + ". Priority is one of low, med, high, urgent. Project is a short project name (reuse the same name for all tasks in this plan). Dates should be realistic relative to today (" + today + "). Produce 4 to 10 tasks. No commentary, no markdown, only the task lines.",
         messages: [{ role:"user", content: "Goal: " + goal }]
       })
@@ -6725,6 +6828,8 @@ function myDayAsk(){
 async function planMyDay(){
   const btn = document.getElementById("mdPlanBtn"), out = document.getElementById("mdPlanOut");
   if (!out) return;
+  const dGate = gateAI("fast", "plan_day");   // a daily summary of your own tasks/events — Haiku is plenty
+  if (!dGate.ok){ out.innerHTML = '<div class="spec-block"><div class="sb-body"><div class="md-empty-row">' + esc(dGate.reason) + '</div></div></div>'; return; }
   out.style.display = "block";
   out.innerHTML = '<div class="spec-block"><div class="sb-body"><div class="status-line"><span class="s-dot"></span><span class="s-txt">SYN is drafting your day…</span></div></div></div>';
   if (btn){ btn.disabled = true; btn.textContent = "Planning…"; }
@@ -6736,7 +6841,7 @@ async function planMyDay(){
   try{
     const res = await fetch(apiBase() + "/v1/messages", {
       method:"POST", headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ model: MODELS.smart, max_tokens:1200,
+      body: JSON.stringify({ model: MODELS.fast, max_tokens: AI_MAX_TOKENS.plan_day,
         system: "You are SYN, a sharp chief-of-staff. Given a teammate's open tasks and events, write a concise, prioritized plan for their day: a short opening line, then an ordered list of what to focus on and when, grouping around their meetings. Flag anything overdue first. Clean markdown, no preamble, no em dashes. Today is " + todayISO() + ".",
         messages:[{ role:"user", content: summary }] })
     });
@@ -7040,6 +7145,14 @@ function buildUserContent(m){
 async function spaceGenerate(space){
   const key = msgKey("space", space.id);
   const b = space.brandId ? BRANDS.find(x => x.id === space.brandId) : brand();
+  const sCap = modelPick === "smart" ? "smart" : "fast";
+  const sGate = gateAI(sCap, "space");   // AI spaces were unmetered — now gated like every other AI call
+  if (!sGate.ok){
+    const inner0 = document.getElementById("spaceMsgsInner");
+    if (inner0){ const n = document.createElement("div"); n.className = "ai-offline-note"; n.textContent = "◍ " + sGate.reason; inner0.appendChild(n); scrollSpace(); }
+    return;
+  }
+  if (sGate.reason) toast(sGate.reason);
   spaceBusy = true; spaceAbort = new AbortController();
   const inner = document.getElementById("spaceMsgsInner");
   const live = document.createElement("div"); live.className = "tmsg syn";
@@ -7047,12 +7160,13 @@ async function spaceGenerate(space){
   if (inner) inner.appendChild(live);
   scrollSpace();
   const liveTxt = live.querySelector(".syn-live");
-  const history = collAll(key).filter(m => !m.note).map(m => m.role === "syn" ? { role:"assistant", content: m.rawText || m.text || " " } : { role:"user", content: buildUserContent(m) });
+  // Cost fix: window the thread instead of replaying the entire space (was unbounded — up to 800 msgs/call).
+  const history = collAll(key).filter(m => !m.note).slice(-SPACE_HISTORY_WINDOW).map(m => m.role === "syn" ? { role:"assistant", content: m.rawText || m.text || " " } : { role:"user", content: buildUserContent(m) });
   let raw = "";
   try{
     const res = await fetch(apiBase() + "/v1/messages", {
       method:"POST", headers:{ "Content-Type":"application/json" }, signal: spaceAbort.signal,
-      body: JSON.stringify({ model: MODELS[modelPick] || MODELS.smart, max_tokens:4000, stream:true, system: b ? buildSystemPrompt(b) : generalSpacePrompt(space), messages: history, tools:[{ type:"web_search_20250305", name:"web_search" }] })
+      body: JSON.stringify({ model: MODELS[sGate.downgrade ? "fast" : (modelPick || "smart")] || MODELS.smart, max_tokens: AI_MAX_TOKENS.space, stream:true, system: b ? buildSystemPrompt(b) : generalSpacePrompt(space), messages: history, tools:[{ type:"web_search_20250305", name:"web_search" }] })
     });
     if (!res.ok || !res.body) throw new Error("net");
     const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
