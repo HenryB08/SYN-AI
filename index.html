@@ -8,14 +8,19 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="SYN · Brand Intelligence Platform">
 <meta property="og:description" content="The AI workspace that already knows your brand. One brain, every surface.">
-<meta property="og:image" content="img/brand-ring.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SYN · Brand Intelligence Platform">
 <meta name="twitter:description" content="The AI workspace that already knows your brand. One brain, every surface.">
-<meta name="twitter:image" content="img/brand-ring.png">
+<meta name="twitter:image" content="img/og-lockup.png">
+<meta property="og:image" content="img/og-lockup.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%232A2A2A'/%3E%3Ccircle cx='24' cy='24' r='11.5' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-dasharray='8.7 3.3' stroke-dashoffset='1.2'/%3E%3Ccircle cx='24' cy='24' r='2.5' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preload" as="image" href="img/hero-core.webp" type="image/webp" fetchpriority="high">
 <script>/* defined early so image onerror handlers never fire before it exists */
-function logoFail(img){ const p = img && img.parentElement; if (p) p.innerHTML = '<span style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:22px;color:#8E959F">S</span>'; }</script>
+function logoFail(img){ const p = img && img.parentElement; if (p) p.innerHTML = '<span style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:22px;color:#8E959F">S</span>'; }
+/* Fixed brand lockup: white Syntrex aperture ring on a dark-gray tile, identical in both themes.
+   Self-contained inline SVG (no remote fetch, no theme variant). synMark(px) returns the markup. */
+function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' + (cls||"") + '" style="width:' + size + 'px;height:' + size + 'px" aria-hidden="true">' +
+  '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="11 4.2" stroke-dashoffset="1.5"/><circle cx="24" cy="24" r="3.1" fill="#fff"/></svg></span>'; }</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
@@ -198,6 +203,11 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 /* sidebar */
 .sidebar{width:300px;min-width:300px;border-radius:var(--r-lg);display:flex;flex-direction:column;overflow:hidden;transition:transform .32s cubic-bezier(.4,0,.2,1)}
 .side-head{padding:22px 20px 14px;display:flex;align-items:center;gap:13px}
+/* Brand lockup tile — fixed dark asset, same in both themes */
+.syn-mark{display:inline-flex;align-items:center;justify-content:center;flex:none;background:#2A2A2A;border:1px solid rgba(255,255,255,.18);border-radius:24%;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 1px 3px rgba(0,0,0,.35)}
+.syn-mark svg{width:66%;height:66%;display:block}
+.syn-mark.boot-mark{margin:0 auto 26px}
+.syn-mark.empty-mark{margin:0 auto 22px}
 .logo-orb{width:48px;height:48px;min-width:48px;border-radius:6px;background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.03));border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(136,136,136,.28),inset 0 1px 0 rgba(255,255,255,.2)}
 .logo-orb img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(136,136,136,.55))}
 .wordmark{font-family:'Outfit',sans-serif;font-weight:700;font-size:19px;letter-spacing:.2em}
@@ -1814,7 +1824,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
 <!-- BOOT -->
 <div class="fullscreen on" id="bootScreen">
   <div>
-    <div class="boot-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt=""></div>
+    <span class="syn-mark" style="width:86px;height:86px;margin:0 auto 26px" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="11 4.2" stroke-dashoffset="1.5"/><circle cx="24" cy="24" r="3.1" fill="#fff"/></svg></span>
     <div class="boot-txt">Starting your workspace…</div>
   </div>
 </div>
@@ -1825,7 +1835,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
     <div class="auth-thr-copy"><div class="auth-thr-label">Cross the threshold</div><div class="auth-thr-line">Bright site, focused workspace. Sign in to step through.</div></div>
   </div>
   <div class="auth-card glass">
-    <div class="boot-orb" style="width:78px;height:78px;margin-bottom:22px"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="Syntrex" style="width:50px;height:50px"></div>
+    <span class="syn-mark" style="width:78px;height:78px;margin-bottom:22px" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="11 4.2" stroke-dashoffset="1.5"/><circle cx="24" cy="24" r="3.1" fill="#fff"/></svg></span>
     <h1>SYN</h1>
     <div class="auth-sub" id="authSub">Brand Intelligence Platform</div>
     <div class="auth-tabs" id="authTabs"></div>
@@ -1843,7 +1853,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
   <nav class="site-nav">
     <div class="site-nav-inner">
       <div class="site-brand" onclick="goSite('home')">
-        <div class="logo-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="SYN"></div>
+        <span class="syn-mark" style="width:40px;height:40px" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="11 4.2" stroke-dashoffset="1.5"/><circle cx="24" cy="24" r="3.1" fill="#fff"/></svg></span>
         <div class="wm">SYN<small>Brand Intelligence</small></div>
       </div>
       <div class="site-links">
@@ -1996,7 +2006,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
       <footer class="site-foot"><div class="site-wrap">
         <div class="site-foot-top">
           <div class="fbrand">
-            <div class="site-brand" onclick="goSite('home')"><div class="logo-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="SYN"></div><div class="wm">SYN</div></div>
+            <div class="site-brand" onclick="goSite('home')"><span class="syn-mark" style="width:36px;height:36px" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="11 4.2" stroke-dashoffset="1.5"/><circle cx="24" cy="24" r="3.1" fill="#fff"/></svg></span><div class="wm">SYN</div></div>
             <p>A Syntrex product. The brand intelligence workspace: one brain across every surface your team works on.</p>
             <a class="backlink" href="https://syntrexio.com" target="_blank" rel="noopener">← Back to Syntrex</a>
           </div>
@@ -2074,7 +2084,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
   <button class="sb-icon-btn focus-exit glass" data-wact="exitFocus" aria-label="Exit focus mode (Ctrl/⌘ .)" title="Exit focus · ⌘."><svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4"/></svg></button>
   <aside class="sidebar glass" id="sidebar">
     <div class="side-head">
-      <div class="logo-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt="Syntrex"></div>
+      <span class="syn-mark" style="width:40px;height:40px" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="11 4.2" stroke-dashoffset="1.5"/><circle cx="24" cy="24" r="3.1" fill="#fff"/></svg></span>
       <div><div class="wordmark">SYN</div><span class="ver" id="orgName">Brand Intelligence</span></div>
       <span class="storage-pill" id="storagePill" role="status" aria-label="Workspace storage status">…</span>
       <div class="side-head-tools">
@@ -2160,14 +2170,14 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
       <div class="view" id="view-chat">
         <div class="chat-scroll" id="chatScroll">
           <div class="empty-state" id="onboardState" style="display:none">
-            <div class="empty-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt=""></div>
+            <span class="syn-mark" style="width:70px;height:70px;margin:0 auto 22px" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="11 4.2" stroke-dashoffset="1.5"/><circle cx="24" cy="24" r="3.1" fill="#fff"/></svg></span>
             <h1>Welcome to <span class="accent" id="obOrg">your workspace</span></h1>
             <p id="obText">This workspace is a blank slate. Encode your first brand: its voice, colors, products, and guardrails. Everything SYN makes from then on ships as that brand.</p>
             <div class="starter-row"><button class="btn-gold" id="obAddBrand">Set Up Your Brand</button></div>
             <p class="ob-guide">New here? <a data-wact="guideGo" data-sec="start">Read the guide</a> — two minutes, the whole product.</p>
           </div>
           <div class="empty-state" id="emptyState">
-            <div class="empty-orb"><img src="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png" onerror="logoFail(this)" alt=""></div>
+            <span class="syn-mark" style="width:70px;height:70px;margin:0 auto 22px" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="11 4.2" stroke-dashoffset="1.5"/><circle cx="24" cy="24" r="3.1" fill="#fff"/></svg></span>
             <h1>What are we making for <span class="accent" id="esBrand">this brand</span>?</h1>
             <p>Drop files, ask for research, documents, sheets, or campaigns. SYN remembers everything, keeps it on-brand, and nothing ships without a verdict.</p>
             <div class="starter-row" id="starterRow"></div>
@@ -2968,12 +2978,12 @@ function bootCloudError(){
   const bs = document.getElementById("bootScreen");
   bs.classList.add("on");
   bs.innerHTML = '<div style="text-align:center;max-width:360px;padding:0 24px">' +
-    '<div class="boot-orb"><img src="' + LOGO + '" onerror="logoFail(this)" alt=""></div>' +
+    synMark(86, 'boot-mark') +
     '<div class="boot-txt" style="margin-top:16px">Can’t reach SYN Core right now.</div>' +
     '<div style="font-size:13px;color:var(--muted);line-height:1.6;margin:10px 0 20px">Your workspace is safe in the cloud. We won’t sign you in until we can load it, so nothing is lost or duplicated.</div>' +
     '<button class="site-btn gold" id="bootRetry">Retry</button></div>';
   const btn = document.getElementById("bootRetry");
-  if (btn) btn.addEventListener("click", () => { bs.innerHTML = '<div><div class="boot-orb"><img src="' + LOGO + '" onerror="logoFail(this)" alt=""></div><div class="boot-txt">Reconnecting…</div></div>'; boot(); });
+  if (btn) btn.addEventListener("click", () => { bs.innerHTML = '<div>' + synMark(86, 'boot-mark') + '<div class="boot-txt">Reconnecting…</div></div>'; boot(); });
   // also auto-retry a few times in the background
   if (!bootCloudError._tries) bootCloudError._tries = 0;
   if (bootCloudError._tries < 4){ bootCloudError._tries++; setTimeout(() => { if (document.getElementById("bootScreen").classList.contains("on")) boot(); }, 3000); }
@@ -6937,7 +6947,7 @@ function renderMyDay(){
 
   // Friendly empty state: nothing due, no events, no unreads, no pending approvals
   if (!myDue.length && !events.length && !threads.length && !(isAdmin() && pend)){
-    h += '<div class="spec-block md-empty-hero"><div class="empty-orb"><img src="' + LOGO + '" onerror="logoFail(this)" alt=""></div>' +
+    h += '<div class="spec-block md-empty-hero">' + synMark(70, 'empty-mark') +
       '<h3>Your day is clear</h3>' +
       '<p>Nothing due and nothing unread' + (noDue.length ? ' (you have ' + noDue.length + ' task' + (noDue.length > 1 ? 's' : '') + ' with no due date)' : '') + '. Ask SYN to get moving, add a task, or plan your week.</p>' +
       '<div class="starter-row"><button class="btn-gold" data-wact="newTask">+ New Task</button><button class="head-btn ghost" data-wact="newEvent">+ New Event</button><button class="head-btn ghost" data-wact="goView" data-v="guide">Open the guide</button></div></div>';
@@ -7167,7 +7177,7 @@ function renderSpaceRail(){
 
 /* main pane */
 function spaceEmptyMain(){
-  return '<div class="space-empty-main"><div class="empty-orb"><img src="' + LOGO + '" onerror="logoFail(this)" alt=""></div>' +
+  return '<div class="space-empty-main">' + synMark(70, 'empty-mark') +
     '<h1 style="font-family:\'Space Grotesk\',sans-serif;font-size:20px;margin-bottom:8px">Spaces</h1>' +
     '<p style="max-width:380px">Channels for your team, plus AI spaces where the whole workspace talks to SYN. ' + (isAdmin() ? "Create your first space with + New." : "Pick a space on the left to start.") + '</p></div>';
 }
