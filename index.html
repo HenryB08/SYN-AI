@@ -8020,9 +8020,24 @@ inputEl.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey)
 inputEl.addEventListener("input", function(){ this.style.height = "auto"; this.style.height = Math.min(this.scrollHeight, 170) + "px"; });
 
 const stageEl = document.getElementById("stage");
-["dragenter","dragover"].forEach(ev => stageEl.addEventListener(ev, e => { e.preventDefault(); stageEl.classList.add("dragging"); }));
-["dragleave","drop"].forEach(ev => stageEl.addEventListener(ev, e => { e.preventDefault(); if (ev === "drop" || e.target === stageEl) stageEl.classList.remove("dragging"); }));
-stageEl.addEventListener("drop", e => { stageEl.classList.remove("dragging"); if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+/* File drop overlay. The old handler cleared only when e.target === stage, so moving the cursor
+   over a child element fired dragleave and stranded the "Drop files for SYN" overlay until a
+   refresh (the classic nested-dragleave bug). Fix: a single enter/leave DEPTH COUNTER — each
+   element entered is +1, each left is -1, overlay shows while depth>0 — plus a hard force-clear
+   on drop, dragend, window blur, and Escape so it can never get stuck. Only file drags trigger
+   it, so dragging a task card no longer flashes the overlay. */
+let stageDragDepth = 0;
+function dtHasFiles(e){ const dt = e.dataTransfer; return !!(dt && dt.types && Array.prototype.indexOf.call(dt.types, "Files") !== -1); }
+function clearStageDrag(){ stageDragDepth = 0; stageEl.classList.remove("dragging"); }
+stageEl.addEventListener("dragenter", e => { if (!dtHasFiles(e)) return; e.preventDefault(); stageDragDepth++; stageEl.classList.add("dragging"); });
+stageEl.addEventListener("dragover", e => { if (!dtHasFiles(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"; });
+stageEl.addEventListener("dragleave", e => { if (!stageEl.classList.contains("dragging")) return; stageDragDepth = Math.max(0, stageDragDepth - 1); if (stageDragDepth === 0) stageEl.classList.remove("dragging"); });
+stageEl.addEventListener("drop", e => { e.preventDefault(); clearStageDrag(); if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+/* Belt-and-braces: nothing can leave the overlay (or the asset drop overlay) stuck on. */
+function clearAllDropOverlays(){ clearStageDrag(); if (typeof assetDragDepth !== "undefined") assetDragDepth = 0; document.querySelectorAll(".asset-view.drag-over").forEach(v => v.classList.remove("drag-over")); }
+document.addEventListener("dragend", clearAllDropOverlays);
+window.addEventListener("blur", clearAllDropOverlays);
+document.addEventListener("keydown", e => { if (e.key === "Escape") clearAllDropOverlays(); });
 
 /* --- workspace suite wiring (Stage 0 + 1) --- */
 document.getElementById("bellBtn").addEventListener("click", e => { e.stopPropagation(); closeQuickAdd(); toggleBell(); });
