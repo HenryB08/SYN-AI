@@ -2919,7 +2919,11 @@ function stripChat(c){
 }
 function saveChats(brandId){
   const all = CHATS[brandId] || [];
-  const mine   = all.filter(c => !c.shared).map(stripChat);           // only my private chats live under my key
+  const uid = currentUser ? currentUser.id : "anon";
+  // Defense-in-depth: only chats THIS user owns may be written under this user's private key.
+  // A private chat owned by someone else must never be re-filed into the wrong namespace (that
+  // was how a visibility toggle by a non-owner orphaned the record for everyone).
+  const mine   = all.filter(c => !c.shared && c.ownerId === uid).map(stripChat);
   const shared = all.filter(c =>  c.shared).map(stripChat);           // shared chats visible to the whole workspace
   saveSoon(privChatKey(brandId),  () => mine);
   saveSoon(sharedChatKey(brandId), () => shared);
@@ -3402,6 +3406,39 @@ function thread(){ return ensureThread(); }
 // Everything loaded into memory is already visible to me (my private chats + shared chats),
 // but keep an explicit guard: a chat is mine to see if it's shared or I own it.
 function canSee(c){ return !!c.shared || (currentUser && c.ownerId === currentUser.id); }
+/* DATA-LAYER PERMISSION: only the chat's OWNER may change its visibility — not admins, not other
+   members. Callers must gate the UI on this too, but the data-layer function is the real fence. */
+function canChangeChatVisibility(c){ return !!(c && currentUser && c.ownerId === currentUser.id); }
+/* ATOMIC visibility re-key. Private chats live under the owner's per-user key; shared chats under a
+   workspace key. Moving between them writes the NEW store first, verifies the record is readable
+   there, and only THEN rewrites the OLD store without it — so a failure can never orphan the chat. */
+async function setChatVisibility(chatId, shared){
+  const brandId = activeBrandId;
+  const list = CHATS[brandId] || [];
+  const chat = list.find(c => c.id === chatId);
+  if (!chat) return { ok:false, reason:"not_found" };
+  if (!canChangeChatVisibility(chat)) return { ok:false, reason:"forbidden" };
+  shared = !!shared;
+  if (!!chat.shared === shared) return { ok:true, reason:"noop" };
+  const uid = currentUser.id;
+  const wasShared = !!chat.shared;
+  chat.shared = shared;
+  const newKey = shared ? sharedChatKey(brandId) : privChatKey(brandId);
+  const oldKey = shared ? privChatKey(brandId)   : sharedChatKey(brandId);
+  const inNew  = c => shared ? c.shared : (!c.shared && c.ownerId === uid);
+  const inOld  = c => shared ? (!c.shared && c.ownerId === uid) : c.shared;
+  // 1) write the NEW location
+  await sSet(newKey, list.filter(inNew).map(stripChat));
+  // 2) verify the record is actually readable there
+  const check = (await sGet(newKey)) || [];
+  if (!check.some(c => c.id === chatId)){
+    chat.shared = wasShared;                                 // roll back in memory; old store untouched
+    return { ok:false, reason:"verify_failed" };
+  }
+  // 3) only now rewrite the OLD location without the chat
+  await sSet(oldKey, list.filter(inOld).map(stripChat));
+  return { ok:true, shared };
+}
 function newChat(){
   const t = { id: uid("t"), name:"New chat", pinned:false, shared:false, ownerId: currentUser.id, ownerName: currentUser.name, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), msgs:[] };
   chats().unshift(t);
@@ -3443,10 +3480,11 @@ function openChatMenu(tid, anchor){
   const t = chats().find(x => x.id === tid); if (!t) return;
   closeChatMenu();
   const canEdit = (t.ownerId === currentUser.id) || isAdmin();
+  const canVis = canChangeChatVisibility(t);   // visibility is OWNER-ONLY, even for admins
   const shared = !!t.shared;
   const m = document.createElement("div"); m.className = "ctx-menu open"; m.setAttribute("role","menu"); m.id = "chatCtxMenu";
   let items = '<button class="ctx-item" role="menuitem" data-cact="rename" data-tid="' + tid + '">' + ico("rename") + 'Rename</button>';
-  if (canEdit) items += '<button class="ctx-item" role="menuitem" data-cact="share" data-tid="' + tid + '">' + ico("share") + (shared ? "Make private to you" : "Share to workspace") + '</button>';
+  if (canVis) items += '<button class="ctx-item" role="menuitem" data-cact="share" data-tid="' + tid + '">' + ico("share") + (shared ? "Make private to you" : "Share to workspace") + '</button>';
   items += '<button class="ctx-item" role="menuitem" data-cact="pin" data-tid="' + tid + '">' + ico("pin") + (t.pinned ? "Unpin" : "Pin") + '</button>';
   if (canEdit) items += '<button class="ctx-item danger" role="menuitem" data-cact="delchat" data-tid="' + tid + '">' + ico("del") + 'Delete</button>';
   m.innerHTML = items;
@@ -3461,7 +3499,13 @@ function chatMenuAction(act, tid){
   const t = chats().find(x => x.id === tid); if (!t) return;
   closeChatMenu();
   if (act === "rename"){ startRename(tid); }
-  else if (act === "share"){ if (t.ownerId !== currentUser.id && !isAdmin()){ toast("Only the chat owner can change this."); return; } t.shared = !t.shared; if (!t.ownerId) t.ownerId = currentUser.id; saveChats(activeBrandId); renderChatList(); toast(t.shared ? "Chat shared to the workspace." : "Chat is private again."); }
+  else if (act === "share"){
+    if (!canChangeChatVisibility(t)){ toast("Only the chat owner can change who can see it."); return; }
+    setChatVisibility(t.id, !t.shared).then(res => {
+      if (!res.ok){ toast(res.reason === "forbidden" ? "Only the chat owner can change who can see it." : "Couldn't change visibility — nothing was lost, please try again."); renderChatList(); return; }
+      renderChatList(); toast(res.shared ? "Chat shared to the workspace." : "Chat is private to you again.");
+    });
+  }
   else if (act === "pin"){ t.pinned = !t.pinned; saveChats(activeBrandId); renderChatList(); }
   else if (act === "delchat"){ if (t.ownerId !== currentUser.id && !isAdmin()){ toast("Only the chat owner can delete this."); return; }
     if (!t._armDel){ t._armDel = true; toast("Tap Delete again to remove “" + (t.name || "chat") + "”."); openChatMenu(tid, document.querySelector('.chat-item[data-tid="' + tid + '"] .c-menu-btn') || document.body); setTimeout(() => { t._armDel = false; }, 3000); return; }
