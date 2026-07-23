@@ -219,6 +219,14 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 .storage-pill{margin-left:auto;font-family:'Exo 2',sans-serif;font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;padding:4px 9px;border-radius:var(--r-full);border:1px solid var(--glass-border-soft)}
 .storage-pill.ok{color:var(--good);border-color:rgba(127,217,154,.3)}
 .storage-pill.no{color:var(--bad);border-color:rgba(255,122,107,.3)}
+/* "More options" disclosure for the lightweight create forms (task / event) */
+.more-opts{margin:8px 0 2px;border-top:1px solid var(--glass-border-soft);padding-top:8px}
+.more-opts>summary{cursor:pointer;list-style:none;font-family:'Exo 2',sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px;padding:6px 0;user-select:none}
+.more-opts>summary::-webkit-details-marker{display:none}
+.more-opts>summary::before{content:"▸";display:inline-block;transition:transform .15s ease;color:var(--text-4)}
+.more-opts[open]>summary::before{transform:rotate(90deg)}
+.more-opts>summary:hover{color:var(--text)}
+.more-opts-body{padding-top:4px}
 .storage-pill{transition:opacity .2s ease,box-shadow .3s ease}
 .storage-pill.syncing{opacity:.5}
 .storage-pill.sync-hit{animation:syncHit .9s ease}
@@ -6536,12 +6544,22 @@ function toggleAssignee(id){
 }
 
 /* ----- task modal ----- */
+let tmMoreOpen = false;
+function taskHasDetail(t){
+  if (!t) return false;
+  return !!(t.description || (t.assignees || []).some(id => id !== (currentUser && currentUser.id)) ||
+    (t.labels || []).length || (t.subtasks || []).length || (t.comments || []).length || (t.attachments || []).length ||
+    t.dueDate || t.startDate || t.projectId || t.linkedChatId || (t.priority && t.priority !== "med") ||
+    (t.status && t.status !== "todo") || (t.visibility && t.visibility !== "private"));
+}
 function openTaskModal(id){
   editingTaskId = id;
   armedDone = null;
+  tmMoreOpen = taskHasDetail(Tasks.get(id));     // expanded only when the task already carries detail; a new task shows Title alone
   document.getElementById("tmTitle").textContent = "Task detail";
   renderTaskModalBody();
   document.getElementById("taskVeil").classList.add("open");
+  const nm = document.getElementById("tmName"); if (nm) nm.focus();
 }
 function syncTaskHeader(){
   const t = Tasks.get(editingTaskId); if (!t) return;
@@ -6562,7 +6580,9 @@ function renderTaskModalBody(){
   const subDone = (t.subtasks || []).filter(s => s.done).length, subTot = (t.subtasks || []).length;
   const proj = t.projectId ? projectById(t.projectId) : null;
   let h = '';
-  h += '<label class="f-label" for="tmName">Title</label><input class="f-input" id="tmName" value="' + esc(t.title) + '">';
+  h += '<label class="f-label" for="tmName">Title</label><input class="f-input" id="tmName" value="' + esc(t.title) + '" placeholder="What needs doing?">';
+  // Only the title is required; everything else is optional and folded behind "More options".
+  h += '<details class="more-opts"' + (tmMoreOpen ? ' open' : '') + '><summary>More options</summary><div class="more-opts-body">';
   h += '<label class="f-label" for="tmDesc">Description</label><textarea class="f-area" id="tmDesc">' + esc(t.description || "") + '</textarea>';
   h += '<div class="tm-grid">';
   h += '<div><label class="f-label" for="tmStatus">Status</label><select class="f-input" id="tmStatus">' + T_STATUS.map(s => opt(s.key, t.status, s.label)).join("") + '</select></div>';
@@ -6606,8 +6626,14 @@ function renderTaskModalBody(){
     '</div><div class="mini-form"><input class="f-input" id="tmCmtInput" placeholder="Write a comment, Enter"></div>';
 
   h += '<div class="tm-meta-line">Created by ' + esc(t.createdByName || "—") + ' · ' + esc(fmtTime(t.createdAt)) + '</div>';
+  h += '</div></details>';
   body.innerHTML = h;
 
+  const det = body.querySelector(".more-opts");
+  if (det) det.addEventListener("toggle", () => { tmMoreOpen = det.open; });
+  // Enter in the title submits the (title-only) task.
+  const nameEl = document.getElementById("tmName");
+  if (nameEl) nameEl.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); saveTaskModal(); } });
   const bindEnter = (inpId, fn) => { const el = document.getElementById(inpId); if (el) el.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); fn(el.value); el.value = ""; } }); };
   bindEnter("tmLabelInput", v => addTaskLabel(v));
   bindEnter("tmSubInput", v => addSubtask(v));
@@ -6968,17 +6994,27 @@ function renderAgenda(){
 }
 
 /* ----- event modal ----- */
-function blankEvent(dateISO){ return { title:"", description:"", location:"", startDate:dateISO, endDate:dateISO, allDay:true, startTime:"09:00", endTime:"10:00", attendees:[], color:"#8E959F", taskId:null, projectId:null, recur:null, reminder:0, visibility:"team" }; }
+function blankEvent(dateISO){ return { title:"", description:"", location:"", startDate:dateISO, endDate:dateISO, allDay:false, startTime:"09:00", endTime:"10:00", attendees:[], color:"#8E959F", taskId:null, projectId:null, recur:null, reminder:0, visibility:"team" }; }
+let evMoreOpen = false;
+function eventHasDetail(ev, editing){
+  if (editing) return true;
+  return !!(ev.location || ev.description || (ev.attendees || []).length || ev.meetingLink ||
+    (ev.recur && ev.recur.freq && ev.recur.freq !== "none") || ev.taskId || ev.projectId || ev.reminder ||
+    (ev.endDate && ev.endDate !== ev.startDate) || (ev.color && ev.color !== "#8E959F") ||
+    (ev.visibility && ev.visibility !== "team"));
+}
 function openEventModal(id, prefill){
   const ev = id ? Events.get(id) : null;
   editingEventId = id && ev ? id : null;
   evDraft = ev ? JSON.parse(JSON.stringify(ev)) : blankEvent(prefill || todayISO());
+  evMoreOpen = eventHasDetail(evDraft, !!editingEventId);   // new events show title/date/time only
   document.getElementById("evTitle").textContent = ev ? "Edit event" : "New event";
   document.getElementById("evDelete").style.display = ev ? "block" : "none";
   document.getElementById("evDelete").dataset.armed = "";
   document.getElementById("evDelete").textContent = "Delete";
   renderEventModal();
   document.getElementById("eventVeil").classList.add("open");
+  const nm = document.getElementById("evName"); if (nm) nm.focus();
 }
 function syncEventHeader(){
   if (!evDraft) return;
@@ -7003,12 +7039,14 @@ function renderEventModal(){
   const body = document.getElementById("evBody");
   const opt = (v, cur, l) => '<option value="' + v + '"' + (v === cur ? " selected" : "") + '>' + l + '</option>';
   let h = '';
-  h += '<label class="f-label" for="evName">Title</label><input class="f-input" id="evName" value="' + esc(ev.title) + '">';
+  // Essentials only: title, date, and (for a timed event) the start time. Everything else is optional.
+  h += '<label class="f-label" for="evName">Title</label><input class="f-input" id="evName" value="' + esc(ev.title) + '" placeholder="What\'s the event?">';
   h += '<div class="ev-allday"><button type="button" class="toggle ' + (ev.allDay ? "on" : "") + '" data-wact="evAllDay" aria-label="All day"></button><span class="set-title">All-day event</span></div>';
-  h += '<div class="tm-grid"><div><label class="f-label" for="evStart">Start date</label><input class="f-input" id="evStart" type="date" value="' + esc(ev.startDate || "") + '"></div>' +
-    '<div><label class="f-label" for="evEnd">End date</label><input class="f-input" id="evEnd" type="date" value="' + esc(ev.endDate || ev.startDate || "") + '"></div></div>';
-  if (!ev.allDay) h += '<div class="tm-grid"><div><label class="f-label" for="evStartT">Start time</label><input class="f-input" id="evStartT" type="time" value="' + esc(ev.startTime || "09:00") + '"></div>' +
-    '<div><label class="f-label" for="evEndT">End time</label><input class="f-input" id="evEndT" type="time" value="' + esc(ev.endTime || "10:00") + '"></div></div>';
+  h += '<div class="tm-grid"><div><label class="f-label" for="evStart">Date</label><input class="f-input" id="evStart" type="date" value="' + esc(ev.startDate || "") + '"></div>' +
+    (ev.allDay ? '<div></div>' : '<div><label class="f-label" for="evStartT">Start time</label><input class="f-input" id="evStartT" type="time" value="' + esc(ev.startTime || "09:00") + '"></div>') + '</div>';
+  h += '<details class="more-opts"' + (evMoreOpen ? ' open' : '') + '><summary>More options</summary><div class="more-opts-body">';
+  h += '<div class="tm-grid"><div><label class="f-label" for="evEnd">End date</label><input class="f-input" id="evEnd" type="date" value="' + esc(ev.endDate || ev.startDate || "") + '"></div>' +
+    (ev.allDay ? '<div></div>' : '<div><label class="f-label" for="evEndT">End time</label><input class="f-input" id="evEndT" type="time" value="' + esc(ev.endTime || "10:00") + '"></div>') + '</div>';
   h += '<label class="f-label" for="evLoc">Location</label><input class="f-input" id="evLoc" value="' + esc(ev.location || "") + '">';
   h += '<label class="f-label" for="evMeet">Meeting link (Zoom, Meet, Teams…)</label><input class="f-input" id="evMeet" placeholder="https://…" value="' + esc(ev.meetingLink || "") + '">';
   if (ev.meetingLink) h += '<div style="margin-top:8px"><a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener">▶ Join meeting</a></div>';
@@ -7025,7 +7063,13 @@ function renderEventModal(){
   h += '<label class="f-label" for="evRemind">Reminder (display only)</label><select class="f-input" id="evRemind">' +
     opt("0", String(ev.reminder || 0), "None") + opt("10", String(ev.reminder || 0), "10 minutes before") + opt("60", String(ev.reminder || 0), "1 hour before") + opt("1440", String(ev.reminder || 0), "1 day before") + '</select>';
   h += '<div class="ev-export"><button data-wact="evGoogle">↗ Add to Google Calendar</button><button data-wact="evIcs">⤓ Export this .ics</button></div>';
+  h += '</div></details>';
   body.innerHTML = h;
+  const det = body.querySelector(".more-opts");
+  if (det) det.addEventListener("toggle", () => { evMoreOpen = det.open; });
+  // Enter in the title submits the event (title + date + start time are enough).
+  const nameEl = document.getElementById("evName");
+  if (nameEl) nameEl.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); saveEventModal(); } });
   const cp = document.getElementById("evColorPick"), ct = document.getElementById("evColor");
   if (cp && ct){
     cp.addEventListener("input", () => { ct.value = cp.value.toUpperCase(); evDraft.color = ct.value; });
