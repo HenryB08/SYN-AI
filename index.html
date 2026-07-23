@@ -692,8 +692,10 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 .cal-avs .cal-av:first-child{margin-left:0}
 .cal-av-more{font-family:'Exo 2',sans-serif;font-size:7.5px;color:var(--muted);margin-left:2px;align-self:center}
 /* ---- Day view ---- */
-.cal-day{display:flex;flex-direction:column;gap:8px}
-.cal-day-allday{display:flex;gap:10px;align-items:flex-start;padding:6px 4px;border-bottom:1px solid var(--glass-border-soft)}
+.cal-day{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:0 26px 22px}
+.cal-day-allday{display:flex;gap:10px;align-items:flex-start;padding:6px 4px;border-bottom:1px solid var(--glass-border-soft);flex:none}
+/* the 24-hour timeline is its own scroll area so every hour is reachable; it auto-scrolls to morning */
+.cal-day-grid{flex:1;min-height:0;overflow-y:auto;position:relative}
 .cd-lbl{font-family:'Exo 2',sans-serif;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);width:80px;min-width:80px;padding-top:4px}
 .cd-band{display:flex;flex-wrap:wrap;gap:5px;flex:1}
 .cal-day-grid{display:flex;flex-direction:column}
@@ -6805,10 +6807,19 @@ function calItemsByDay(startStr, endStr){
   Object.keys(map).forEach(k => map[k].sort((a,b) => sortKey(a).localeCompare(sortKey(b))));
   return map;
 }
+/* 12-hour clock display for every user-facing time. Storage stays 24-hour "HH:MM". */
+function fmtT12(hhmm){
+  if (!hhmm || !/^\d{1,2}:\d{2}$/.test(hhmm)) return hhmm || "";
+  let [h, m] = hhmm.split(":").map(Number);
+  const ap = h < 12 ? "AM" : "PM";
+  h = (h % 12) || 12;
+  return h + ":" + String(m).padStart(2, "0") + " " + ap;
+}
+function fmtHour12(hr){ const ap = hr < 12 ? "AM" : "PM"; const h = (hr % 12) || 12; return h + " " + ap; }
 function calChipHtml(item){
   if (item.kind === "task"){ const t = item.task; return '<button class="cal-ev task" data-wact="openTaskCal" data-tid="' + t.id + '" title="Task due: ' + esc(t.title) + '"><span class="ce-t">✓ ' + esc(t.title || "Task") + '</span>' + calAvatars(t.assignees, 2) + '</button>'; }
   const ev = item.ev;
-  const tm = (!ev.allDay && item.isStart && ev.startTime) ? ev.startTime + " " : "";
+  const tm = (!ev.allDay && item.isStart && ev.startTime) ? fmtT12(ev.startTime) + " " : "";
   return '<button class="cal-ev' + (item.isStart ? "" : " cont") + '" style="--ec:' + esc(ev.color || "#8E959F") + ';--ec-soft:' + hexToSoft(ev.color || "#8E959F") + '" data-wact="openEvent" data-eid="' + ev.id + '" title="' + esc(ev.title) + '"><span class="ce-t">' + (item.isStart ? esc(tm) : "↳ ") + esc(ev.title || "Event") + '</span>' + (item.isStart ? calAvatars(ev.attendees, 2) : "") + '</button>';
 }
 
@@ -6821,7 +6832,7 @@ function calAvatars(ids, max){
 }
 function dayItemHtml(item){
   if (item.kind === "task"){ const t = item.task; return '<button class="cal-ev task" data-wact="openTaskCal" data-tid="' + t.id + '" title="Task due: ' + esc(t.title) + '"><span class="ce-t">✓ ' + esc(t.title || "Task") + '</span>' + calAvatars(t.assignees, 3) + '</button>'; }
-  const ev = item.ev; const tm = (!ev.allDay && ev.startTime) ? ev.startTime + " " : "";
+  const ev = item.ev; const tm = (!ev.allDay && ev.startTime) ? fmtT12(ev.startTime) + " " : "";
   return '<button class="cal-ev" style="--ec:' + esc(ev.color || "#8E959F") + ';--ec-soft:' + hexToSoft(ev.color || "#8E959F") + '" data-wact="openEvent" data-eid="' + ev.id + '" title="' + esc(ev.title) + '"><span class="ce-t">' + esc(tm) + esc(ev.title || "Event") + '</span>' + calAvatars(ev.attendees, 3) + (ev.meetingLink ? '<a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Join</a>' : "") + '</button>';
 }
 // Day view: hour-by-hour timeline with events at their times, plus an all-day / due band.
@@ -6833,11 +6844,14 @@ function renderDay(){
   const byHour = {};
   timed.forEach(it => { const hr = parseInt((it.ev.startTime || "09:00").split(":")[0], 10) || 0; (byHour[hr] = byHour[hr] || []).push(it); });
   const nowHr = (iso === todayISO()) ? new Date().getHours() : -1;
+  // Default scroll target: 7 AM, or the first event of the day if it starts earlier — all 24h stay reachable.
+  const evHours = timed.map(it => parseInt((it.ev.startTime || "09:00").split(":")[0], 10));
+  const scrollHr = Math.max(0, Math.min(7, evHours.length ? Math.min(...evHours) : 7));
   let h = '<div class="cal-day"><div class="cal-day-allday"><div class="cd-lbl">All day &amp; due</div><div class="cd-band">' +
-    (band.length ? band.map(dayItemHtml).join("") : '<span class="cal-daycol-empty">Nothing all-day or due</span>') + '</div></div><div class="cal-day-grid">';
+    (band.length ? band.map(dayItemHtml).join("") : '<span class="cal-daycol-empty">Nothing all-day or due</span>') + '</div></div><div class="cal-day-grid" data-scroll-hr="' + scrollHr + '">';
   for (let hr = 0; hr < 24; hr++){
-    const label = String(hr).padStart(2, "0") + ":00";
-    h += '<div class="cd-hour' + (hr === nowHr ? " now" : "") + '" data-wact="calSlot" data-d="' + iso + '" data-t="' + label + '"><div class="cd-time">' + label + '</div><div class="cd-slot">' + (byHour[hr] || []).map(dayItemHtml).join("") + '</div></div>';
+    const slot = String(hr).padStart(2, "0") + ":00";     // 24h value kept for slot creation
+    h += '<div class="cd-hour' + (hr === nowHr ? " now" : "") + '" data-wact="calSlot" data-d="' + iso + '" data-t="' + slot + '"><div class="cd-time">' + fmtHour12(hr) + '</div><div class="cd-slot">' + (byHour[hr] || []).map(dayItemHtml).join("") + '</div></div>';
   }
   return h + '</div></div>';
 }
@@ -6858,6 +6872,15 @@ function renderCalendar(){
     '<button class="head-btn ghost" data-wact="exportAllIcs" style="padding:8px 15px">⤓ Export .ics</button>' +
     '<button class="head-btn" data-wact="newEvent" style="padding:8px 17px">+ New Event</button></div></div>';
   wrap.innerHTML = bar + body;
+  // Day view: scroll the 24-hour grid to the morning (or first event) so early hours aren't stranded off-screen.
+  if (calView === "day"){
+    const grid = wrap.querySelector(".cal-day-grid");
+    if (grid){
+      const hr = parseInt(grid.dataset.scrollHr || "7", 10);
+      const row = grid.children[hr];
+      if (row) grid.scrollTop = row.offsetTop;
+    }
+  }
 }
 function renderMonth(){
   const start = monthGridStart(calCursor);
@@ -6897,7 +6920,7 @@ function renderAgenda(){
     h += '<div class="cal-ag-day"><div class="cal-ag-head">' + d.toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" }) + (iso === todayISO() ? " · Today" : "") + '</div>';
     map[iso].forEach(item => {
       if (item.kind === "task"){ const t = item.task; h += '<div class="cal-ag-row task" data-wact="openTaskCal" data-tid="' + t.id + '"><span class="ag-dot" style="background:var(--muted)"></span><span class="ag-time">Task</span><span class="ag-title">' + esc(t.title || "Task") + '</span></div>'; }
-      else { const ev = item.ev; h += '<div class="cal-ag-row" data-wact="openEvent" data-eid="' + ev.id + '"><span class="ag-dot" style="background:' + esc(ev.color) + '"></span><span class="ag-time">' + (ev.allDay ? "All day" : esc(ev.startTime || "")) + '</span><span class="ag-title">' + esc(ev.title || "Event") + (item.isStart ? "" : " (cont.)") + '</span>' + (ev.meetingLink ? '<a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="margin-left:auto">Join</a>' : "") + '</div>'; }
+      else { const ev = item.ev; h += '<div class="cal-ag-row" data-wact="openEvent" data-eid="' + ev.id + '"><span class="ag-dot" style="background:' + esc(ev.color) + '"></span><span class="ag-time">' + (ev.allDay ? "All day" : esc(fmtT12(ev.startTime))) + '</span><span class="ag-title">' + esc(ev.title || "Event") + (item.isStart ? "" : " (cont.)") + '</span>' + (ev.meetingLink ? '<a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="margin-left:auto">Join</a>' : "") + '</div>'; }
     });
     h += '</div>';
   });
@@ -6979,7 +7002,7 @@ function saveEventModal(){
   const wasNew = !editingEventId;
   const saved = editingEventId ? Events.update(editingEventId, evDraft) : Events.create(evDraft);
   (saved.attendees || []).forEach(uid2 => { if (uid2 !== currentUser.id && !prevAtt.includes(uid2)) notify(uid2, "event", currentUser.name + " invited you: " + saved.title + " (" + fmtDay(saved.startDate) + ")", { view:"calendar", eventId:saved.id }); });
-  if (wasNew) fireIntegrations("event", currentUser.name + " scheduled “" + saved.title + "” on " + fmtDay(saved.startDate) + (saved.allDay ? "" : " at " + (saved.startTime || "")) + (saved.meetingLink ? " · " + saved.meetingLink : ""));
+  if (wasNew) fireIntegrations("event", currentUser.name + " scheduled “" + saved.title + "” on " + fmtDay(saved.startDate) + (saved.allDay ? "" : " at " + fmtT12(saved.startTime)) + (saved.meetingLink ? " · " + saved.meetingLink : ""));
   logActivity("event", currentUser.name + (editingEventId ? " updated " : " scheduled ") + "“" + saved.title + "”", "event", saved.id);
   document.getElementById("eventVeil").classList.remove("open");
   if (viewIs("calendar")) renderCalendar();
@@ -7244,7 +7267,7 @@ function renderMyDay(){
   h += '<div class="spec-block md-card"><div class="sb-head">Upcoming events <span style="color:var(--faint)">' + events.length + '</span></div><div class="sb-body">';
   if (!events.length) h += '<div class="md-empty-row">No events in the next 7 days.</div>';
   else events.slice(0, 8).forEach(x => { const ev = x.ev;
-    h += '<div class="md-row" data-wact="mdEvent" data-eid="' + ev.id + '"><span class="r-dot" style="--rd:' + esc(ev.color) + '"></span><div class="r-main"><div class="r-title">' + esc(ev.title || "Event") + '</div><div class="r-sub">' + (x.iso === todayISO() ? "Today" : dparse(x.iso).toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" })) + (ev.allDay ? " · All day" : " · " + esc(ev.startTime || "")) + '</div></div>' + (ev.meetingLink ? '<a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Join</a>' : "") + '</div>';
+    h += '<div class="md-row" data-wact="mdEvent" data-eid="' + ev.id + '"><span class="r-dot" style="--rd:' + esc(ev.color) + '"></span><div class="r-main"><div class="r-title">' + esc(ev.title || "Event") + '</div><div class="r-sub">' + (x.iso === todayISO() ? "Today" : dparse(x.iso).toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" })) + (ev.allDay ? " · All day" : " · " + esc(fmtT12(ev.startTime))) + '</div></div>' + (ev.meetingLink ? '<a class="ev-join" href="' + esc(ev.meetingLink) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Join</a>' : "") + '</div>';
   });
   h += '</div></div>';
 
