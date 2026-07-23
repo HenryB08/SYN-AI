@@ -15,7 +15,7 @@
 <meta property="og:image" content="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png">
 <link rel="icon" href="https://mcusercontent.com/d9f0645acdcd85eb1ee1a8067/images/3d78fc3a-7b5f-d65d-afdf-494ef58e2a4f.png">
 <script>/* defined early so image onerror handlers never fire before it exists */
-function logoFail(img){ const p = img && img.parentElement; if (p) p.innerHTML = '<span style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:22px;color:#8E959F">S</span>'; }
+function logoFail(img){ const p = img && img.parentElement; if (p) p.innerHTML = '<span style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:22px;color:#9A9A9E">S</span>'; }
 /* Fixed brand lockup: white Syntrex aperture ring on a dark-gray tile, identical in both themes.
    Self-contained inline SVG (no remote fetch, no theme variant). synMark(px) returns the markup. */
 function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' + (cls||"") + '" style="width:' + size + 'px;height:' + size + 'px" aria-hidden="true">' +
@@ -55,8 +55,8 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
   --btn-ink:#050608;
   --btn-hover:#FFFFFF;
   --btn-active:#C9CDD6;
-  --amber:#E8B44C;
-  --amber-soft:rgba(232,180,76,.14);
+  --amber:#E2E2E2;                   /* escalation emphasis — monochrome now; the red --bad marks overdue, labels carry the rest */
+  --amber-soft:rgba(255,255,255,.12);
   --good:#7FD99A;
   --bad:#FF7A6B;
   --info:#9AA3B2;
@@ -117,8 +117,8 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
   --btn-ink:#FFFFFF;
   --btn-hover:#000000;
   --btn-active:#2E2E2E;
-  --amber:#8A6414;                   /* escalation amber darkened for AA as text on light */
-  --amber-soft:rgba(138,100,20,.14);
+  --amber:#131313;                   /* escalation emphasis — monochrome on light */
+  --amber-soft:rgba(17,17,17,.10);
   --good:#237A3A;
   --bad:#C0392B;
   --info:#4A5560;
@@ -130,7 +130,7 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
 body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow:hidden}
-::selection{background:var(--gold);color:#fff}
+::selection{background:rgba(128,132,140,.4)}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
 button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
 
@@ -1194,8 +1194,8 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 .esc-chip .esc-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
 .esc-chip .esc-bang{width:14px;height:14px;border-radius:50%;background:currentColor;color:var(--surface-1);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0}
 .esc-upcoming{color:var(--text-2);background:var(--surface-2,rgba(255,255,255,.05));border-color:var(--hairline)}
-.esc-today{color:var(--amber);background:var(--amber-soft);border-color:rgba(232,180,76,.4)}
-.esc-warm{color:var(--amber);background:rgba(232,180,76,.2);border-color:rgba(232,180,76,.6)}
+.esc-today{color:var(--amber);background:var(--amber-soft);border-color:rgba(255,255,255,.4)}
+.esc-warm{color:var(--amber);background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.6)}
 .esc-red{color:var(--bad);background:rgba(192,57,43,.12);border-color:rgba(192,57,43,.4)}
 .esc-critical{color:var(--bad);background:rgba(192,57,43,.2);border-color:rgba(192,57,43,.65);font-weight:800}
 :root[data-theme="dark"] .esc-red,:root[data-theme="dark"] .esc-critical{background:rgba(255,122,107,.14);border-color:rgba(255,122,107,.45)}
@@ -1295,7 +1295,7 @@ input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
 .roll-table td.cap-hit{color:var(--amber);font-weight:700}
 .usage-banner{display:flex;gap:12px;align-items:flex-start;padding:13px 16px;border-radius:var(--r-md);margin-bottom:16px;font-size:12.5px;line-height:1.5}
 .usage-banner .ub-ico{width:20px;height:20px;min-width:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
-.usage-banner.warn{background:var(--amber-soft);border:1px solid rgba(232,180,76,.4);color:var(--text)}
+.usage-banner.warn{background:var(--amber-soft);border:1px solid rgba(255,255,255,.4);color:var(--text)}
 .usage-banner.warn .ub-ico{background:var(--amber);color:var(--gold-ink)}
 .usage-banner.over{background:rgba(192,57,43,.12);border:1px solid rgba(192,57,43,.45);color:var(--text)}
 :root[data-theme="dark"] .usage-banner.over{background:rgba(255,122,107,.14)}
@@ -1509,7 +1509,9 @@ button,.chat-item,.md-row,.ops-row,.search-item,.team-row,.notif-item,.asset-row
 #site .cf-field label{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-4)}
 #site .cf-field input,#site .cf-field textarea{background:transparent;border:1px solid var(--hairline);border-radius:var(--r-input);padding:11px 13px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
 #site .cf-field textarea{min-height:120px;resize:vertical}
-#site .cf-field input:focus,#site .cf-field textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--accent-soft)}
+#site .cf-field input:focus,#site .cf-field textarea:focus{border-color:rgba(255,255,255,.55);box-shadow:0 0 0 3px rgba(255,255,255,.10)}
+/* marketing focus rings: white at low opacity, 2px, over a brighter border */
+#site button:focus-visible,#site a:focus-visible,#site input:focus-visible,#site textarea:focus-visible,#site select:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:2px}
 #site .cf-field input::placeholder,#site .cf-field textarea::placeholder{color:var(--text-4)}
 #site .cf-submit{align-self:flex-start;background:var(--btn);color:var(--btn-ink);border:none;border-radius:var(--r-btn);padding:12px 26px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s var(--ease)}
 #site .cf-submit:hover{background:var(--btn-hover)}
@@ -1610,7 +1612,7 @@ button,.chat-item,.md-row,.ops-row,.search-item,.team-row,.notif-item,.asset-row
   left:max(24px,calc((100% - 1160px)/2 - 8px));transform:translateX(-100%);padding-right:16px;
   pointer-events:none;white-space:nowrap}
 #site .site-hero::before{top:122px}
-#site .iso-band::before{top:80px;color:rgba(203,168,94,.92)}
+#site .iso-band::before{top:80px;color:rgba(255,255,255,.55)}
 @media(max-width:1340px){
   #site .site-hero::before,#site .site-sec::before,#site .iso-band::before{
     position:static;transform:none;display:block;top:auto;left:auto;padding:0 32px 8px;margin:0}
@@ -1879,18 +1881,18 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
   --text-4:#7E7E83;                      /* dim — nudged from #6E6E73 so it clears AA as text */
   --muted:#A1A1A6;
   --faint:#7E7E83;
-  --gold:#CBA85E;                        /* gold — ACCENT ONLY (hairlines, mono labels, focus, one numeral) */
-  --gold-hover:#D8B970;
-  --gold-active:#BE9A4E;
+  --gold:#A1A1A6;                        /* monochrome — no chromatic accent; gray for eyebrows/labels/section numbers */
+  --gold-hover:#FFFFFF;                  /* links/labels brighten to white on hover */
+  --gold-active:#C9CDD6;
   --gold-ink:#08080A;
   --btn:#FFFFFF;                         /* primary CTA: white fill */
   --btn-ink:#0A0A0C;                     /* near-black ink on white */
   --btn-hover:#EDEDED;
   --btn-active:#DADADA;
-  --accent-soft:rgba(203,168,94,.10);
-  --good:#4ADE80;
-  --bad:#F87171;
-  --amber:#CBA85E;
+  --accent-soft:rgba(255,255,255,.08);
+  --good:#E4E4E7;                        /* marketing has zero color — confirmation checks read white, not green */
+  --bad:#E4E4E7;
+  --amber:#A1A1A6;
   color-scheme:dark;
   background:var(--bg);
   color:var(--text);
@@ -1908,7 +1910,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
   animation:sa-drift 72s linear infinite;
 }
 #site .sa-bloom{
-  background:radial-gradient(38% 42% at 50% 42%,rgba(203,168,94,.055),rgba(203,168,94,0) 70%);
+  background:radial-gradient(38% 42% at 50% 42%,rgba(255,255,255,.03),rgba(255,255,255,0) 70%);
   animation:sa-bloom 96s ease-in-out infinite;
 }
 #site .sa-grain{
@@ -1930,10 +1932,10 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
 #site .site-btn.ghost:hover{background:rgba(255,255,255,.05);color:var(--text);border-color:var(--hairline-strong)}
 #site .site-btn.gold{background:var(--btn);color:var(--btn-ink)}   /* primary CTA: white fill + near-black ink */
 #site .site-btn.gold:hover{background:var(--btn-hover)}
-#site .pillar-ico{background:rgba(203,168,94,.08);border-color:rgba(203,168,94,.24);color:var(--gold)}
+#site .pillar-ico{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:var(--gold)}
 #site .cmp-col.syn{background:var(--surface-1)}
 #site .cmp-col.syn::before{box-shadow:0 0 0 1px var(--hairline-strong)}
-#site .sec-eyebrow span.line{background:rgba(203,168,94,.45)}
+#site .sec-eyebrow span.line{background:rgba(255,255,255,.30)}
 #site .site-cta-band{background:var(--surface-1);border-color:var(--hairline)}
 #site .proof-line{background:rgba(255,255,255,.05)}
 #site .proof-who{background:rgba(255,255,255,.04)}
@@ -2868,7 +2870,7 @@ function defaultBrands(){
     { id:"karlo", name:"Karlo Financial", industry:"Financial Services · Regulated", accent:"#5FD4B0",
       voice:"Calm, precise, trustworthy. Plain-English explanations of complex things. Warm but never casual. Confidence through clarity, not promises.",
       audience:"Families and business owners planning long-term finances who value a steady, personal advisor relationship.",
-      palette:[{hex:"#3E7C6F",name:"Ledger Green"},{hex:"#0E1B18",name:"Vault"},{hex:"#D9CDB8",name:"Parchment"},{hex:"#C9A26B",name:"Gilt"}],
+      palette:[{hex:"#3E7C6F",name:"Ledger Green"},{hex:"#0E1B18",name:"Vault"},{hex:"#D9CDB8",name:"Parchment"},{hex:"#9AA3B2",name:"Slate"}],
       products:["Financial planning & advisory services","Retirement and long-term strategy engagements"],
       approvedClaims:["Personalized financial guidance","Long-term planning focus"],
       bannedClaims:["guaranteed returns","risk-free","beat the market","double your money","can't lose"],
@@ -6252,7 +6254,7 @@ function viewIs(v){ const el = document.getElementById("view-" + v); return el &
    ===================================================================== */
 const T_STATUS = [
   { key:"todo",       label:"To Do",       dot:"#8B93A7" },
-  { key:"inprogress", label:"In Progress", dot:"#C9A26B" },
+  { key:"inprogress", label:"In Progress", dot:"#C9CDD6" },
   { key:"review",     label:"Review",      dot:"#8E959F" },
   { key:"done",       label:"Done",        dot:"#7FD99A" }
 ];
@@ -6825,7 +6827,7 @@ let calView = "month";                                  // month | week | agenda
 let calCursor = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
 let evDraft = null, editingEventId = null;
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const EV_COLORS = ["#8E959F","#5FD4B0","#A78BFF","#C9A26B","#FF7A6B","#EE9A5B","#7FD99A"];
+const EV_COLORS = ["#8E959F","#5FD4B0","#A78BFF","#B8BCC4","#FF7A6B","#EE9A5B","#7FD99A"];
 
 function dparse(s){ return new Date(s + "T00:00:00"); }
 function fmtISO(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
