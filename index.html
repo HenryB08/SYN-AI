@@ -1507,6 +1507,11 @@ button,.chat-item,.md-row,.ops-row,.search-item,.team-row,.notif-item,.asset-row
 .sh-title .grad{color:var(--gold);-webkit-text-fill-color:var(--gold);background:none;-webkit-background-clip:border-box}
 .sh-sub{max-width:58ch;color:var(--text-2)}
 .sh-cta,.sh-points{justify-content:flex-start}
+/* hero copy column: one container governs the shared left edge — eyebrow, headline,
+   sub, CTAs, and chips all start on the same line, no per-element auto-centering */
+.sh-copy{display:flex;flex-direction:column;align-items:flex-start}
+.sh-copy .sh-sub{max-width:58ch;margin:0 0 32px}   /* drops the stale margin:0 auto from the old centered hero */
+.sh-copy .sh-cta,.sh-copy .sh-points{align-self:stretch}
 /* small uppercase mono labels above each section, with section numbers */
 .sec-eyebrow,.sec-eyebrow.c{font-family:'Exo 2',sans-serif;font-size:var(--micro-size);letter-spacing:var(--micro-ls);text-transform:uppercase;color:var(--text-4);display:flex;align-items:center;gap:10px;justify-content:flex-start}
 .sec-eyebrow .line{display:none}
@@ -1993,6 +1998,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
         </div>
       </a>
       <section class="site-hero" style="--sn:'00'"><div class="site-wrap">
+        <div class="sh-copy">
         <div class="sh-badge"><span class="d"></span>Syntrex · Brand Intelligence Platform</div>
         <div class="sh-eyebrow">One brain · every surface</div>
         <h1 class="sh-title">The AI workspace that <span class="grad">already knows your brand.</span></h1>
@@ -2006,6 +2012,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
           <span class="sh-point"><span class="c"><svg class="ic s" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12.3l2.2 2.2L15.4 9.7"/></svg></span>Compliance-safe</span>
           <span class="sh-point"><span class="c"><svg class="ic s" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12.3l2.2 2.2L15.4 9.7"/></svg></span>Full team OS</span>
           <span class="sh-point"><span class="c"><svg class="ic s" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12.3l2.2 2.2L15.4 9.7"/></svg></span>One brain, every surface</span>
+        </div>
         </div>
         <div class="hero-preview rv" aria-label="SYN task board"><div class="hp-bar" aria-hidden="true"><i></i><i></i><i></i><span>app.syntrexio.com/tasks</span></div><img src="img/shot-tasks.webp" alt="The SYN task board" width="1240" height="1031" loading="lazy" decoding="async"></div>
       </div></section>
