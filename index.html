@@ -1720,9 +1720,32 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
 
 /* 3. scroll choreography */
 .sh-eyebrow .sec-num{margin-right:12px}
-.rv{opacity:0;transform:translateY(16px);transition:opacity .55s var(--ease-reveal),transform .6s var(--ease-reveal);transition-delay:var(--rvd,0ms)}
-.rv.in{opacity:1;transform:none}
-@media(prefers-reduced-motion:reduce){.rv{opacity:1!important;transform:none!important;transition:none!important}.hero-preview img{transform:none!important}}
+.rv{opacity:0;transform:translateY(12px);filter:blur(4px);transition:opacity .25s var(--ease-reveal),transform .25s var(--ease-reveal),filter .25s var(--ease-reveal);transition-delay:var(--rvd,0ms)}
+.rv.in{opacity:1;transform:none;filter:none}
+@media(prefers-reduced-motion:reduce){.rv{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}.hero-preview img{transform:none!important}}
+
+/* ===================== DARK PRO Phase 6 — motion system ===================== */
+#site{--ease:var(--ease-reveal)}
+/* Hover: 150ms; buttons shift border/bg only (no scale/translate on anything larger than an icon). */
+#site .site-btn{transition:background .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
+#site .site-btn:hover,#site .site-btn.gold:hover,#site .site-btn.ghost:hover,#site .site-btn:active{transform:none!important}
+#site .site-btn.gold:hover{background:var(--btn-hover)}
+#site .site-btn.ghost:hover{background:rgba(255,255,255,.06);border-color:var(--hairline-strong)}
+#site .cmp-col:hover{transform:translateZ(0)!important}
+#site .site-foot .fcol a:hover{transform:none}
+/* Links: underline wipes in from the left (already anchored left:0 / right:100%). */
+#site .site-links a::after{transition:right .15s var(--ease)}
+/* Headline reveal via clip-path (line-style wipe, never per-letter), staggered after the eyebrow. */
+#site .sh-title.rv,#site .sec-title.rv,#site .iso-title.rv,#site .site-cta-band h2.rv{
+  clip-path:inset(100% 0 -2px 0);
+  transition:clip-path .5s var(--ease),transform .5s var(--ease),opacity .3s var(--ease),filter .3s var(--ease)}
+#site .sh-title.rv.in,#site .sec-title.rv.in,#site .iso-title.rv.in,#site .site-cta-band h2.rv.in{clip-path:inset(0 0 -2px 0)}
+@media(prefers-reduced-motion:reduce){
+  #site .sh-title.rv,#site .sec-title.rv,#site .iso-title.rv,#site .site-cta-band h2.rv{clip-path:none!important}}
+/* Nav: transparent until scrolled, then a hairline bottom border + slight background. */
+#site .site-nav{background:transparent;border-bottom-color:transparent;
+  transition:background .25s var(--ease),border-color .25s var(--ease)}
+#site .site-nav.scrolled{background:rgba(8,8,10,.72);border-bottom-color:var(--hairline)}
 
 /* 4. flagship sections */
 /* WHAT SYN DOES — Linear-style illustration band. Intentionally a FIXED near-black band on the
@@ -1850,7 +1873,7 @@ body.no-motion .modal,body.no-motion .tcard,body.no-motion .btn-gold{animation:n
   100%{transform:translate3d(-6%,-3%,0)}
 }
 /* nav / chrome — dark hairline structure */
-#site .site-nav{background:rgba(8,8,10,.72);border-bottom-color:var(--hairline)}
+/* nav background/border is applied only after scroll — see Phase 6 (.site-nav.scrolled) */
 #site .grad,#site .sh-title .grad,#site .grad-text{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--text);-webkit-text-fill-color:currentColor}
 #site .sh-badge,#site .sh-point{background:var(--surface-2);border-color:var(--hairline)}
 #site .site-btn.ghost{background:transparent;border-color:var(--hairline-strong);color:var(--text-2)}
@@ -2871,7 +2894,17 @@ function showSite(){ document.getElementById("site").classList.add("on"); docume
    Presentation only; every path respects prefers-reduced-motion. No libraries. */
 let _revObs = null, _fxState = null;
 function reduceMotion(){ return window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches; }
+function initNavScroll(){
+  const site = document.getElementById("site");
+  const nav = site && site.querySelector(".site-nav");
+  if (!site || !nav || site.dataset.navWired) return;
+  site.dataset.navWired = "1";
+  const on = () => nav.classList.toggle("scrolled", site.scrollTop > 8);
+  site.addEventListener("scroll", on, { passive: true });
+  on();
+}
 function initSiteMotion(){
+  initNavScroll();
   const reduce = reduceMotion();
   const secs = document.querySelectorAll("#site .site-hero, #site .site-sec, #site .lum-banner, #site .iso-band");
   if (!_revObs && !reduce && "IntersectionObserver" in window){
@@ -2905,7 +2938,7 @@ function initSiteMotion(){
     let d = 0;
     groups.forEach((g, gi) => g.forEach(el => {
       el.classList.add("rv"); el.style.setProperty("--rvd", Math.min(d, 620) + "ms");
-      d += gi < 3 ? 60 : 75;
+      d += gi < 3 ? 50 : 55;
     }));
     sec.querySelectorAll(".st-rate").forEach(el => el.classList.add("count-up"));
     if (reduce || !_revObs){ sec.querySelectorAll(".rv, .img-rise").forEach(el => el.classList.add("in")); return; }
