@@ -9,7 +9,8 @@ let ok=0, fail=0; const check=(n,c)=>{ (c?ok++:fail++); if(!c) console.log('FAIL
 let ctx = await b.newContext({viewport:{width:1440,height:1000},colorScheme:'dark'});
 let p = await ctx.newPage();
 await p.goto('file:///home/user/SYN-AI/index.html'); await p.waitForSelector('#site.on'); await p.waitForTimeout(900);
-check('hero canvas running', await p.evaluate(()=>{ const c=document.getElementById('heroFx'); return c && c.width>0 && _fxState && _fxState.run===true; }));
+// luminous milestone: the crystal hero-core image is the hero environment (particle canvas retired here)
+check('hero imagery reveals blur-to-sharp', await p.evaluate(()=>{ const h=document.getElementById('lumHero'); const img=h&&h.querySelector('img'); return !!img && img.classList.contains('in'); }));
 check('hero reveals visible', await p.evaluate(()=>parseFloat(getComputedStyle(document.querySelector('.sh-title')).opacity)===1));
 check('stagger delays assigned', await p.evaluate(()=>{
   const d=[...document.querySelectorAll('.pillar-card')].map(e=>parseInt(e.style.getPropertyValue('--rvd')));
