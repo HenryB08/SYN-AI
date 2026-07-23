@@ -3583,8 +3583,8 @@ function buildSystemPrompt(b, brandRelevant){
     "[[/FILE]]",
     "Default documents to a fully designed, self-contained .html file in the brand's colors and typography, editorial-quality, print-ready. Use .csv for sheets/calendars/data (header row first). Use .doc only when Word is requested, built from SIMPLE Word-compatible HTML (h1, h2, p, table, short inline styles, no grid/flex/webfonts). Use .md or .txt only when plain text is requested. Keep files lean. Never mention the markers.",
     "3. MEMORY: when the user states a lasting fact, decision, preference, or correction about the brand or how they work (not small talk), save it by emitting on its own line: [[REMEMBER: the fact, under 25 words]] . Maximum 2 per response, only genuinely durable facts. It is stored permanently and silently.",
-    "4. TASKS: when the user asks you to plan, organize, launch, or break down a project or effort, decompose it into concrete tasks and emit each on its own line EXACTLY as: [[TASK: title | assignee | YYYY-MM-DD | priority | project]] . Assignee is a team member's name or blank. Priority is one of low, med, high, urgent. Project is a short project name (reuse the same name for all tasks in one plan). Date is optional but realistic. Each of these lines creates a real task on the team board, so make titles action-oriented and specific. Team members: " + TEAM.map(u => u.name).join(", ") + ".",
-    "5. EVENTS: when the user asks you to schedule, book, or set up a meeting, call, or calendar item, emit each on its own line EXACTLY as: [[EVENT: title | YYYY-MM-DD | HH:MM | attendees]] . Time is 24-hour and optional (omit for all-day; still keep the empty slot with the surrounding pipes). Attendees is a comma-separated list of team member names or blank. Each line creates a real event on the team calendar. Today is " + (typeof todayISO === "function" ? todayISO() : "") + ".",
+    "4. TASKS: when the user asks you to plan, organize, launch, or break down a project or effort, decompose it into concrete tasks and emit each on its own line EXACTLY as: [[TASK: title | assignee | YYYY-MM-DD | priority | project | visibility]] . Assignee is a team member's name or blank. Priority is one of low, med, high, urgent. Project is a short project name (reuse the same name for all tasks in one plan). Date is optional but realistic. Visibility is either private (only the assignees and creator can see it) or team (the whole workspace can see it); set it from the user's words — private/just me/personal → private, everyone/the whole team/shared → team; if they don't say, use private. Keep the empty slot with the surrounding pipes if a field is blank. Each of these lines creates a real task on the team board, so make titles action-oriented and specific. Team members: " + TEAM.map(u => u.name).join(", ") + ".",
+    "5. EVENTS: when the user asks you to schedule, book, or set up a meeting, call, or calendar item, emit each on its own line EXACTLY as: [[EVENT: title | YYYY-MM-DD | HH:MM | attendees | visibility]] . Time is 24-hour and optional (omit for all-day; still keep the empty slot with the surrounding pipes). Attendees is a comma-separated list of team member names or blank. Visibility is either private (only you, the creator, sees it — it will NOT appear on other users' calendars) or team (everyone in the workspace sees it); set it from the user's words — private/just me/personal → private, everyone/the whole team/shared → team; if they don't say, use team. NEVER tell the user to set visibility manually — always set it yourself via this field. Each line creates a real event on the team calendar. Today is " + (typeof todayISO === "function" ? todayISO() : "") + ".",
     "6. DIRECT MESSAGES: when the user asks you to message, DM, tell, or notify a specific teammate, actually send it by emitting on its own line EXACTLY as: [[DM: person | message]] . Person is a team member's name; message is what to send. This posts a real direct message from " + currentUser.name + " to that teammate. Never claim you cannot send messages. Team members: " + TEAM.map(u => u.name).join(", ") + ".",
     "7. TASK STATUS: you may be given a snapshot of task state below. Use it to answer questions about who is doing what and how far along they are. Only report on tasks that appear in that snapshot.",
     "8. Deliver finished, usable work. No preambles like 'Here is'. Keep responses tight; go long only when the task demands it.",
@@ -6671,6 +6671,15 @@ function deleteProjectNow(){
   toast("Project deleted. Its tasks were kept.");
 }
 
+/* Normalize an AI-supplied visibility token to the app's actual values ("private" | "team").
+   Accepts natural synonyms the model may emit (just me / everyone / the whole team / public …). */
+function normVisibility(s, dflt){
+  s = (s || "").toLowerCase().trim();
+  if (!s) return dflt;
+  if (/\b(private|just ?me|only ?me|myself|personal|me only|hidden)\b/.test(s)) return "private";
+  if (/\b(team|everyone|public|shared|workspace|whole team|all|company)\b/.test(s)) return "team";
+  return dflt;
+}
 /* ----- AI task ingestion ([[TASK:]]) ----- */
 function ingestAITasks(lines){
   if (!lines || !lines.length) return 0;
@@ -6682,6 +6691,7 @@ function ingestAITasks(lines){
     const dateStr = parts[2] || "";
     const priStr = (parts[3] || "med").toLowerCase();
     const projName = parts[4] || "";
+    const visibility = normVisibility(parts[5], "private");   // AI tasks default private unless the user says team/everyone
     const assignee = TEAM.find(u => assigneeName && (u.name.toLowerCase() === assigneeName.toLowerCase() || u.name.toLowerCase().split(" ")[0] === assigneeName.toLowerCase()));
     let projectId = null;
     if (projName){
@@ -6691,7 +6701,7 @@ function ingestAITasks(lines){
     }
     const pri = ["low","med","high","urgent"].includes(priStr) ? priStr : (priStr.startsWith("med") ? "med" : (priStr.startsWith("urg") ? "urgent" : (priStr.startsWith("hi") ? "high" : (priStr.startsWith("lo") ? "low" : "med"))));
     const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : null;
-    const t = Tasks.create({ title, priority:pri, dueDate, projectId, assignees: assignee ? [assignee.id] : (currentUser ? [currentUser.id] : []) });
+    const t = Tasks.create({ title, priority:pri, dueDate, projectId, visibility, assignees: assignee ? [assignee.id] : (currentUser ? [currentUser.id] : []) });
     if (assignee && assignee.id !== currentUser.id){ notify(assignee.id, "assigned", currentUser.name + " (via SYN) assigned you: " + title, { view:"tasks", taskId:t.id }); fireIntegrations("assigned", currentUser.name + " (via SYN) assigned " + assignee.name + " to “" + title + "”"); }
     made++;
   });
@@ -7034,6 +7044,7 @@ function ingestAIEvents(lines){
     const dateStr = parts[1] || "";
     const timeStr = parts[2] || "";
     const attStr = parts[3] || "";
+    const visibility = normVisibility(parts[4], "team");   // AI events default team unless the user says private/just me
     const startDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : todayISO();
     const hasTime = /^\d{1,2}:\d{2}$/.test(timeStr);
     const startTime = hasTime ? (timeStr.length === 4 ? "0" + timeStr : timeStr) : "09:00";
@@ -7041,7 +7052,7 @@ function ingestAIEvents(lines){
       .map(nm => TEAM.find(u => u.name.toLowerCase() === nm.toLowerCase() || u.name.toLowerCase().split(" ")[0] === nm.toLowerCase()))
       .filter(Boolean).map(u => u.id);
     const color = EV_COLORS[made % EV_COLORS.length];
-    const ev = Events.create({ title, startDate, endDate:startDate, allDay: !hasTime, startTime, endTime:"10:00", attendees, color });
+    const ev = Events.create({ title, startDate, endDate:startDate, allDay: !hasTime, startTime, endTime:"10:00", attendees, color, visibility });
     attendees.forEach(id => { if (id !== currentUser.id) notify(id, "event", currentUser.name + " (via SYN) invited you: " + title + " (" + fmtDay(startDate) + ")", { view:"calendar", eventId:ev.id }); });
     fireIntegrations("event", currentUser.name + " (via SYN) scheduled “" + title + "” on " + fmtDay(startDate));
     made++;
