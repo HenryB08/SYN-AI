@@ -1,0 +1,7 @@
+name = "syn-assistant"
+main = "syn-assistant.js"
+compatibility_date = "2024-11-01"
+
+# The Anthropic API key is a SECRET, never committed here. Set it with:
+#   npx wrangler secret put ANTHROPIC_API_KEY
+# (see README.md)
