@@ -65,6 +65,15 @@ const TENANT_PLAN = new Set(["core", "pro"]);
 const CONTACT_STATUS = new Set(["new", "contacted", "booked", "closed", "lost"]);
 const CONTACT_SOURCE = new Set(["chat", "form", "call", "sms"]);
 
+// Compliance / consent.
+const PROCESSOR_NAME = "Syntrex LLC";                       // Syntrex is the processor; the client is the controller
+const CONSENT_CHANNELS = new Set(["sms", "email"]);
+const CONSENT_SOURCES = new Set(["form", "reply_stop", "admin", "unsubscribe_link"]);   // note: unsubscribe_link added beyond the brief's three (email link needs its own source)
+const STOP_KEYWORDS = new Set(["stop", "unsubscribe", "quit"]);   // SMS opt-out keywords (case-insensitive, whole message)
+// Server-side fallbacks for text_shown when the widget doesn't supply the exact rendered language.
+const DEFAULT_SMS_CONSENT_TEXT = "I agree to receive follow-up messages, including texts, about my inquiry. Message and data rates may apply.";
+const DEFAULT_EMAIL_DISCLOSURE_TEXT = "The name and contact details you provide are used to respond to your inquiry and follow up about it.";
+
 /* ============================ crypto helpers (mirror syn-core) ============================ */
 const _enc = new TextEncoder();
 function b64url(bytes){
@@ -163,9 +172,22 @@ async function ensureTables(env){
       period_start TEXT NOT NULL, period_end TEXT NOT NULL, metrics TEXT,
       job_value_cents INTEGER, generated_at TEXT NOT NULL, sent_at TEXT, status TEXT NOT NULL DEFAULT 'draft')`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS idx_receipts_tenant ON receipts(tenant_id, period_start)`),
+    // consent_events — APPEND-ONLY audit trail of every consent change. Same immutability principle as
+    // job_values and events: a mutable consent_sms flag is not evidence; these rows are. text_shown is
+    // the exact language the visitor saw, so we can prove WHAT they agreed to, not just that they did.
+    DB.prepare(`CREATE TABLE IF NOT EXISTS consent_events (
+      id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), contact_id TEXT NOT NULL,
+      channel TEXT NOT NULL, action TEXT NOT NULL, source TEXT NOT NULL,
+      text_shown TEXT, ip TEXT, user_agent TEXT, created_at TEXT NOT NULL)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS idx_consent_events_contact ON consent_events(contact_id, created_at)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS idx_consent_events_tenant ON consent_events(tenant_id, created_at)`),
     // per-install fixed-window rate limiter (public routes)
     DB.prepare(`CREATE TABLE IF NOT EXISTS growth_rl (bucket TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start INTEGER NOT NULL)`),
   ]);
+  // Idempotent migration: an unguessable per-contact token backs the no-login email unsubscribe link.
+  // (CREATE TABLE IF NOT EXISTS can't add a column to an existing table; ADD COLUMN throws once it
+  // already exists, which we swallow.)
+  try { await DB.prepare("ALTER TABLE contacts ADD COLUMN unsub_token TEXT").run(); } catch (_){ /* column already present */ }
 }
 
 /* ============================ auth ============================ */
@@ -673,22 +695,180 @@ async function wMessages(env, install, body, cors){
 
 // CAPTURE (path 3): the explicit form. A deliberate act, which is what makes consent clean. ONLY this
 // path can set consent_sms=true — and only when the visible checkbox was ticked (unticked by default).
-async function wCapture(env, install, body, cors){
+// It also writes the durable consent_events audit rows, capturing the EXACT text the visitor saw.
+async function wCapture(env, install, body, cors, ctx){
   const convId = body && body.conversation_id ? String(body.conversation_id) : null;
   const consent = body && body.consent_sms ? 1 : 0;   // explicit, opt-in; a bare capture never implies consent
   const note = body && typeof body.note === "string" && body.note.trim() ? body.note.trim().slice(0, 500) : null;
+  const email = body && body.email ? String(body.email).trim().toLowerCase() : null;
+  // text_shown: the exact language the visitor saw (sent by the widget), so the audit proves WHAT they
+  // agreed to. Fall back to server defaults only if the widget omitted it.
+  const smsText = (body && typeof body.consent_text === "string" && body.consent_text.trim() ? body.consent_text : DEFAULT_SMS_CONSENT_TEXT).slice(0, 1000);
+  const disclosureText = (body && typeof body.disclosure_text === "string" && body.disclosure_text.trim() ? body.disclosure_text : DEFAULT_EMAIL_DISCLOSURE_TEXT).slice(0, 1000);
   const up = await upsertContact(env, install, {
     name: body && body.name, email: body && body.email, phone: body && body.phone,
     source: "form", consent_sms: consent, consent_at: consent ? nowIso() : null,
     meta: note ? { note, via: "form" } : { via: "form" },
   });
   if (up.error) return json({ error: up.error }, up.status || 400, cors);
+  const ip = ctx && ctx.ip, ua = ctx && ctx.ua;
+  // Durable consent record. SMS: written only when the checkbox was ticked (explicit opt-in). EMAIL:
+  // written when an email is provided via the form — see COMPLIANCE.md for why treating a form
+  // submission as email follow-up consent is a legal judgment we flag for review.
+  if (consent) await writeConsentEvent(env, { tenantId: install.tenant_id, contactId: up.contact_id, channel: "sms", action: "granted", source: "form", textShown: smsText, ip, ua });
+  if (email) await writeConsentEvent(env, { tenantId: install.tenant_id, contactId: up.contact_id, channel: "email", action: "granted", source: "form", textShown: disclosureText, ip, ua });
+  await ensureUnsubToken(env, up.contact_id);   // so the email unsubscribe link exists for this contact
   // Link the conversation (if this capture belongs to one) + backfill its events.
   if (convId){
     const conv = await env.SYN_DB.prepare("SELECT id FROM conversations WHERE id=? AND install_id=?").bind(convId, install.id).first();
     if (conv) await attachContact(env, install, convId, up.contact_id);
   }
   return json({ ok: true, contact_id: up.contact_id, deduped: up.deduped, consent_sms: !!consent }, up.deduped ? 200 : 201, cors);
+}
+
+/* ============================ compliance & consent ============================ */
+async function writeConsentEvent(env, e){
+  await env.SYN_DB.prepare("INSERT INTO consent_events (id,tenant_id,contact_id,channel,action,source,text_shown,ip,user_agent,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .bind(newId("cev"), e.tenantId, e.contactId, e.channel, e.action, e.source, e.textShown || null, e.ip || null, e.ua || null, nowIso()).run();
+}
+// The follow-up sender (a later prompt) MUST call this before queuing to a channel. Once consent is
+// withdrawn, it never queues again. SMS reads the live consent_sms flag; email reads the latest
+// consent_events row for the channel (withdrawn latest ⇒ blocked; absent ⇒ allowed on a transactional
+// basis — see COMPLIANCE.md, flagged for legal review).
+async function canQueueChannel(env, contactId, channel){
+  if (channel === "sms"){
+    const c = await env.SYN_DB.prepare("SELECT consent_sms FROM contacts WHERE id=?").bind(contactId).first();
+    return !!(c && c.consent_sms);
+  }
+  const last = await env.SYN_DB.prepare("SELECT action FROM consent_events WHERE contact_id=? AND channel='email' ORDER BY created_at DESC, id DESC LIMIT 1").bind(contactId).first();
+  return !(last && last.action === "withdrawn");
+}
+async function ensureUnsubToken(env, contactId){
+  const c = await env.SYN_DB.prepare("SELECT unsub_token FROM contacts WHERE id=?").bind(contactId).first();
+  if (c && c.unsub_token) return c.unsub_token;
+  const tok = b64url(randBytes(24));   // 24 random bytes → unguessable; can't be enumerated to hit another contact
+  await env.SYN_DB.prepare("UPDATE contacts SET unsub_token=? WHERE id=?").bind(tok, contactId).run();
+  return tok;
+}
+// SMS opt-out mechanism. The SMS prompt will wire the real provider webhook to call this; the logic and
+// the audit row live here now. STOP / UNSUBSCRIBE / QUIT (case-insensitive, whole message) withdraw.
+async function processInboundSms(env, tenantId, phone, textBody, ctx){
+  const kw = String(textBody == null ? "" : textBody).trim().toLowerCase();
+  if (!STOP_KEYWORDS.has(kw)) return { matched: false };
+  const p = normPhone(phone);
+  if (!p) return { matched: true, contact: false };
+  const contact = await env.SYN_DB.prepare("SELECT id FROM contacts WHERE tenant_id=? AND phone=? LIMIT 1").bind(tenantId, p).first();
+  if (!contact) return { matched: true, contact: false };
+  await env.SYN_DB.prepare("UPDATE contacts SET consent_sms=0 WHERE id=?").bind(contact.id).run();
+  await writeConsentEvent(env, { tenantId, contactId: contact.id, channel: "sms", action: "withdrawn", source: "reply_stop", textShown: kw.toUpperCase(), ip: ctx && ctx.ip, ua: ctx && ctx.ua });
+  return { matched: true, contact: true, contact_id: contact.id };
+}
+// Public, no-login email unsubscribe. Looked up by the unguessable token ONLY — a guess can't target
+// another contact. Renders a plain confirmation page either way (never reveals which tokens are valid).
+async function wUnsubscribe(env, url, ctx){
+  const tok = url.searchParams.get("t") || "";
+  const contact = tok ? await env.SYN_DB.prepare("SELECT id, tenant_id FROM contacts WHERE unsub_token=?").bind(tok).first() : null;
+  if (!contact) return htmlPage("Unsubscribe", "<h1>Link not recognized</h1><p>This unsubscribe link is invalid or has expired. If you keep receiving messages you didn't ask for, reply STOP to any text, or contact the business directly.</p>", 200);
+  await writeConsentEvent(env, { tenantId: contact.tenant_id, contactId: contact.id, channel: "email", action: "withdrawn", source: "unsubscribe_link", textShown: "Email unsubscribe link", ip: ctx && ctx.ip, ua: ctx && ctx.ua });
+  return htmlPage("Unsubscribed", "<h1>You're unsubscribed</h1><p>You won't receive any more follow-up emails about your inquiry. This preference is recorded. If you asked by mistake, just reply to a previous email or contact the business.</p>", 200);
+}
+function esc(s){ return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function htmlPage(title, bodyHtml, status){
+  const doc = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>" + esc(title) + "</title>" +
+    "<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:680px;margin:0 auto;padding:40px 20px;color:#1a1a1a;line-height:1.6}h1{font-size:22px}h2{font-size:16px;margin-top:28px}a{color:#111}.muted{color:#666;font-size:13px}code{background:#f2f2f2;padding:1px 4px;border-radius:3px}</style></head><body>" +
+    bodyHtml + "</body></html>";
+  return new Response(doc, { status: status || 200, headers: { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" } });
+}
+// Public, per-install privacy notice. No origin/key auth — it's a page opened in a new tab from a link,
+// and it exposes only public info (brand name + the standard policy). Names Syntrex the processor and
+// the client the controller; unfilled controller details show as visible mandatory placeholders.
+async function wPrivacy(env, url){
+  const key = url.searchParams.get("k") || "";
+  let brandName = null, tenantName = null, cfg = {};
+  if (key){
+    const install = await env.SYN_DB.prepare("SELECT * FROM installs WHERE install_key=?").bind(key).first();
+    if (install){
+      const brand = await env.SYN_DB.prepare("SELECT name FROM brands WHERE id=?").bind(install.brand_id).first();
+      const tenant = await env.SYN_DB.prepare("SELECT name FROM tenants WHERE id=?").bind(install.tenant_id).first();
+      brandName = brand ? brand.name : null;
+      tenantName = tenant ? tenant.name : null;
+      try { cfg = JSON.parse(install.config || "{}"); } catch (_){ cfg = {}; }
+    }
+  }
+  const controller = esc(cfg.controller_legal_name || brandName || tenantName || "[MANDATORY: client's legal business name]");
+  const contactEmail = esc(cfg.privacy_contact_email || "[MANDATORY: client's contact email for privacy requests]");
+  const jurisdiction = esc(cfg.governing_law || "[MANDATORY: client's governing jurisdiction]");
+  const body =
+    "<h1>Privacy Notice</h1>" +
+    "<p class=\"muted\">This notice covers the chat assistant on " + (brandName ? esc(brandName) : "this website") + ". It is a template provided by " + PROCESSOR_NAME + " and completed by the business. It is not legal advice; the business is responsible for its accuracy and for legal review.</p>" +
+    "<h2>Who is responsible</h2><p><strong>" + controller + "</strong> (the \"business\") is the data controller — it decides why your information is collected. <strong>" + PROCESSOR_NAME + "</strong> is the processor — it runs the chat assistant and stores the data on the business's behalf and instructions.</p>" +
+    "<h2>What we collect</h2><ul><li>What you type into the chat.</li><li>Contact details you share or submit — name, email, phone.</li><li>Whether you agreed to follow-up messages, and the exact wording you agreed to, with a timestamp.</li><li>Basic technical data (approximate IP address, browser user-agent) recorded with a consent action, for audit.</li></ul>" +
+    "<h2>Why</h2><p>To answer your questions and, if you ask us to, to follow up about your inquiry. We do not sell your data.</p>" +
+    "<h2>Text messages</h2><p>We only text you if you tick the consent box and give a mobile number. Message and data rates may apply. Reply <code>STOP</code> to any text to opt out at any time.</p>" +
+    "<h2>Email follow-up</h2><p>If you give an email, we may follow up about your inquiry. Every follow-up email includes a one-click unsubscribe link.</p>" +
+    "<h2>Your rights</h2><p>You can ask the business for a copy of the data held about you, ask for it to be deleted, or withdraw consent at any time. Contact: " + contactEmail + ".</p>" +
+    "<h2>Retention & law</h2><p>Data is kept only as long as needed to handle your inquiry and to keep a record of consent. Governing law: " + jurisdiction + ".</p>" +
+    "<p class=\"muted\">Processor: " + PROCESSOR_NAME + ". Template version for review — not a substitute for legal advice.</p>";
+  return htmlPage("Privacy Notice", body, 200);
+}
+
+/* ---- admin: consent, data rights ---- */
+async function contactInTenant(env, tenantId, contactId){
+  return env.SYN_DB.prepare("SELECT * FROM contacts WHERE id=? AND tenant_id=?").bind(contactId, tenantId).first();
+}
+async function adminWithdraw(env, tenantId, contactId, body, ctx){
+  const contact = await contactInTenant(env, tenantId, contactId);
+  if (!contact) return json({ error: "contact_not_found" }, 404);
+  const channel = body && CONSENT_CHANNELS.has(body.channel) ? body.channel : null;
+  if (!channel) return json({ error: "channel_required (sms|email)" }, 400);
+  if (channel === "sms") await env.SYN_DB.prepare("UPDATE contacts SET consent_sms=0 WHERE id=?").bind(contactId).run();
+  await writeConsentEvent(env, { tenantId, contactId, channel, action: "withdrawn", source: "admin", textShown: (body && body.reason) ? String(body.reason).slice(0, 500) : "Withdrawn by admin", ip: ctx && ctx.ip, ua: ctx && ctx.ua });
+  return json({ ok: true, contact_id: contactId, channel, action: "withdrawn", source: "admin" });
+}
+async function adminSmsInbound(env, tenantId, body, ctx){
+  // Stand-in for the future SMS provider webhook — admin-scoped for now.
+  const r = await processInboundSms(env, tenantId, body && body.phone, body && body.text, ctx);
+  return json(r);
+}
+// Data-access request: everything held about one contact, tenant-scoped.
+async function exportContact(env, tenantId, contactId){
+  const contact = await contactInTenant(env, tenantId, contactId);
+  if (!contact) return json({ error: "contact_not_found" }, 404);
+  const conversations = (await env.SYN_DB.prepare("SELECT * FROM conversations WHERE contact_id=?").bind(contactId).all()).results || [];
+  const convIds = conversations.map(c => c.id);
+  let messages = [];
+  for (const cid of convIds){
+    const m = (await env.SYN_DB.prepare("SELECT * FROM messages WHERE conversation_id=? ORDER BY created_at ASC, id ASC").bind(cid).all()).results || [];
+    messages = messages.concat(m);
+  }
+  const events = (await env.SYN_DB.prepare("SELECT * FROM events WHERE contact_id=? ORDER BY created_at ASC, id ASC").bind(contactId).all()).results || [];
+  const consent = (await env.SYN_DB.prepare("SELECT * FROM consent_events WHERE contact_id=? ORDER BY created_at ASC, id ASC").bind(contactId).all()).results || [];
+  return json({ contact: { ...contact, meta: contact.meta ? JSON.parse(contact.meta) : null }, conversations, messages, events, consent_events: consent, exported_at: nowIso() });
+}
+// Erasure request. DELETES identifiable data (the contact row, its conversations, its messages).
+// KEEPS, ANONYMIZED: events (Receipt integrity — payload nulled, contact_id kept as an opaque token)
+// and consent_events (proof consent was given/withdrawn — text_shown/action kept, ip + user_agent
+// nulled). See COMPLIANCE.md for exactly what/why.
+async function deleteContact(env, tenantId, contactId){
+  const contact = await contactInTenant(env, tenantId, contactId);
+  if (!contact) return json({ error: "contact_not_found" }, 404);
+  const conversations = (await env.SYN_DB.prepare("SELECT id FROM conversations WHERE contact_id=?").bind(contactId).all()).results || [];
+  let msgCount = 0;
+  for (const c of conversations){
+    const r = await env.SYN_DB.prepare("DELETE FROM messages WHERE conversation_id=?").bind(c.id).run();
+    msgCount += (r && r.changes) || 0;
+  }
+  const convDel = await env.SYN_DB.prepare("DELETE FROM conversations WHERE contact_id=?").bind(contactId).run();
+  // Anonymize-but-keep: strip free-text payloads (guardrail_blocked can hold what the visitor typed).
+  const evAnon = await env.SYN_DB.prepare("UPDATE events SET payload=NULL WHERE contact_id=?").bind(contactId).run();
+  const cevAnon = await env.SYN_DB.prepare("UPDATE consent_events SET ip=NULL, user_agent=NULL WHERE contact_id=?").bind(contactId).run();
+  const conDel = await env.SYN_DB.prepare("DELETE FROM contacts WHERE id=?").bind(contactId).run();
+  return json({
+    ok: true, contact_id: contactId,
+    deleted: { contact: (conDel && conDel.changes) || 0, conversations: (convDel && convDel.changes) || 0, messages: msgCount },
+    anonymized_kept: { events: (evAnon && evAnon.changes) || 0, consent_events: (cevAnon && cevAnon.changes) || 0 },
+    note: "Contact, conversations, and messages deleted. events kept (payload nulled) for Receipt integrity; consent_events kept (ip/user_agent nulled) as proof of consent. See COMPLIANCE.md.",
+  });
 }
 
 /* ============================ widget shell (served at /w/widget.js) ============================ */
@@ -774,6 +954,18 @@ const WIDGET_JS = String.raw`(function () {
     var ink = readableInk(accent);
     var greeting = typeof conf.greeting === "string" && conf.greeting ? conf.greeting : "Hi! How can we help?";
     var side = conf.position === "bottom-left" ? "left" : "right";
+    // Privacy policy link: the client's own URL if they set one, else the SYN-hosted per-brand notice.
+    function safeUrl(u) { return (typeof u === "string" && /^https?:\/\//i.test(u.trim())) ? u.trim() : null; }
+    var privacyUrl = safeUrl(conf.privacy_policy_url) || (base + "/w/privacy" + q);
+    // The exact consent + disclosure language shown to the visitor — sent to the server so the audit
+    // records WHAT they agreed to, not just that they did.
+    var consentSentence = "I agree to receive follow-up messages, including texts, from " + brandName + " about my inquiry. Message and data rates may apply.";
+    var disclosureSentence = "We collect your name and contact details to respond to your inquiry.";
+    function policyLink(label) {
+      var a = document.createElement("a");
+      a.href = privacyUrl; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = label;
+      return a;
+    }
 
     // ---- host element: dodges tag/class selectors, all:initial, fixed, near-max z-index ----
     var host = document.createElement("syn-growth-root");
@@ -854,6 +1046,10 @@ const WIDGET_JS = String.raw`(function () {
       ".capform .cf-skip{ flex: 0 0 auto; border: 1px solid rgba(0,0,0,.15); background: transparent;",
       "  border-radius: 8px; padding: 9px 12px; cursor: pointer; font: inherit; color: #555; }",
       ".capform .cf-err{ color: #c0392b; font-size: 12px; margin-bottom: 8px; }",
+      ".capform .cf-disclosure{ font-size: 12px; color: #555; margin-bottom: 10px; }",
+      ".capform .cf-disclosure a, .capform .cf-consent a{ color: #333; }",
+      ".privline{ flex: 0 0 auto; font-size: 11px; color: #8a8a8a; text-align: center; padding: 6px 12px 10px; background: #fff; }",
+      ".privline a{ color: #6a6a6a; }",
       // mobile: full-screen panel below 480px
       "@media (max-width: 479px){",
       "  .panel{ inset: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; border-radius: 0; border: 0; }",
@@ -920,6 +1116,14 @@ const WIDGET_JS = String.raw`(function () {
     panel.appendChild(head);
     panel.appendChild(msgs);
     panel.appendChild(composer);
+
+    // Persistent, unintrusive privacy disclosure — visible while chatting, so it's present before any
+    // detail is captured in normal conversation, with a link to the full policy.
+    var privline = document.createElement("div");
+    privline.className = "privline";
+    privline.appendChild(document.createTextNode("Your messages and any details you share are used to respond to you. "));
+    privline.appendChild(policyLink("Privacy"));
+    panel.appendChild(privline);
 
     wrap.appendChild(launcher);
     wrap.appendChild(panel);
@@ -1014,6 +1218,11 @@ const WIDGET_JS = String.raw`(function () {
       f.className = "capform";
       function input(type, ph, label) { var i = document.createElement("input"); i.type = type; i.placeholder = ph; i.setAttribute("aria-label", label); return i; }
       var title = document.createElement("div"); title.className = "cf-title"; title.textContent = "Share your details and we'll follow up";
+      // Disclosure at the point of capture: what's collected + a link to the full policy.
+      var disclosure = document.createElement("div"); disclosure.className = "cf-disclosure";
+      disclosure.appendChild(document.createTextNode(disclosureSentence + " "));
+      disclosure.appendChild(policyLink("Privacy Policy"));
+      disclosure.appendChild(document.createTextNode("."));
       var name = input("text", "Name (optional)", "Name");
       var email = input("email", "Email", "Email");
       var phone = input("tel", "Phone (optional)", "Phone");
@@ -1022,13 +1231,15 @@ const WIDGET_JS = String.raw`(function () {
       var consent = document.createElement("label"); consent.className = "cf-consent";
       var cb = document.createElement("input"); cb.type = "checkbox";   // UNTICKED by default — never pre-ticked
       var cbText = document.createElement("span");
-      cbText.textContent = "I agree to receive follow-up messages, including texts, from " + brandName + " about my inquiry. Message and data rates may apply.";
+      cbText.appendChild(document.createTextNode(consentSentence + " See our "));
+      cbText.appendChild(policyLink("Privacy Policy"));   // the checkbox language references the policy
+      cbText.appendChild(document.createTextNode("."));
       consent.appendChild(cb); consent.appendChild(cbText);
       var actions = document.createElement("div"); actions.className = "cf-actions";
       var submit = document.createElement("button"); submit.type = "button"; submit.className = "cf-submit"; submit.textContent = "Send";
       var skip = document.createElement("button"); skip.type = "button"; skip.className = "cf-skip"; skip.textContent = "Not now";
       actions.appendChild(submit); actions.appendChild(skip);
-      f.appendChild(title); f.appendChild(name); f.appendChild(email); f.appendChild(phone); f.appendChild(note);
+      f.appendChild(title); f.appendChild(disclosure); f.appendChild(name); f.appendChild(email); f.appendChild(phone); f.appendChild(note);
       f.appendChild(err); f.appendChild(consent); f.appendChild(actions);
       msgs.appendChild(f); msgs.scrollTop = msgs.scrollHeight;
       formEl = f;
@@ -1041,7 +1252,7 @@ const WIDGET_JS = String.raw`(function () {
         fetch(base + "/w/capture" + q, {
           method: "POST", mode: "cors", credentials: "omit",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversation_id: convId, name: name.value.trim() || null, email: em || null, phone: ph || null, note: note.value.trim() || null, consent_sms: cb.checked })
+          body: JSON.stringify({ conversation_id: convId, name: name.value.trim() || null, email: em || null, phone: ph || null, note: note.value.trim() || null, consent_sms: cb.checked, consent_text: consentSentence, disclosure_text: disclosureSentence })
         }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
           if (okr) { captured = true; remove(); addBubble("bot", "Thanks! Someone from our team will be in touch soon."); }
           else { submit.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through — please try again."; err.style.display = "block"; }
@@ -1114,6 +1325,7 @@ export default {
     const seg = path.split("/").filter(Boolean);
     const method = request.method;
     const origin = request.headers.get("Origin");
+    const ctx = { ip: request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || null, ua: request.headers.get("User-Agent") || null };
 
     // Health — public, no auth, no DB.
     if (path === "/health" && method === "GET") return json({ ok: true, service: SERVICE });
@@ -1121,6 +1333,10 @@ export default {
     // Widget script — public, no auth, no DB. Must precede the /w/* auth block below, since the
     // <script> is loaded before any install key is used on the page.
     if (path === "/w/widget.js" && method === "GET") return serveWidget();
+
+    // Public legal pages — no origin/key auth (opened in a new tab from a link; expose only public info).
+    if (path === "/w/privacy" && method === "GET"){ await ensureTables(env); return wPrivacy(env, url); }
+    if (path === "/w/unsubscribe" && method === "GET"){ await ensureTables(env); return wUnsubscribe(env, url, ctx); }
 
     // ---- public widget routes (/w/*): install key + origin check + CORS ----
     if (seg[0] === "w"){
@@ -1151,7 +1367,7 @@ export default {
       if (seg[1] === "messages" && method === "POST"){ const b = await readJson(request); if (!b) return json({ error: "bad_json" }, 400, cors);
         return wMessages(env, install, b, cors); }
       if (seg[1] === "capture" && method === "POST"){ const b = await readJson(request); if (!b) return json({ error: "bad_json" }, 400, cors);
-        return wCapture(env, install, b, cors); }
+        return wCapture(env, install, b, cors, ctx); }
       return json({ error: "not_found" }, 404, cors);
     }
 
@@ -1170,7 +1386,12 @@ export default {
       if (seg[1] === "installs" && seg[3] === "revoke" && method === "POST") return revokeInstall(env, seg[2]);
       if (seg[1] === "tenants" && seg[3] === "job-value" && method === "POST") return addJobValue(env, seg[2], body || {});
       if (seg[1] === "tenants" && seg[3] === "events" && method === "GET") return listEvents(env, seg[2], url);
-      if (seg[1] === "tenants" && seg[3] === "contacts" && method === "GET") return listContacts(env, seg[2], url);
+      if (seg[1] === "tenants" && seg[3] === "contacts" && seg.length === 4 && method === "GET") return listContacts(env, seg[2], url);
+      // consent + data rights (contact under a tenant): /admin/tenants/:id/contacts/:cid/(export|withdraw|delete)
+      if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "export" && method === "GET") return exportContact(env, seg[2], seg[4]);
+      if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "withdraw" && method === "POST") return adminWithdraw(env, seg[2], seg[4], body || {}, ctx);
+      if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "delete" && method === "POST") return deleteContact(env, seg[2], seg[4]);
+      if (seg[1] === "tenants" && seg[3] === "sms-inbound" && method === "POST") return adminSmsInbound(env, seg[2], body || {}, ctx);
       return json({ error: "not_found" }, 404);
     }
 
@@ -1179,4 +1400,4 @@ export default {
 };
 
 // Exported for tests/seed (harmless in the Worker runtime).
-export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, detectContact, extractEmail, extractPhone, normPhone };
+export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken };

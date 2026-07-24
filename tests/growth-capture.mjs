@@ -125,6 +125,13 @@ const waitForm = (page) => page.waitForFunction(() => !!window.__roots[0].queryS
   c("form appears when the assistant offers to connect", await hasForm(page));
   const ticked = await page.evaluate(() => window.__roots[0].querySelector(".capform .cf-consent input").checked);
   c("consent checkbox is UNTICKED by default", ticked === false);
+  const links = await page.evaluate(() => {
+    const r = window.__roots[0];
+    const priv = r.querySelector(".privline a"), disc = r.querySelector(".capform .cf-disclosure a"), cons = r.querySelector(".capform .cf-consent a");
+    return { priv: priv && priv.href, disc: disc && disc.href, cons: cons && cons.href };
+  });
+  c("persistent privacy line links to the policy page", /\/w\/privacy/.test(links.priv || ""));
+  c("capture form discloses + the checkbox references the Privacy Policy", /\/w\/privacy/.test(links.disc || "") && /\/w\/privacy/.test(links.cons || ""));
   await page.screenshot({ path: join(SHOTS, "12-capture-form.png") });
   await ctx.close();
 }
@@ -156,6 +163,8 @@ const waitForm = (page) => page.waitForFunction(() => !!window.__roots[0].queryS
   c("ticked form: shows a thank-you bubble and removes the form", !(await hasForm(page)) && await page.evaluate(() => [...window.__roots[0].querySelectorAll(".bubble")].some(x => /be in touch/i.test(x.textContent))));
   const row = contactByEmail("ticked@ex.com");
   c("ticked form: contact stored with consent_sms=1 + consent_at", !!row && row.consent_sms === 1 && !!row.consent_at);
+  const cev = env.SYN_DB._db.prepare("SELECT text_shown FROM consent_events WHERE contact_id=? AND channel='sms' AND action='granted'").get(row.id);
+  c("ticked form: consent_events records the exact SMS language the visitor saw", !!cev && /follow-up messages, including texts/.test(cev.text_shown));
   await ctx.close();
 }
 
@@ -196,6 +205,18 @@ const waitForm = (page) => page.waitForFunction(() => !!window.__roots[0].queryS
   c("detected email: no capture form is shown (already have details)", !(await hasForm(page)));
   const row = contactByEmail("chatuser@ex.com");
   c("detected email: contact stored server-side with consent_sms=0", !!row && row.consent_sms === 0 && row.consent_at === null);
+  await ctx.close();
+}
+
+/* 7. The per-brand privacy policy page renders as a real page */
+{
+  const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } });
+  const page = await ctx.newPage();
+  await page.goto(WORKER + "/w/privacy?k=" + encodeURIComponent(install.install_key));
+  const txt = await page.evaluate(() => document.body.innerText);
+  c("privacy page: renders with the brand + Syntrex processor", /Privacy Notice/.test(txt) && /Acme Co/.test(txt) && /Syntrex LLC/.test(txt));
+  c("privacy page: flags mandatory client placeholders + STOP rights", /MANDATORY/.test(txt) && /STOP/.test(txt));
+  await page.screenshot({ path: join(SHOTS, "13-privacy-page.png"), fullPage: true });
   await ctx.close();
 }
 

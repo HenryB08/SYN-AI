@@ -21,6 +21,7 @@ const worker = worker0.default;
 // ---- D1 shim over node:sqlite (async prepare/bind/first/run/all + batch) ----
 function makeD1(){
   const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys = OFF;");   // match Cloudflare D1, which does not enforce FK constraints
   const wrap = (sql) => {
     let args = [];
     return {
@@ -538,6 +539,121 @@ const contactRow = (e, id) => e.SYN_DB._db.prepare("SELECT * FROM contacts WHERE
   const { install } = await seedProfiled(e, "https://c.com", PROFILE);
   const j = await (await msg(e, install, "https://c.com", { text: "are you cheap?" })).json();
   c("offer_form: set when the assistant offers to connect (guardrail safe-offer)", j.blocked === true && j.offer_form === true);
+}
+
+// ===== compliance & consent =====
+const adminGet = (e, path) => call(e, "GET", path, { adminKey: ADMIN });
+const adminPost = (e, path, body) => call(e, "POST", path, { adminKey: ADMIN, body });
+const consentRows = (e, contactId) => e.SYN_DB._db.prepare("SELECT * FROM consent_events WHERE contact_id=? ORDER BY created_at ASC, id ASC").all(contactId);
+
+// granting consent via the form writes a durable consent_events row with the EXACT text shown
+{
+  const e = aiEnv("ok");
+  const { install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const SMS = "I agree to receive follow-up texts from Acme Co. Msg&data rates apply.";
+  const DISC = "We collect your name and contact details to respond to your inquiry.";
+  const jr = await (await cap(e, install, "https://c.com", { email: "grant@ex.com", phone: "(555) 867-5309", consent_sms: true, consent_text: SMS, disclosure_text: DISC })).json();
+  const rows = consentRows(e, jr.contact_id);
+  const sms = rows.find(r => r.channel === "sms"), em = rows.find(r => r.channel === "email");
+  c("consent: SMS granted row written with exact text_shown", !!sms && sms.action === "granted" && sms.source === "form" && sms.text_shown === SMS);
+  c("consent: email granted row written on form submit (flagged basis)", !!em && em.action === "granted" && em.source === "form" && em.text_shown === DISC);
+  c("consent: canQueue sms true after grant", (await worker0.canQueueChannel(e, jr.contact_id, "sms")) === true);
+}
+
+// email unsubscribe token: withdraws email, blocks re-queue, and cannot target another contact
+{
+  const e = aiEnv("ok");
+  const { install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const a = await (await cap(e, install, "https://c.com", { email: "unsuba@ex.com", consent_sms: false })).json();
+  const bC = await (await cap(e, install, "https://c.com", { email: "unsubb@ex.com", consent_sms: false })).json();
+  const tokA = e.SYN_DB._db.prepare("SELECT unsub_token FROM contacts WHERE id=?").get(a.contact_id).unsub_token;
+  c("unsubscribe: a token was generated for the contact", typeof tokA === "string" && tokA.length > 20);
+  c("unsubscribe: email is queueable before withdrawal", (await worker0.canQueueChannel(e, a.contact_id, "email")) === true);
+  const r = await call(e, "GET", "/w/unsubscribe?t=" + encodeURIComponent(tokA), {});
+  const html = await r.text();
+  c("unsubscribe: valid token → confirmation page", r.status === 200 && /unsubscribed/i.test(html));
+  const rowsA = consentRows(e, a.contact_id);
+  c("unsubscribe: writes withdrawn/email/unsubscribe_link row", rowsA.some(x => x.channel === "email" && x.action === "withdrawn" && x.source === "unsubscribe_link"));
+  c("unsubscribe: email is NOT queueable after withdrawal (never re-queue)", (await worker0.canQueueChannel(e, a.contact_id, "email")) === false);
+  c("unsubscribe: contact B is untouched (queueable)", (await worker0.canQueueChannel(e, bC.contact_id, "email")) === true);
+  const bad = await call(e, "GET", "/w/unsubscribe?t=not-a-real-token", {});
+  const badHtml = await bad.text();
+  c("unsubscribe: a guessed/wrong token withdraws nobody", /not recognized/i.test(badHtml) && consentRows(e, bC.contact_id).every(x => x.action !== "withdrawn"));
+}
+
+// manual admin withdrawal, attributed to source admin
+{
+  const e = aiEnv("ok");
+  const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const j = await (await cap(e, install, "https://c.com", { phone: "(555) 867-5309", consent_sms: true, consent_text: "sms ok" })).json();
+  c("admin-withdraw: consent_sms true before", contactRow(e, j.contact_id).consent_sms === 1);
+  const r = await adminPost(e, `/admin/tenants/${tenant.id}/contacts/${j.contact_id}/withdraw`, { channel: "sms", reason: "asked by phone" });
+  const jr = await r.json();
+  c("admin-withdraw: returns ok with source admin", jr.ok === true && jr.source === "admin");
+  c("admin-withdraw: consent_sms cleared + withdrawn/admin row", contactRow(e, j.contact_id).consent_sms === 0 && consentRows(e, j.contact_id).some(x => x.action === "withdrawn" && x.source === "admin"));
+  c("admin-withdraw: sms no longer queueable", (await worker0.canQueueChannel(e, j.contact_id, "sms")) === false);
+}
+
+// STOP / UNSUBSCRIBE / QUIT inbound SMS withdraws consent (source reply_stop)
+{
+  for (const kw of ["STOP", "unsubscribe", "Quit"]){
+    const e = aiEnv("ok");
+    const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+    const j = await (await cap(e, install, "https://c.com", { phone: "(555) 867-5309", consent_sms: true, consent_text: "ok" })).json();
+    const r = await adminPost(e, `/admin/tenants/${tenant.id}/sms-inbound`, { phone: "555-867-5309", text: kw });
+    const jr = await r.json();
+    c("stop(" + kw + "): matched + withdrew consent", jr.matched === true && jr.contact === true && contactRow(e, j.contact_id).consent_sms === 0 && consentRows(e, j.contact_id).some(x => x.source === "reply_stop"));
+  }
+  const e = aiEnv("ok");
+  const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+  await cap(e, install, "https://c.com", { phone: "(555) 867-5309", consent_sms: true });
+  const r = await adminPost(e, `/admin/tenants/${tenant.id}/sms-inbound`, { phone: "555-867-5309", text: "hello there" });
+  c("stop: a normal message is not a keyword (no withdrawal)", (await r.json()).matched === false);
+}
+
+// contact export returns everything held about the contact
+{
+  const e = aiEnv("Thanks!");
+  const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const m = await (await msg(e, install, "https://c.com", { text: "reach me at exp@ex.com" })).json();
+  await cap(e, install, "https://c.com", { conversation_id: m.conversation_id, email: "exp@ex.com", phone: "(555) 867-5309", consent_sms: true, consent_text: "ok" });
+  const cid = m.captured.contact_id;
+  const jx = await (await adminGet(e, `/admin/tenants/${tenant.id}/contacts/${cid}/export`)).json();
+  c("export: returns contact + conversations + messages + events + consent_events", jx.contact.id === cid && jx.conversations.length >= 1 && jx.messages.length >= 1 && jx.events.length >= 1 && jx.consent_events.length >= 1);
+  c("export: contact_not_found for wrong tenant (tenant-scoped)", (await (await adminGet(e, `/admin/tenants/ten_nope/contacts/${cid}/export`)).json()).error === "contact_not_found");
+}
+
+// contact deletion anonymizes but preserves events + consent_events
+{
+  const e = aiEnv("Thanks!");
+  const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const m = await (await msg(e, install, "https://c.com", { text: "delete me — del@ex.com" })).json();
+  await cap(e, install, "https://c.com", { conversation_id: m.conversation_id, consent_sms: true, email: "del@ex.com", consent_text: "ok", disclosure_text: "d" });
+  const cid = m.captured.contact_id;
+  const db = e.SYN_DB._db;
+  const evBefore = db.prepare("SELECT COUNT(*) n FROM events WHERE contact_id=?").get(cid).n;
+  const cevBefore = db.prepare("SELECT COUNT(*) n FROM consent_events WHERE contact_id=?").get(cid).n;
+  const jd = await (await adminPost(e, `/admin/tenants/${tenant.id}/contacts/${cid}/delete`)).json();
+  c("delete: reports what was deleted vs anonymized-kept", jd.ok === true && jd.deleted.contact === 1 && jd.deleted.messages >= 1 && jd.anonymized_kept.consent_events >= 1);
+  c("delete: contact row gone", !contactRow(e, cid));
+  c("delete: conversations + messages gone", db.prepare("SELECT COUNT(*) n FROM conversations WHERE contact_id=?").get(cid).n === 0 && db.prepare("SELECT COUNT(*) n FROM messages m JOIN conversations v ON m.conversation_id=v.id WHERE v.contact_id=?").get(cid).n === 0);
+  const evAfter = db.prepare("SELECT * FROM events WHERE contact_id=?").all(cid);
+  c("delete: events kept (Receipt integrity), payload nulled", evAfter.length === evBefore && evAfter.every(x => x.payload === null));
+  const cevAfter = db.prepare("SELECT * FROM consent_events WHERE contact_id=?").all(cid);
+  c("delete: consent_events kept (proof), ip/user_agent nulled", cevAfter.length === cevBefore && cevAfter.every(x => x.ip === null && x.user_agent === null) && cevAfter.some(x => !!x.text_shown));
+  c("delete: wrong tenant → not found", (await (await adminPost(e, `/admin/tenants/ten_nope/contacts/${cid}/delete`)).json()).error === "contact_not_found");
+}
+
+// public per-brand privacy page: names Syntrex (processor) + the brand, flags mandatory placeholders
+{
+  const e = aiEnv("ok");
+  const { install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const r = await call(e, "GET", "/w/privacy?k=" + encodeURIComponent(install.install_key), {});
+  const html = await r.text();
+  c("privacy: renders HTML with no key/origin auth", r.status === 200 && /text\/html/.test(r.headers.get("Content-Type") || "") && /Privacy Notice/.test(html));
+  c("privacy: names Syntrex LLC as processor and the brand as controller", html.includes("Syntrex LLC") && html.includes("Acme Co"));
+  c("privacy: flags mandatory client-provided placeholders", /MANDATORY/.test(html));
+  c("privacy: mentions STOP + unsubscribe rights", /STOP/.test(html) && /unsubscribe/i.test(html));
 }
 
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);

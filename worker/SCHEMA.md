@@ -192,6 +192,24 @@ INSERTs.
 | `generated_at` / `sent_at` | TEXT | |
 | `status` | TEXT | `draft` \| … |
 
+### `consent_events` — the consent audit trail
+**Append-only.** Every consent change writes a row; a mutable flag is not evidence. See `COMPLIANCE.md`.
+
+| column | type | notes |
+|---|---|---|
+| `id` | TEXT PK | `cev_…` |
+| `tenant_id` | TEXT FK→tenants | index `(tenant_id, created_at)` |
+| `contact_id` | TEXT | index `(contact_id, created_at)`; kept as an opaque token after erasure |
+| `channel` | TEXT | `sms` \| `email` |
+| `action` | TEXT | `granted` \| `withdrawn` |
+| `source` | TEXT | `form` \| `reply_stop` \| `admin` \| `unsubscribe_link` |
+| `text_shown` | TEXT | the **exact** consent language the visitor saw |
+| `ip` / `user_agent` | TEXT | audit metadata; nulled on erasure |
+| `created_at` | TEXT | ISO |
+
+`contacts` also gains `unsub_token` (added by an idempotent `ALTER TABLE`) — an unguessable per-contact
+token backing the no-login email unsubscribe.
+
 ### `growth_rl` (internal)
 Per-install fixed-window rate limiter — `bucket` (`req:<install_id>`), `count`,
 `window_start`. Holds no business data.
@@ -211,7 +229,15 @@ POST   /admin/installs/:id/revoke
 POST   /admin/tenants/:id/job-value       → inserts a new job_values row
 GET    /admin/tenants/:id/events          → paginated (?limit=&cursor=)
 GET    /admin/tenants/:id/contacts        → paginated, newest first, with conversation_count
+GET    /admin/tenants/:id/contacts/:cid/export   → everything held about one contact (data-access)
+POST   /admin/tenants/:id/contacts/:cid/withdraw → manual consent withdrawal (source admin)
+POST   /admin/tenants/:id/contacts/:cid/delete   → erase contact/convos/messages; keep anonymized events + consent
+POST   /admin/tenants/:id/sms-inbound            → STOP/UNSUBSCRIBE/QUIT handler (stand-in for the SMS provider webhook)
 ```
+
+Compliance/consent details are in **`worker/COMPLIANCE.md`** (audit trail, opt-out, data rights, and
+the legal judgments flagged for review). The append-only `consent_events` table records every consent
+change with the exact `text_shown`; `contacts.unsub_token` backs the no-login email unsubscribe link.
 
 `GET /admin/tenants/:id/contacts` is strictly tenant-scoped (`WHERE tenant_id=?`) — one tenant can
 never read another's contacts. Each row includes `conversation_count` and the parsed `meta`; consent
@@ -224,6 +250,12 @@ POST   /w/events          → write an event, honors idempotency_key
 POST   /w/contacts        → upsert a contact, dedupes on email / phone per tenant
 POST   /w/messages        → brand-governed AI turn (see WIDGET.md § Brand-governed AI)
 POST   /w/capture         → explicit capture form: contact + (checkbox-gated) SMS consent
+```
+
+**Public legal pages (no key/origin auth — opened from a link, expose only public info):**
+```
+GET    /w/privacy         → per-brand privacy notice (template; Syntrex processor, client controller)
+GET    /w/unsubscribe?t=  → no-login email unsubscribe via an unguessable per-contact token
 ```
 
 `POST /w/messages` also runs **server-side contact detection** on the visitor's text (email always,

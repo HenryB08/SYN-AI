@@ -75,6 +75,18 @@
     var ink = readableInk(accent);
     var greeting = typeof conf.greeting === "string" && conf.greeting ? conf.greeting : "Hi! How can we help?";
     var side = conf.position === "bottom-left" ? "left" : "right";
+    // Privacy policy link: the client's own URL if they set one, else the SYN-hosted per-brand notice.
+    function safeUrl(u) { return (typeof u === "string" && /^https?:\/\//i.test(u.trim())) ? u.trim() : null; }
+    var privacyUrl = safeUrl(conf.privacy_policy_url) || (base + "/w/privacy" + q);
+    // The exact consent + disclosure language shown to the visitor — sent to the server so the audit
+    // records WHAT they agreed to, not just that they did.
+    var consentSentence = "I agree to receive follow-up messages, including texts, from " + brandName + " about my inquiry. Message and data rates may apply.";
+    var disclosureSentence = "We collect your name and contact details to respond to your inquiry.";
+    function policyLink(label) {
+      var a = document.createElement("a");
+      a.href = privacyUrl; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = label;
+      return a;
+    }
 
     // ---- host element: dodges tag/class selectors, all:initial, fixed, near-max z-index ----
     var host = document.createElement("syn-growth-root");
@@ -155,6 +167,10 @@
       ".capform .cf-skip{ flex: 0 0 auto; border: 1px solid rgba(0,0,0,.15); background: transparent;",
       "  border-radius: 8px; padding: 9px 12px; cursor: pointer; font: inherit; color: #555; }",
       ".capform .cf-err{ color: #c0392b; font-size: 12px; margin-bottom: 8px; }",
+      ".capform .cf-disclosure{ font-size: 12px; color: #555; margin-bottom: 10px; }",
+      ".capform .cf-disclosure a, .capform .cf-consent a{ color: #333; }",
+      ".privline{ flex: 0 0 auto; font-size: 11px; color: #8a8a8a; text-align: center; padding: 6px 12px 10px; background: #fff; }",
+      ".privline a{ color: #6a6a6a; }",
       // mobile: full-screen panel below 480px
       "@media (max-width: 479px){",
       "  .panel{ inset: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; border-radius: 0; border: 0; }",
@@ -221,6 +237,14 @@
     panel.appendChild(head);
     panel.appendChild(msgs);
     panel.appendChild(composer);
+
+    // Persistent, unintrusive privacy disclosure — visible while chatting, so it's present before any
+    // detail is captured in normal conversation, with a link to the full policy.
+    var privline = document.createElement("div");
+    privline.className = "privline";
+    privline.appendChild(document.createTextNode("Your messages and any details you share are used to respond to you. "));
+    privline.appendChild(policyLink("Privacy"));
+    panel.appendChild(privline);
 
     wrap.appendChild(launcher);
     wrap.appendChild(panel);
@@ -315,6 +339,11 @@
       f.className = "capform";
       function input(type, ph, label) { var i = document.createElement("input"); i.type = type; i.placeholder = ph; i.setAttribute("aria-label", label); return i; }
       var title = document.createElement("div"); title.className = "cf-title"; title.textContent = "Share your details and we'll follow up";
+      // Disclosure at the point of capture: what's collected + a link to the full policy.
+      var disclosure = document.createElement("div"); disclosure.className = "cf-disclosure";
+      disclosure.appendChild(document.createTextNode(disclosureSentence + " "));
+      disclosure.appendChild(policyLink("Privacy Policy"));
+      disclosure.appendChild(document.createTextNode("."));
       var name = input("text", "Name (optional)", "Name");
       var email = input("email", "Email", "Email");
       var phone = input("tel", "Phone (optional)", "Phone");
@@ -323,13 +352,15 @@
       var consent = document.createElement("label"); consent.className = "cf-consent";
       var cb = document.createElement("input"); cb.type = "checkbox";   // UNTICKED by default — never pre-ticked
       var cbText = document.createElement("span");
-      cbText.textContent = "I agree to receive follow-up messages, including texts, from " + brandName + " about my inquiry. Message and data rates may apply.";
+      cbText.appendChild(document.createTextNode(consentSentence + " See our "));
+      cbText.appendChild(policyLink("Privacy Policy"));   // the checkbox language references the policy
+      cbText.appendChild(document.createTextNode("."));
       consent.appendChild(cb); consent.appendChild(cbText);
       var actions = document.createElement("div"); actions.className = "cf-actions";
       var submit = document.createElement("button"); submit.type = "button"; submit.className = "cf-submit"; submit.textContent = "Send";
       var skip = document.createElement("button"); skip.type = "button"; skip.className = "cf-skip"; skip.textContent = "Not now";
       actions.appendChild(submit); actions.appendChild(skip);
-      f.appendChild(title); f.appendChild(name); f.appendChild(email); f.appendChild(phone); f.appendChild(note);
+      f.appendChild(title); f.appendChild(disclosure); f.appendChild(name); f.appendChild(email); f.appendChild(phone); f.appendChild(note);
       f.appendChild(err); f.appendChild(consent); f.appendChild(actions);
       msgs.appendChild(f); msgs.scrollTop = msgs.scrollHeight;
       formEl = f;
@@ -342,7 +373,7 @@
         fetch(base + "/w/capture" + q, {
           method: "POST", mode: "cors", credentials: "omit",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversation_id: convId, name: name.value.trim() || null, email: em || null, phone: ph || null, note: note.value.trim() || null, consent_sms: cb.checked })
+          body: JSON.stringify({ conversation_id: convId, name: name.value.trim() || null, email: em || null, phone: ph || null, note: note.value.trim() || null, consent_sms: cb.checked, consent_text: consentSentence, disclosure_text: disclosureSentence })
         }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
           if (okr) { captured = true; remove(); addBubble("bot", "Thanks! Someone from our team will be in touch soon."); }
           else { submit.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through — please try again."; err.style.display = "block"; }
