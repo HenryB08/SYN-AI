@@ -401,7 +401,7 @@ async function researchBrand(){
   status.textContent = "Searching the web for " + (site || name) + "…";
   try{
     const res = await fetch(apiBase() + "/v1/messages", {
-      method:"POST", headers:{ "Content-Type":"application/json" },
+      method:"POST", headers:{ "Content-Type":"application/json", ...gateHeaders() },
       body: JSON.stringify({
         model: MODELS.smart, max_tokens: AI_MAX_TOKENS.research,
         system: "You are a brand researcher. Research the company on the live web and return ONLY a JSON object, no markdown fences, no commentary, with exactly these keys: name (the company's proper display name), industry (short string), voice (2-3 sentence brand voice description), audience (1-2 sentences), products (array of strings), approvedClaims (array of strings, verifiable claims from their site), bannedClaims (array of strings, phrases this company should avoid for legal or accuracy reasons), legal (1-3 sentences of legal/regulatory constraints for this industry), imageStyle (2-3 sentences describing photography/visual style fitting the brand), palette (array of up to 5 objects {name, hex} matching the brand's real colors), accent (single hex string, the brand's primary color). If unsure of a field, give a sensible industry-appropriate value. Never invent certifications.",

@@ -42,6 +42,7 @@ const MOCK = () => {
 const browser = await chromium.launch({ executablePath: CHROME });
 const ctx = await browser.newContext({ viewport:{width:1440,height:940}, colorScheme:'dark' });
 await ctx.addInitScript(MOCK);
+await ctx.addInitScript(() => { window.__GATE_BYPASS__ = true; });   // client-only: exercise app logic without the single-admin gate UI (Worker still enforces the token)
 const p = await ctx.newPage();
 let ok=0, fail=0; const rows=[]; const errors=[];
 const check=(type,rule,ui,store,pass)=>{ rows.push({type,rule,ui,store,pass}); if(pass)ok++; else {fail++; console.log('  ✗ FAIL:',type,'-',rule);} };
@@ -50,14 +51,14 @@ const ev=(f,...a)=>p.evaluate(f,...a);
 async function loginAs(email, pass){
   await ev(()=>{ Object.keys(localStorage).filter(k=>k.startsWith('syn5:session')).forEach(k=>localStorage.removeItem(k)); });
   await p.reload(); await p.waitForSelector('#site.on',{timeout:12000});
-  await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
+  await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
   await p.fill('#aEmail',email); await p.fill('#aPass',pass); await p.click('#authBtn'); await p.waitForSelector('#app.on',{timeout:12000});
   await ev(async()=>{ await loadWorkspaceData(); const b=BRANDS[0]; if(b){ await loadChats(b.id); selectBrand(b.id); } });
 }
 
 async function run(){
   await p.goto(U); await p.waitForSelector('#site.on',{timeout:12000});
-  await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('create'));
+  await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('create'));
   await p.fill('#aCompany','Syntrex LLC'); await p.fill('#aName','Henry Bello'); await p.fill('#aEmail','henry@x.test'); await p.fill('#aPass','pilot123');
   await p.click('#authBtn'); await p.waitForSelector('#app.on',{timeout:12000});
   // seed team (Dana member, Carol member) + all data types with private + shared variants

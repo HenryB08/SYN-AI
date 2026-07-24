@@ -283,7 +283,7 @@ async function spaceGenerate(space){
   let raw = "";
   try{
     const res = await fetch(apiBase() + "/v1/messages", {
-      method:"POST", headers:{ "Content-Type":"application/json" }, signal: spaceAbort.signal,
+      method:"POST", headers:{ "Content-Type":"application/json", ...gateHeaders() }, signal: spaceAbort.signal,
       body: JSON.stringify({ model: MODELS[sGate.downgrade ? "fast" : (modelPick || "smart")] || MODELS.smart, max_tokens: AI_MAX_TOKENS.space, stream:true, system: b ? buildSystemPrompt(b) : generalSpacePrompt(space), messages: history, tools:[{ type:"web_search_20250305", name:"web_search" }] })
     });
     if (!res.ok || !res.body) throw new Error("net");

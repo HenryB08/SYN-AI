@@ -29,6 +29,59 @@ function apiBase(){
   return (SYN_CORE_URL && SYN_CORE_URL.startsWith("http")) ? SYN_CORE_URL : "https://api.anthropic.com";
 }
 
+/* ============ TEMPORARY ACCESS GATE (client side) — NOT AN AUTH SYSTEM ============
+   A single-credential bouncer for the private beta so the app can be demoed safely.
+   The REAL check lives in the syn-core Worker (POST /gate); this side only holds the
+   signed token the Worker issues and attaches it to every /kv and /v1/messages request.
+   If the token is missing/invalid/expired, the data layer 401s and the app returns to
+   the sign-in gate. Prompt 26 replaces this whole gate with real auth — do not build on
+   it. The gate is only ACTIVE against real SYN Core (persistMode==="cloud"); in local /
+   preview mode there is no Worker to gate against, so it stays inert and the normal
+   create/join flow works (that path is not public). */
+let gateToken = null;
+try{ gateToken = localStorage.getItem("syn5:gate") || null; }catch(e){}
+// The gate is active when talking to real SYN Core. __GATE_BYPASS__ is a CLIENT-ONLY test
+// seam: the mock-cloud suites set it so they can exercise multi-user app logic (create/join/two
+// users) without the single-admin gate UI. It is NOT a security bypass — the Worker still requires
+// the signed token on every /kv and /v1/messages request, so nothing is reachable without passing
+// the real gate. Production never sets it.
+function gateActive(){ return persistMode === "cloud" && !(typeof window !== "undefined" && window.__GATE_BYPASS__); }
+function gateHeaders(){ return gateToken ? { "Authorization": "Bearer " + gateToken } : {}; }
+function gateReadExp(tok){ try{ const p = JSON.parse(atob(tok.split(".")[0].replace(/-/g,"+").replace(/_/g,"/"))); return (p && typeof p.exp === "number") ? p.exp : 0; }catch(e){ return 0; } }
+function gateValid(){ return !!gateToken && gateReadExp(gateToken) > Math.floor(Date.now()/1000); }
+function gateStore(tok){ gateToken = tok; try{ localStorage.setItem("syn5:gate", tok); }catch(e){} }
+function gateClear(){ gateToken = null; try{ localStorage.removeItem("syn5:gate"); }catch(e){} }
+let _gateLocking = false;
+/* Missing/invalid/expired token → drop the app and return to the sign-in gate. */
+function gateLock(msg){
+  if (_gateLocking) return; _gateLocking = true;
+  gateClear();
+  try{ localStorage.removeItem("syn5:session"); }catch(e){}
+  const app = document.getElementById("app"); if (app) app.classList.remove("on");
+  hideSite();
+  showAuth("signin");
+  if (msg) authErr(msg);
+  setTimeout(() => { _gateLocking = false; }, 50);
+}
+/* POST the single admin credential to the Worker gate. The Worker does the real check
+   (constant-time, rate-limited) and returns a signed token on success. */
+async function gateSignIn(email, password){
+  try{
+    const res = await fetch(cloudBase() + "/gate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    if (res.status === 429) return { rateLimited: true };
+    if (!res.ok) return { failed: true };
+    const j = await res.json().catch(() => null);
+    if (!j || !j.token) return { failed: true };
+    gateStore(j.token);
+    return { ok: true };
+  }catch(e){ return { error: true }; }
+}
+/* From the gated sign-in card back out to the public waitlist. */
+function gateToWaitlist(){ const a = document.getElementById("authScreen"); if (a) a.classList.remove("on"); showSite(); goSite("home", "waitlist"); }
+
 /* ---------------- STORAGE ADAPTER (persistent, team-shared) ---------------- */
 const mem = {};                       // last-resort fallback
 let persistOk = false;
@@ -49,19 +102,21 @@ async function cloudGet(key){
     try{
       const ctl = new AbortController();
       const t = setTimeout(() => ctl.abort(), 6000);
-      const res = await fetch(cloudBase() + "/kv/" + encodeURIComponent(key), { method:"GET", signal: ctl.signal });
+      const res = await fetch(cloudBase() + "/kv/" + encodeURIComponent(key), { method:"GET", headers: gateHeaders(), signal: ctl.signal });
       clearTimeout(t);
+      if (res.status === 401){ const err = new Error("gate 401"); err.gate401 = true; gateLock("Your access has expired. Sign in again."); throw err; }
       if (!res.ok) throw new Error("cloud get " + res.status);
       const j = await res.json();
       return (j && j.value != null) ? JSON.parse(j.value) : null;   // stored value is a JSON string, exactly like localStorage
-    }catch(e){ lastErr = e; if (attempt < 2) await _sleep(350 * (attempt + 1)); }
+    }catch(e){ lastErr = e; if (e.gate401) throw e; if (attempt < 2) await _sleep(350 * (attempt + 1)); }
   }
   throw lastErr || new Error("cloud get failed");
 }
 async function cloudPut(key, str){
   const res = await fetch(cloudBase() + "/kv/" + encodeURIComponent(key), {
-    method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ value: str })
+    method:"PUT", headers:{ "Content-Type":"application/json", ...gateHeaders() }, body: JSON.stringify({ value: str })
   });
+  if (res.status === 401){ gateLock("Your access has expired. Sign in again."); const err = new Error("gate 401"); err.gate401 = true; throw err; }
   if (!res.ok) throw new Error("cloud put " + res.status);
 }
 // Serialize writes per key so rapid PUTs to the same key can't overlap or land out of order.
@@ -642,6 +697,16 @@ async function boot(){
     : persistMode === "device" ? "Saved to this browser only. SYN Core wasn't reachable, so cross-device team sync is off right now."
     : "Storage unavailable; this session is in-memory only.";
 
+  // ACCESS GATE (temporary — see the gate block up top): with real SYN Core, every /kv read
+  // needs a valid token. Without one, don't attempt token-gated reads (they'd 401) — the public
+  // marketing site stays open and Sign In routes to the gate. Registry + session load only after
+  // the gate passes (in authSubmit). Prompt 26 replaces this.
+  if (gateActive() && !gateValid()){
+    document.getElementById("bootScreen").classList.remove("on");
+    showSite(); routeSite();
+    return;
+  }
+
   // Registry is identity-critical: never fabricate an empty one from a failed cloud read.
   try{ ORGS = (await sGetStrict("syn5:orgs")) || []; }
   catch(e){ return bootCloudError(); }
@@ -693,6 +758,11 @@ function codeMinutesLeft(){ return Math.max(1, Math.ceil((1800000 - (Date.now() 
 
 /* ---------------- AUTH ---------------- */
 function showAuth(m){
+  // ACCESS GATE (temporary): while the gate is on, only the single-admin Sign In exists.
+  // The New Workspace and Join Team tabs — the public routes into workspace creation — are
+  // hidden entirely, and any attempt to open them is coerced back to Sign In. Prompt 26 removes this.
+  const gated = gateActive();
+  if (gated) m = "signin";
   authMode = m;
   const f = document.getElementById("authFields");
   const sub = document.getElementById("authSub");
@@ -700,10 +770,10 @@ function showAuth(m){
   const sw = document.getElementById("authSwitch");
   const tabs = document.getElementById("authTabs");
   document.getElementById("authErr").style.display = "none";
-  tabs.innerHTML =
-    '<button class="mode-btn ' + (m === "signin" ? "active" : "") + '" onclick="showAuth(\'signin\')">Sign In</button>' +
+  tabs.innerHTML = gated ? "" :
+    ('<button class="mode-btn ' + (m === "signin" ? "active" : "") + '" onclick="showAuth(\'signin\')">Sign In</button>' +
     '<button class="mode-btn ' + (m === "create" ? "active" : "") + '" onclick="showAuth(\'create\')">New Workspace</button>' +
-    '<button class="mode-btn ' + (m === "join" ? "active" : "") + '" onclick="showAuth(\'join\')">Join Team</button>';
+    '<button class="mode-btn ' + (m === "join" ? "active" : "") + '" onclick="showAuth(\'join\')">Join Team</button>');
   if (m === "create"){
     sub.textContent = "Start your company workspace";
     f.innerHTML = '<input class="f-input" id="aCompany" placeholder="Company name"><input class="f-input" id="aName" placeholder="Your full name"><input class="f-input" id="aEmail" placeholder="Work email" autocomplete="off"><input class="f-input" id="aPass" type="password" placeholder="Create a password">';
@@ -715,10 +785,12 @@ function showAuth(m){
     btn.textContent = "Join Workspace";
     sw.innerHTML = "The team code rotates every 30 minutes. Get the current one from your workspace admin.";
   } else {
-    sub.textContent = "Welcome back";
+    sub.textContent = gated ? "Private beta" : "Welcome back";
     f.innerHTML = '<input class="f-input" id="aEmail" placeholder="Work email" autocomplete="off"><input class="f-input" id="aPass" type="password" placeholder="Password">';
     btn.textContent = "Sign In";
-    sw.innerHTML = '<button onclick="forgotInfo()">Forgot password?</button>';
+    sw.innerHTML = gated
+      ? 'SYN is in private beta — <button onclick="gateToWaitlist()">join the waitlist</button> for access.'
+      : '<button onclick="forgotInfo()">Forgot password?</button>';
   }
   document.getElementById("authScreen").classList.add("on");
   f.querySelectorAll("input").forEach(i2 => i2.addEventListener("keydown", e => { if (e.key === "Enter") authSubmit(); }));
@@ -736,6 +808,32 @@ async function authSubmit(){
   const pass = val("aPass");
   if (!em) return authErr("Enter your email.");
   if (!pass) return authErr("Enter your password.");
+
+  // ACCESS GATE (temporary): when on, the Worker validates the single admin credential FIRST and
+  // issues the token that unlocks every data request. Only signin exists while gated. On success we
+  // then locate the workspace by email — the gate already proved identity, so no second password.
+  // Prompt 26 replaces this with real per-user auth.
+  if (gateActive()){
+    const btn = document.getElementById("authBtn");
+    const lbl = btn ? btn.textContent : "";
+    if (btn){ btn.disabled = true; btn.textContent = "Checking…"; }
+    const g = await gateSignIn(em, pass);
+    if (btn){ btn.disabled = false; btn.textContent = lbl; }
+    if (g.rateLimited) return authErr("Too many attempts. Wait a few minutes and try again.");
+    if (!g.ok) return authErr("Access is restricted. SYN is in private beta — join the waitlist for access.");
+    let orgs;
+    try{ orgs = (await sGetStrict("syn5:orgs")) || []; }
+    catch(e){ return authErr("Signed in, but couldn’t reach SYN Core to load your workspace. Try again."); }
+    ORGS = orgs;
+    for (const org of ORGS){
+      let team;
+      try{ team = (await sGetStrict("syn5:" + org.id + ":team")) || []; }
+      catch(e){ return authErr("Signed in, but couldn’t load your workspace. Try again."); }
+      const u = team.find(t => (t.email || "").trim().toLowerCase() === em);
+      if (u){ await sSet("syn5:session", { orgId: org.id, userId: u.id }, false); await enterOrg(org, u); return; }
+    }
+    return authErr("Access granted, but no workspace is set up for this account yet. Contact henry@syntrexio.com.");
+  }
 
   // Always work from the latest workspace registry (cloud when live) so sign-in and join
   // see workspaces created in another browser, not just whatever was loaded at boot.

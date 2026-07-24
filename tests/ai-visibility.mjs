@@ -12,7 +12,7 @@ let ok = 0, fail = 0; const check = (n, c) => { (c ? ok++ : fail++); if (!c) con
 const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'dark' });
 const p = await ctx.newPage();
 await p.goto(U); await p.waitForSelector('#site.on');
-await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on');
+await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on');
 await p.fill('#aCompany', 'Northwind Supply Co.'); await p.fill('#aName', 'Ada Owner'); await p.fill('#aEmail', 'ada@nw.test'); await p.fill('#aPass', 'pass1234');
 await p.click('#authBtn'); await p.waitForSelector('#app.on');
 await p.evaluate(() => { TEAM.push({ id: 'u_ben', name: 'Ben Member', email: 'ben@nw.test', role: 'Member' }); window.__A = currentUser.id; });

@@ -30,7 +30,7 @@ async function newPage(){
 }
 async function signup(p, company){
   await p.goto(U); await p.waitForSelector('#site.on');
-  await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on');
+  await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on');
   await p.fill('#aCompany',company||'HALT Fire'); await p.fill('#aName','Ada Lovelace'); await p.fill('#aEmail','a@h.test'); await p.fill('#aPass','pass1234');
   await p.click('#authBtn'); await p.waitForSelector('#app.on');
 }
@@ -87,7 +87,7 @@ async function run(){
     await ctx.addInitScript(()=>{ try{ localStorage.removeItem('syn5:session'); }catch(e){} });
     const q = await ctx.newPage();
     await q.goto(U); await q.waitForSelector('#site.on',{timeout:15000});
-    await q.click('.site-nav-cta .site-btn.gold'); await q.waitForSelector('#authScreen.on');
+    await q.evaluate(() => siteAuth('create')); await q.waitForSelector('#authScreen.on');
     await q.evaluate(()=>showAuth('join')); await q.waitForTimeout(80);
     await q.fill('#aName','Bea New'); await q.fill('#aEmail','bea@h.test'); await q.fill('#aPass','pass1234'); await q.fill('#aCode',code);
     await q.click('#authBtn'); await q.waitForTimeout(250);

@@ -600,7 +600,7 @@ async function planMyDay(){
   const summary = "My open tasks:\n" + tLines + "\n\nMy events (next 2 days):\n" + eLines + "\n\nDraft a focused, prioritized plan for today.";
   try{
     const res = await fetch(apiBase() + "/v1/messages", {
-      method:"POST", headers:{ "Content-Type":"application/json" },
+      method:"POST", headers:{ "Content-Type":"application/json", ...gateHeaders() },
       body: JSON.stringify({ model: MODELS.fast, max_tokens: AI_MAX_TOKENS.plan_day,
         system: "You are SYN, a sharp chief-of-staff. Given a teammate's open tasks and events, write a concise, prioritized plan for their day: a short opening line, then an ordered list of what to focus on and when, grouping around their meetings. Flag anything overdue first. Clean markdown, no preamble, no em dashes. Today is " + todayISO() + ".",
         messages:[{ role:"user", content: summary }] })

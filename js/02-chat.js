@@ -639,7 +639,7 @@ async function generate(){
     while (true){
       const msgs = raw ? history.concat([{ role:"assistant", content: raw }]) : history;
       const res = await fetch(apiBase() + "/v1/messages", {
-        method:"POST", headers:{ "Content-Type":"application/json" },
+        method:"POST", headers:{ "Content-Type":"application/json", ...gateHeaders() },
         signal: abortCtl.signal,
         body: JSON.stringify({
           model: MODELS[effModelPick], max_tokens: AI_MAX_TOKENS.chat, stream: true,

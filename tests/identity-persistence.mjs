@@ -50,6 +50,7 @@ const MOCK = () => {
 const browser = await chromium.launch({ executablePath: CHROME });
 const ctx = await browser.newContext({ viewport:{width:1440,height:940}, colorScheme:'dark' });
 await ctx.addInitScript(MOCK);
+await ctx.addInitScript(() => { window.__GATE_BYPASS__ = true; });   // client-only: exercise app logic without the single-admin gate UI (Worker still enforces the token)
 const p = await ctx.newPage();
 let ok=0, fail=0; const check=(n,c)=>{ if(c)ok++; else {fail++; console.log('  ✗ FAIL:',n);} };
 const errors=[]; p.on('pageerror',e=>errors.push('PAGEERROR: '+e.message));
@@ -60,7 +61,7 @@ async function run(){
   // ---- Seed: Henry creates "Syntrex LLC" in the cloud, adds Dana + brand + task + chat ----
   await p.goto(U); await p.waitForSelector('#site.on',{timeout:12000});
   check('boots in Synced (cloud) mode with the mock core', (await ev(()=>document.getElementById('storagePill').textContent))==='Synced');
-  await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on');
+  await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on');
   await ev(()=>showAuth('create'));
   await p.fill('#aCompany','Syntrex LLC'); await p.fill('#aName','Henry Bello'); await p.fill('#aEmail','henry@syntrexio.com'); await p.fill('#aPass','pilot123');
   await p.click('#authBtn'); await p.waitForSelector('#app.on',{timeout:12000});
@@ -79,7 +80,7 @@ async function run(){
 
   // ---- A. Cold boot: Henry signs in on a fresh device -> EXISTING org + all data ----
   await freshDevice(); await p.reload(); await p.waitForSelector('#site.on',{timeout:12000});
-  await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
+  await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
   await p.fill('#aEmail','henry@syntrexio.com'); await p.fill('#aPass','pilot123'); await p.click('#authBtn'); await p.waitForSelector('#app.on',{timeout:12000});
   check('Henry cold-boots into his EXISTING org (not a new one)', (await ev(()=>ORG.id))===orgId);
   const hData = await ev(async()=>{ await loadWorkspaceData(); const b=BRANDS[0]; if(b) await loadChats(b.id); return { team:TEAM.length, task:Tasks.list(t=>t.title==='PILOT-EXISTING-TASK').length, chat:(b?(CHATS[b.id]||[]):[]).some(c=>c.name==='PILOT-CHAT'), brand:BRANDS.length }; });
@@ -87,14 +88,14 @@ async function run(){
 
   // ---- B. The second member (Dana) lands in the SAME org ----
   await freshDevice(); await p.reload(); await p.waitForSelector('#site.on',{timeout:12000});
-  await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
+  await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
   await p.fill('#aEmail','dana@syntrexio.com'); await p.fill('#aPass','member123'); await p.click('#authBtn'); await p.waitForSelector('#app.on',{timeout:12000});
   check('Dana lands in the SAME org as Henry', (await ev(()=>ORG.id))===orgId);
   check('Dana sees the shared brand + team task', await ev(async()=>{ await loadWorkspaceData(); const b=BRANDS[0]; return BRANDS.length>=1 && Tasks.list(t=>t.title==='PILOT-EXISTING-TASK').length>=1; }));
 
   // ---- C. Wrong password is genuinely rejected (No match), not a server error ----
   await freshDevice(); await p.reload(); await p.waitForSelector('#site.on',{timeout:12000});
-  await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
+  await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
   await p.fill('#aEmail','henry@syntrexio.com'); await p.fill('#aPass','WRONGPASS'); await p.click('#authBtn'); await p.waitForTimeout(800);
   const wrong = await ev(()=>({ inApp:document.getElementById('app').classList.contains('on'), err:document.getElementById('authErr').textContent }));
   check('wrong password is rejected with "No match"', !wrong.inApp && /No match/.test(wrong.err));
@@ -102,7 +103,7 @@ async function run(){
   // ---- D. Transient cloud read failure: retry message, NEVER a false "No match" / new org ----
   await freshDevice(); await p.reload(); await p.waitForSelector('#site.on',{timeout:12000});
   await ev(()=>localStorage.setItem('mc:__fail','1'));
-  await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
+  await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on'); await ev(()=>showAuth('signin'));
   await p.fill('#aEmail','henry@syntrexio.com'); await p.fill('#aPass','pilot123'); await p.click('#authBtn'); await p.waitForTimeout(1200);
   const trans = await ev(()=>({ inApp:document.getElementById('app').classList.contains('on'), orgId:(typeof ORG!=='undefined'&&ORG)?ORG.id:null, err:document.getElementById('authErr').textContent }));
   check('transient failure does NOT sign into any app/org', !trans.inApp);

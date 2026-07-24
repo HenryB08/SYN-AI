@@ -551,7 +551,7 @@ async function planWithSYN(){
   const names = TEAM.map(u => u.name).join(", ");
   try{
     const res = await fetch(apiBase() + "/v1/messages", {
-      method:"POST", headers:{ "Content-Type":"application/json" },
+      method:"POST", headers:{ "Content-Type":"application/json", ...gateHeaders() },
       body: JSON.stringify({
         model: MODELS[pGate.downgrade ? "fast" : "smart"], max_tokens: AI_MAX_TOKENS.plan_tasks,
         system: "You are a project planner. Break the user's goal into concrete, actionable tasks. Respond with ONLY task lines, one per line, each EXACTLY in this format and nothing else:\n[[TASK: title | assignee | YYYY-MM-DD | priority | project]]\nAssignee must be one of these team members or left blank: " + names + ". Priority is one of low, med, high, urgent. Project is a short project name (reuse the same name for all tasks in this plan). Dates should be realistic relative to today (" + today + "). Produce 4 to 10 tasks. No commentary, no markdown, only the task lines.",

@@ -368,7 +368,7 @@ function autoActivityForTask(t){
 
 /* ---- non-streaming model call returning text (for AI parse + recap narrative) ---- */
 async function aiText(system, user, maxTokens){
-  const res = await fetch(apiBase() + "/v1/messages", { method:"POST", headers:{ "Content-Type":"application/json" },
+  const res = await fetch(apiBase() + "/v1/messages", { method:"POST", headers:{ "Content-Type":"application/json", ...gateHeaders() },
     body: JSON.stringify({ model: MODELS.fast, max_tokens: maxTokens || 1500, system, messages:[{ role:"user", content: user }] }) });
   if (!res.ok) throw new Error("ai " + res.status);
   const j = await res.json();

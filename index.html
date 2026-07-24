@@ -92,7 +92,7 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
       </div>
       <div class="site-nav-cta">
         <button class="site-btn ghost" onclick="siteAuth('signin')">Sign In</button>
-        <button class="site-btn gold" onclick="siteAuth('create')">Get Started</button>
+        <button class="site-btn gold" onclick="goSite('home','waitlist')">Join the waitlist</button>
       </div>
       <button class="site-menu-btn" onclick="toggleSiteMenu(event)" aria-label="Open menu" aria-expanded="false" aria-controls="siteMenu">☰</button>
     </div>
@@ -101,7 +101,7 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
       <a onclick="goSite('home','pricing');closeSiteMenu()">Pricing</a>
       <a onclick="goSite('terms');closeSiteMenu()">Legal</a>
       <button class="site-btn ghost" onclick="siteAuth('signin');closeSiteMenu()">Sign In</button>
-      <button class="site-btn gold" onclick="siteAuth('create');closeSiteMenu()">Get Started</button>
+      <button class="site-btn gold" onclick="goSite('home','waitlist');closeSiteMenu()">Join the waitlist</button>
     </div>
   </nav>
 
@@ -243,7 +243,7 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
               <div class="calc-save" id="calcSave"></div>
             </div>
           </div>
-          <button class="site-btn gold" onclick="siteAuth('create')">Get Started</button>
+          <button class="site-btn gold" onclick="goSite('home','waitlist')">Join the waitlist</button>
         </div>
 
         <div class="feat-table">
@@ -257,14 +257,14 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
           <div class="ft-row"><span class="ft-name">Weekly recap, activity log &amp; company rollup (admin)</span><span class="ft-chk">✓ Included</span></div>
           <div class="ft-row"><span class="ft-name">Pooled AI usage — included, never billed per message</span><span class="ft-chk">✓ Included</span></div>
         </div>
-        <p class="price-note">Final billing activates with SYN Core (Stripe). Every Get Started routes into workspace creation now.</p>
+        <p class="price-note">Final billing activates with SYN Core (Stripe). SYN is in private beta — join the waitlist for access.</p>
       </div></section>
 
       <section class="site-sec" style="--sn:'06'"><div class="site-wrap">
         <div class="sec-eyebrow c">Start</div>
         <div class="site-cta-band">
           <h2>Encode your brand once. Ship on-brand everywhere.</h2>
-          <div class="sh-cta"><button class="site-btn gold lg" onclick="siteAuth('create')">Get Started</button><button class="site-btn ghost lg" onclick="siteAuth('signin')">Sign In</button></div>
+          <div class="sh-cta"><button class="site-btn gold lg" onclick="goSite('home','waitlist')">Join the waitlist</button><button class="site-btn ghost lg" onclick="siteAuth('signin')">Sign In</button></div>
         </div>
       </div></section>
 
@@ -308,7 +308,7 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
               <a class="social-tile" href="https://www.tiktok.com/@syntrexio" target="_blank" rel="noopener noreferrer" aria-label="Syntrex on TikTok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.6 3c.29 2.02 1.42 3.63 3.4 3.98v2.63c-1.28.1-2.5-.28-3.68-1.02v6.35a5.7 5.7 0 1 1-5.7-5.7c.24 0 .48.02.72.06v2.72a2.98 2.98 0 0 0-.72-.09 3 3 0 1 0 3 3V3h2.98Z"/></svg></a>
             </div>
           </div>
-          <div class="fcol"><h4>Product</h4><a onclick="goSite('home','features')">Features</a><a onclick="goSite('home','pricing')">Pricing</a><a onclick="siteAuth('create')">Get Started</a><a onclick="siteAuth('signin')">Sign In</a></div>
+          <div class="fcol"><h4>Product</h4><a onclick="goSite('home','features')">Features</a><a onclick="goSite('home','pricing')">Pricing</a><a onclick="goSite('home','waitlist')">Join the waitlist</a><a onclick="siteAuth('signin')">Sign In</a></div>
           <div class="fcol"><h4>Legal</h4><a onclick="goSite('terms')">Terms of Service</a><a onclick="goSite('privacy')">Privacy Policy</a><a onclick="goSite('acceptable-use')">Acceptable Use</a></div>
           <div class="fcol"><h4>Company</h4><a href="https://syntrexio.com" target="_blank" rel="noopener">Syntrex</a><a href="mailto:henry@syntrexio.com">Contact</a></div>
         </div>

@@ -10,7 +10,7 @@ const ev = (p, fn, ...a) => p.evaluate(fn, ...a);
 const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'dark' });
 const p = await ctx.newPage();
 await p.goto(U); await p.waitForSelector('#site.on');
-await p.click('.site-nav-cta .site-btn.gold'); await p.waitForSelector('#authScreen.on');
+await p.evaluate(() => siteAuth('create')); await p.waitForSelector('#authScreen.on');
 await p.fill('#aCompany', 'HALT Fire'); await p.fill('#aName', 'Ada Lovelace'); await p.fill('#aEmail', 'a@h.test'); await p.fill('#aPass', 'pass1234');
 await p.click('#authBtn'); await p.waitForSelector('#app.on');
 await ev(p, () => {
