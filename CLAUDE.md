@@ -28,9 +28,16 @@ as-is.
 
 ## 2. Stack and hosting
 
-- **Frontend:** one static `index.html`, no bundler, no framework, all CSS/JS
-  inline. Served from **GitHub Pages**, `main` branch of this repo
-  (`HenryB08/SYN-AI`).
+- **Frontend:** one static `index.html`, no bundler, no framework. Served from
+  **GitHub Pages**, `main` branch of this repo (`HenryB08/SYN-AI`).
+- **Custom domain:** a `CNAME` file at the repo root points GitHub Pages at
+  **`syn.syntrexio.com`** (the site currently also answers at
+  `henryb08.github.io/SYN-AI/`). All local asset/route refs are **relative** and
+  routing is **hash-based**, so the app runs identically at the `/SYN-AI/` subpath
+  and at the domain root — the move is zero-downtime and reversible. Fully-
+  qualified self-references (canonical, `og:url`, JSON-LD, `sitemap.xml`,
+  `robots.txt`) all use one base: **`SITE_BASE_URL`** in `js/01-boot-auth.js`
+  (mirrored by the static meta), set to `https://syn.syntrexio.com`.
 - **CDN / edge:** **Cloudflare** sits in front.
 - **Backend — SYN Core:** a **Cloudflare Worker** at
   **`https://syn-core.henrybello.workers.dev`**, backed by **D1**. It exposes a
@@ -46,6 +53,11 @@ as-is.
   proxy). The marketing site (browser) → syn-assistant Worker → Anthropic.
   syn-assistant does **not** touch D1. Final billing activates with SYN Core via
   Stripe.
+- **Worker CORS = explicit origin allowlist** (not a wildcard). Both workers must
+  accept `https://henryb08.github.io` **and** `https://syn.syntrexio.com`,
+  reflecting the specific requesting origin and failing closed on an absent/unknown
+  origin. `worker/syn-assistant.js` does this; **`syn-core`'s source lives outside
+  this repo** — apply the same allowlist there (patch in `worker/README.md`).
 - **Secrets:** live **only** in each Worker's environment as Wrangler secrets
   (e.g. `ANTHROPIC_API_KEY` via `npx wrangler secret put`). **No secret value
   appears in this repo or in the browser.** Deploy steps are in
@@ -65,7 +77,9 @@ Every tracked file in the repo:
 | `img/guide/*.webp` | The 12 in-app Guide screenshots (extracted from the old `GUIDE_IMGS` base64) | swapping a guide screenshot |
 | `worker/syn-assistant.js` | Cloudflare Worker for the marketing assistant; system prompt baked in, proxies Anthropic | changing what the marketing assistant knows or how it's proxied |
 | `worker/wrangler.toml` | Wrangler config for syn-assistant | changing the Worker name / compat date |
-| `worker/README.md` | Deploy + wiring instructions for syn-assistant | onboarding a deployer; changing the endpoint |
+| `worker/README.md` | Deploy + wiring for syn-assistant, plus the origin-allowlist patch for syn-core | onboarding a deployer; changing an endpoint or the CORS allowlist |
+| `CNAME` | Custom-domain pointer for GitHub Pages — contains exactly `syn.syntrexio.com` | changing the custom domain |
+| `robots.txt` / `sitemap.xml` | Crawler directives + one-URL sitemap, both keyed to `https://syn.syntrexio.com` | changing the public domain or adding crawlable routes |
 | `tests/*.mjs` | 11 Playwright suites (see [§7](#7-testing)) | any behavior change — add/adjust a suite |
 | `img/shot-tasks.webp` | One marketing screenshot asset (38 KB) | swapping that marketing image |
 | `docs/luminous-identity.md` | Historical identity/design note | design-history reference only |

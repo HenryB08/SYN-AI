@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SYN · Brand Intelligence Platform · Syntrex</title>
 <meta name="description" content="SYN is a full team operating system with your brand's voice, rules, and memory built in — one brain across every surface your team works on.">
+<!-- Canonical public origin — the single source of truth for every fully-qualified
+     self-reference (this canonical link, og:url, the JSON-LD below, sitemap.xml and
+     robots.txt at the repo root, and SITE_BASE_URL in js/01-boot-auth.js). It is set to
+     the custom domain AHEAD of the DNS cutover on purpose: these are metadata, not runtime
+     dependencies, so they are correct and harmless before syn.syntrexio.com resolves. All
+     local assets (css/ js/ img/) are RELATIVE, so the app runs identically at the current
+     /SYN-AI/ subpath and at the future domain root. -->
+<link rel="canonical" href="https://syn.syntrexio.com/">
+<meta property="og:url" content="https://syn.syntrexio.com/">
+<meta property="og:site_name" content="SYN">
 <meta property="og:type" content="website">
 <meta property="og:title" content="SYN · Brand Intelligence Platform">
 <meta property="og:description" content="The AI workspace that already knows your brand. One brain, every surface.">
@@ -31,6 +41,9 @@ function synMark(size, cls){ size = size || 40; return '<span class="syn-mark ' 
 <link rel="stylesheet" href="css/04-marketing.css">
 <link rel="stylesheet" href="css/05-guide-premium.css">
 <link rel="stylesheet" href="css/06-motion.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SYN","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://syn.syntrexio.com/","description":"SYN is a brand-governed AI workspace — one brand intelligence across tasks, calendar, chat, spaces, and assets.","offers":{"@type":"Offer","price":"39","priceCurrency":"USD","description":"Per seat / month, with volume rates for larger workspaces."},"publisher":{"@type":"Organization","name":"Syntrex LLC","url":"https://syntrexio.com"}}
+</script>
 </head>
 <body>
 
