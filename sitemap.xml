@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- The site is hash-routed: legal/pricing routes live at URL fragments (#/terms,
+     #/privacy, #/acceptable-use, and the pricing/features/waitlist anchors on home),
+     which search engines fold into the root URL rather than crawling separately. So
+     the only genuinely distinct, crawlable, fully-public URL is the site root. Gated
+     app routes are never listed. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://syn.syntrexio.com/</loc>
+    <lastmod>2026-07-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>

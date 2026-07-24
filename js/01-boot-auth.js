@@ -523,8 +523,40 @@ function initParallax(){
   site.addEventListener("scroll", onScroll, { passive: true });
 }
 function hideSite(){ document.getElementById("site").classList.remove("on"); }
+/* Per-route <head> metadata (SEO). The site is hash-routed, so one static head ships with the
+   page and this updates title / description / canonical / og:url / og:title / og:description on
+   route change — so a JS-running client and the browser tab/history present each public route
+   correctly. NOTE: social scrapers do NOT run JS; they read the STATIC head, which is why the
+   static head carries the primary (home) values. Only public marketing routes are handled here. */
+let _homeMeta = null;
+function _metaEl(sel){ return document.head.querySelector(sel); }
+function _setMeta(sel, attr, val){ const el = _metaEl(sel); if (el && val != null) el.setAttribute(attr, val); }
+function applyRouteMeta(page){
+  if (!_homeMeta){                                   // capture the static home values once, before any overwrite
+    const g = sel => { const el = _metaEl(sel); return el ? (el.getAttribute("content") || el.getAttribute("href")) : null; };
+    _homeMeta = { title: document.title, desc: g('meta[name="description"]'),
+      ogTitle: g('meta[property="og:title"]'), ogDesc: g('meta[property="og:description"]') };
+  }
+  const R = {
+    home: { title: _homeMeta.title, desc: _homeMeta.desc, ogTitle: _homeMeta.ogTitle, ogDesc: _homeMeta.ogDesc, path: "/" },
+    terms: { title: "Terms of Service · SYN", desc: "The terms that govern use of SYN, a Syntrex product.", path: "/#/terms" },
+    privacy: { title: "Privacy Policy · SYN", desc: "How SYN and Syntrex LLC collect, use, and protect your data.", path: "/#/privacy" },
+    "acceptable-use": { title: "Acceptable Use Policy · SYN", desc: "What is and isn't allowed when using SYN.", path: "/#/acceptable-use" },
+  };
+  const r = R[page] || R.home;
+  const url = SITE_BASE_URL + r.path;
+  document.title = r.title;
+  _setMeta('meta[name="description"]', "content", r.desc);
+  _setMeta('link[rel="canonical"]', "href", url);
+  _setMeta('meta[property="og:url"]', "content", url);
+  _setMeta('meta[property="og:title"]', "content", r.ogTitle || r.title);
+  _setMeta('meta[property="og:description"]', "content", r.ogDesc || r.desc);
+  _setMeta('meta[name="twitter:title"]', "content", r.ogTitle || r.title);
+  _setMeta('meta[name="twitter:description"]', "content", r.ogDesc || r.desc);
+}
 function showSitePage(page, anchor){
   if (!SITE_PAGES.includes(page)) page = "home";
+  applyRouteMeta(page);
   document.getElementById("site").classList.add("on");
   document.querySelectorAll(".site-page").forEach(p => p.classList.remove("on"));
   (document.getElementById("sp-" + page) || document.getElementById("sp-home")).classList.add("on");

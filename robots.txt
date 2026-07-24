@@ -1,5 +1,13 @@
 # SYN — https://syn.syntrexio.com
+# The public marketing site is a single hash-routed page; the signed-in app and
+# every gated route live behind a client-side gate at URL fragments (#/…), which
+# crawlers do not fetch as separate URLs. There are therefore no server-rendered
+# app paths to expose. CSS/JS/img are intentionally crawlable so the page renders
+# for indexing.
 User-agent: *
 Allow: /
+# Nothing server-side is app-only, but block the app boot fragment defensively:
+Disallow: /*%23app
+Disallow: /*%23/app
 
 Sitemap: https://syn.syntrexio.com/sitemap.xml
