@@ -64,11 +64,13 @@ replaces this gate with real auth.**
 
 ### Required configuration (set in the Cloudflare dashboard)
 
-- **D1 binding `DB`** — holds the KV surface. `worker/syn-core.js` reads/writes a
-  table matched by the `KV_TABLE` / `KV_KEY_COL` / `KV_VAL_COL` constants at the top
-  of the file. **If your existing D1 uses different names, change those three
-  constants to match so live workspace data keeps resolving.** A second table,
-  `gate_rl`, is auto-created for rate limiting and holds no workspace data.
+- **D1 binding `SYN_DB`** — holds the KV surface in the live `kv` table
+  (`kv(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)`). `worker/syn-core.js` is
+  wired to that exact schema via the `D1_BINDING` / `KV_TABLE` / `KV_KEY_COL` /
+  `KV_VAL_COL` / `KV_UPDATED_COL` constants at the top of the file, and stamps
+  `updated_at` with an ISO timestamp on every write (matching the current live
+  worker). A second table, `gate_rl`, is auto-created for rate limiting and holds no
+  workspace data.
 - **Secrets** (set each with `npx wrangler secret put <NAME>`, never commit):
 
   | Secret | Purpose |

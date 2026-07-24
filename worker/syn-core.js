@@ -10,11 +10,10 @@
  * SOURCE OF TRUTH: syn-core's source previously lived outside the repo. THIS FILE is
  * now authoritative — deploy it as the syn-core Worker (paste into the dashboard, or
  * `wrangler deploy`). Required configuration:
- *   • D1 binding:  DB   — holds the KV surface in a table matched by the KV_* consts
- *                         below. If your existing database uses different names, change
- *                         KV_TABLE / KV_KEY_COL / KV_VAL_COL to match so LIVE WORKSPACE
- *                         DATA IS PRESERVED. (A second table, gate_rl, is auto-created
- *                         for rate limiting and holds no workspace data.)
+ *   • D1 binding:  SYN_DB — holds the KV surface in the `kv` table. The KV_* consts
+ *                         below match the LIVE schema (key/value + an updated_at ISO
+ *                         timestamp stamped on every write). A second table, gate_rl,
+ *                         is auto-created for rate limiting and holds no workspace data.
  *   • Secrets:     ANTHROPIC_API_KEY, GATE_EMAIL, GATE_PASSWORD, GATE_SIGNING_KEY
  *                  Set each with `npx wrangler secret put <NAME>` — never commit them.
  */
@@ -24,9 +23,11 @@ const ALLOWED_ORIGINS = [
   "https://henryb08.github.io",   // current GitHub Pages host
   "https://syn.syntrexio.com",    // custom domain
 ];
-const KV_TABLE = "kv";            // <-- match these three to your existing D1 schema
-const KV_KEY_COL = "k";           //     so live workspace data keeps resolving.
-const KV_VAL_COL = "v";
+const D1_BINDING = "SYN_DB";      // the live D1 binding name
+const KV_TABLE = "kv";            // live KV schema: kv(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)
+const KV_KEY_COL = "key";
+const KV_VAL_COL = "value";
+const KV_UPDATED_COL = "updated_at";   // stamped with an ISO timestamp on every write
 const TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;   // gate token lifetime: 7 days
 const RL_MAX_FAILS = 5;                        // failed /gate attempts from one IP…
 const RL_WINDOW_MS = 15 * 60 * 1000;           // …within/for a 15-minute block
@@ -91,29 +92,29 @@ function bearer(request){
 
 /* ---- D1: KV surface + per-IP rate-limit table ---- */
 async function ensureTables(env){
-  await env.DB.batch([
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS ${KV_TABLE} (${KV_KEY_COL} TEXT PRIMARY KEY, ${KV_VAL_COL} TEXT)`),
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS gate_rl (ip TEXT PRIMARY KEY, fails INTEGER, first_ms INTEGER, blocked_until INTEGER)`),
+  await env[D1_BINDING].batch([
+    env[D1_BINDING].prepare(`CREATE TABLE IF NOT EXISTS ${KV_TABLE} (${KV_KEY_COL} TEXT PRIMARY KEY, ${KV_VAL_COL} TEXT, ${KV_UPDATED_COL} TEXT)`),
+    env[D1_BINDING].prepare(`CREATE TABLE IF NOT EXISTS gate_rl (ip TEXT PRIMARY KEY, fails INTEGER, first_ms INTEGER, blocked_until INTEGER)`),
   ]);
 }
 async function rateBlocked(env, ip){
   const now = Date.now();
-  const row = await env.DB.prepare("SELECT blocked_until FROM gate_rl WHERE ip=?").bind(ip).first();
+  const row = await env[D1_BINDING].prepare("SELECT blocked_until FROM gate_rl WHERE ip=?").bind(ip).first();
   if (row && row.blocked_until && row.blocked_until > now) return Math.ceil((row.blocked_until - now) / 1000);
   return 0;
 }
 async function rateFail(env, ip){
   const now = Date.now();
-  const row = await env.DB.prepare("SELECT fails, first_ms FROM gate_rl WHERE ip=?").bind(ip).first();
+  const row = await env[D1_BINDING].prepare("SELECT fails, first_ms FROM gate_rl WHERE ip=?").bind(ip).first();
   if (!row || (now - row.first_ms) > RL_WINDOW_MS){
-    await env.DB.prepare("INSERT OR REPLACE INTO gate_rl (ip, fails, first_ms, blocked_until) VALUES (?,?,?,0)").bind(ip, 1, now).run();
+    await env[D1_BINDING].prepare("INSERT OR REPLACE INTO gate_rl (ip, fails, first_ms, blocked_until) VALUES (?,?,?,0)").bind(ip, 1, now).run();
     return;
   }
   const fails = (row.fails || 0) + 1;
   const blockedUntil = fails >= RL_MAX_FAILS ? now + RL_WINDOW_MS : 0;
-  await env.DB.prepare("UPDATE gate_rl SET fails=?, blocked_until=? WHERE ip=?").bind(fails, blockedUntil, ip).run();
+  await env[D1_BINDING].prepare("UPDATE gate_rl SET fails=?, blocked_until=? WHERE ip=?").bind(fails, blockedUntil, ip).run();
 }
-async function rateClear(env, ip){ await env.DB.prepare("DELETE FROM gate_rl WHERE ip=?").bind(ip).run(); }
+async function rateClear(env, ip){ await env[D1_BINDING].prepare("DELETE FROM gate_rl WHERE ip=?").bind(ip).run(); }
 
 export default {
   async fetch(request, env){
@@ -165,13 +166,14 @@ export default {
       await ensureTables(env);
       const key = decodeURIComponent(path.slice(4));
       if (request.method === "GET"){
-        const row = await env.DB.prepare(`SELECT ${KV_VAL_COL} AS v FROM ${KV_TABLE} WHERE ${KV_KEY_COL}=?`).bind(key).first();
+        const row = await env[D1_BINDING].prepare(`SELECT ${KV_VAL_COL} AS v FROM ${KV_TABLE} WHERE ${KV_KEY_COL}=?`).bind(key).first();
         return json({ value: row ? row.v : null }, 200, origin);   // stored value is a JSON string, like localStorage
       }
       if (request.method === "PUT"){
         let body; try { body = await request.json(); } catch (_){ return json({ error: "bad_request" }, 400, origin); }
         const v = typeof body.value === "string" ? body.value : JSON.stringify(body.value ?? null);
-        await env.DB.prepare(`INSERT INTO ${KV_TABLE} (${KV_KEY_COL}, ${KV_VAL_COL}) VALUES (?,?) ON CONFLICT(${KV_KEY_COL}) DO UPDATE SET ${KV_VAL_COL}=excluded.${KV_VAL_COL}`).bind(key, v).run();
+        const nowIso = new Date().toISOString();   // stamp updated_at on every write, matching the live worker
+        await env[D1_BINDING].prepare(`INSERT INTO ${KV_TABLE} (${KV_KEY_COL}, ${KV_VAL_COL}, ${KV_UPDATED_COL}) VALUES (?,?,?) ON CONFLICT(${KV_KEY_COL}) DO UPDATE SET ${KV_VAL_COL}=excluded.${KV_VAL_COL}, ${KV_UPDATED_COL}=excluded.${KV_UPDATED_COL}`).bind(key, v, nowIso).run();
         return json({ ok: true }, 200, origin);
       }
       return json({ error: "method_not_allowed" }, 405, origin);
