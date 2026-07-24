@@ -15,7 +15,8 @@ import { dirname } from "node:path";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const tmp = join(tmpdir(), "syn-growth-under-test.mjs");
 writeFileSync(tmp, readFileSync(join(HERE, "syn-growth.js"), "utf8"));
-const worker = (await import("file://" + tmp)).default;
+const worker0 = await import("file://" + tmp);   // full module namespace (named exports: WIDGET_JS, …)
+const worker = worker0.default;
 
 // ---- D1 shim over node:sqlite (async prepare/bind/first/run/all + batch) ----
 function makeD1(){
@@ -211,6 +212,27 @@ async function seed(e, { slug = "acme", origin = "https://acme.com" } = {}){
   c("OPTIONS from allowed origin → 204 + reflected origin", good.status === 204 && good.headers.get("Access-Control-Allow-Origin") === "https://c.com");
   c("OPTIONS ACAO is never a wildcard", good.headers.get("Access-Control-Allow-Origin") !== "*");
   c("OPTIONS from disallowed origin → 403, no CORS", bad.status === 403 && bad.headers.get("Access-Control-Allow-Origin") === null);
+}
+
+// ===== widget.js is served: public, cacheable, JS content-type, no auth/DB =====
+{
+  const e = env();   // note: no origin, no key, no DB seeding
+  const r = await worker.fetch(new Request("https://g/w/widget.js", { method: "GET" }), e);
+  const body = await r.text();
+  c("GET /w/widget.js → 200", r.status === 200);
+  c("widget.js is javascript content-type", /javascript/.test(r.headers.get("Content-Type") || ""));
+  c("widget.js is cacheable", /max-age=\d+/.test(r.headers.get("Cache-Control") || ""));
+  c("widget.js needs no key/origin (served with empty env)", body.length > 0);
+  c("widget.js contains no secret token or admin key", !body.includes("GROWTH_ADMIN_KEY") && !body.includes("Bearer "));
+  c("widget.js only reads data-key + calls /w/config and /w/events", body.includes("data-key") && body.includes("/w/config") && body.includes("/w/events"));
+  c("widget.js uses a closed shadow root", body.includes('mode: "closed"'));
+  c("widget.js writes exactly one event type: conversation_started", body.includes("conversation_started") && !body.includes("inquiry_received"));
+}
+
+// ===== embed guard: WIDGET_JS in the worker is byte-identical to worker/widget.js =====
+{
+  const file = readFileSync(join(HERE, "widget.js"), "utf8");
+  c("WIDGET_JS embed is byte-identical to worker/widget.js", worker0.WIDGET_JS === file);
 }
 
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);

@@ -219,6 +219,14 @@ POST   /w/events          → write an event, honors idempotency_key
 POST   /w/contacts        → upsert a contact, dedupes on email / phone per tenant
 ```
 
+**Widget shell (public, no auth, no DB):**
+```
+GET    /w/widget.js         → the client-side widget script (see WIDGET.md)
+```
+Served before any key is used on the page, so it precedes the `/w/*` auth block. Cacheable
+(`max-age=600, s-maxage=3600`), `application/javascript`, ~13 KB raw / ~4.5 KB gzipped. It
+carries no secrets; the key/origin checks happen when it later calls `/w/config` and `/w/events`.
+
 **Health:** `GET /health → {ok:true, service:"syn-growth"}` (public, no DB).
 
 CORS on public routes handles `OPTIONS` preflight and reflects the **specific** requesting

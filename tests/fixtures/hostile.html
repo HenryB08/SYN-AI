@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hostile host page</title>
+<style>
+  /* ===== Deliberately aggressive host CSS. The widget must survive ALL of this. ===== */
+
+  /* universal reset that flips box-sizing and forces a ridiculous font — with !important */
+  * { box-sizing: content-box !important; font-family: "Comic Sans MS", "Comic Sans", cursive !important; }
+
+  /* a heavy-handed "reset" that reverts and outlines every common element */
+  div, button, input, textarea, svg, span, p, a {
+    all: revert;
+    border: 3px dashed lime !important;
+    background: #ffefff;
+    color: hotpink;
+    line-height: 3 !important;
+    letter-spacing: 4px !important;
+    text-transform: uppercase !important;
+  }
+
+  html, body { margin: 0; padding: 0; }
+  body { background: #201030; color: #0f0; font-size: 22px; }
+
+  h1 { color: #0ff; }
+
+  /* a competing fixed element bottom-right with a very high z-index, overlapping the launcher */
+  #intruder {
+    position: fixed; bottom: 0; right: 0; width: 130px; height: 130px;
+    background: #000; color: #fff; z-index: 999999999;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: 12px !important;
+  }
+  /* another high-z fixed bar to make sure our stacking really wins */
+  #topbar { position: fixed; top: 0; left: 0; right: 0; height: 44px; background: crimson; z-index: 900000000; }
+</style>
+</head>
+<body>
+  <div id="topbar">HOSTILE TOP BAR (z 900000000)</div>
+  <h1>A hostile client website</h1>
+  <p>This page resets box-sizing, forces Comic Sans with !important, outlines every element in lime,
+     and parks a black z-index-999999999 box bottom-right where the launcher lives. The SYN widget
+     below must render cleanly and sit on top regardless.</p>
+  <div id="intruder">INTRUDER<br>z 999999999</div>
+
+  <!-- exactly the embed shape from the brief -->
+  <script src="__WORKER__/w/widget.js" data-key="__KEY__" async></script>
+</body>
+</html>
