@@ -22,7 +22,7 @@ let rates=[], prev='';
 for(let i=0;i<14;i++){ await p.waitForTimeout(250);
   rates = await p.$$eval('.seat-tier .st-rate', e=>e.map(x=>x.textContent.replace(/\s+/g,'').trim()));
   if(rates.join()===prev) break; prev=rates.join(); }
-check('count-up lands exact: '+rates.join(','), rates.join(',')==='$39/seat/mo,$35/seat/mo,$29/seat/mo');
+check('count-up lands exact: '+rates.join(','), rates.join(',')==='$349/mo,$549/mo');
 // hero is type-led: the particle canvas was retired with the photography, so no fx state exists
 check('no hero particle canvas (type-led hero)', await p.evaluate(()=>_fxState===null && !document.getElementById('heroFx')));
 // parallax applied to the hero product preview (drifts slower than the page)
@@ -52,7 +52,7 @@ check('reduce: content visible immediately', await p.evaluate(()=>{
 }));
 await p.evaluate(()=>document.getElementById('site-pricing').scrollIntoView()); await p.waitForTimeout(200);
 const r2 = await p.$$eval('.seat-tier .st-rate', e=>e.map(x=>x.textContent.replace(/\s+/g,'').trim()));
-check('reduce: static rates intact', r2.join(',')==='$39/seat/mo,$35/seat/mo,$29/seat/mo');
+check('reduce: static rates intact', r2.join(',')==='$349/mo,$549/mo');
 await ctx.close();
 console.log(`CHECKS: ${ok} passed, ${fail} failed`);
 console.log(fail? 'ERRORS: PRESENT' : 'ERRORS: NONE');

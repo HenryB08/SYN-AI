@@ -374,3 +374,30 @@ button,.chat-item,.md-row,.ops-row,.search-item,.team-row,.notif-item,.asset-row
 #site .ft-name{font-size:14px;color:var(--text-2);line-height:1.5}
 #site .ft-chk{font-family:var(--mono);font-size:13px;color:var(--gold);white-space:nowrap;letter-spacing:.04em}
 
+/* Growth System pricing — the guarantee band + two plan cards (Core / Pro). Reuses .seat-tier so the
+   count-up motion and mono numerals carry over; .plans switches the row to two columns. */
+#site .gtee{display:flex;gap:14px;align-items:flex-start;max-width:720px;margin:var(--s6) auto 0;
+  padding:18px 22px;border:1px solid var(--hairline);border-radius:var(--r-md);background:rgba(255,255,255,.03)}
+#site .gtee-mark{flex:0 0 auto;width:22px;height:22px;border-radius:var(--r-full);border:1px solid var(--gold);
+  color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:1px}
+#site .gtee-copy{margin:0;color:var(--text-2);font-size:14px;line-height:1.62}
+#site .gtee-copy b{color:var(--text)}
+#site .seat-tiers.plans{grid-template-columns:repeat(2,1fr);max-width:820px;margin-left:auto;margin-right:auto}
+#site .seat-tier.plan{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:calc(var(--s6) + 16px) var(--s5) var(--s6)!important}
+#site .seat-tier.plan.featured{background:rgba(255,255,255,.03)!important}
+/* absolute so the featured flag never shifts the price baseline out of line with the other card */
+#site .plan-flag{position:absolute;top:var(--s5);left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap;
+  color:var(--gold);border:1px solid var(--hairline);border-radius:var(--r-full);padding:3px 9px}
+#site .plan-name{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-3)}
+#site .seat-tier.plan .st-rate{font-family:var(--mono)!important;font-size:46px;font-weight:500;letter-spacing:-.04em;color:var(--text);line-height:1;margin-top:4px}
+#site .seat-tier.plan .st-rate span{font-family:var(--mono)!important;font-size:12px;font-weight:400;color:var(--text-4);letter-spacing:0;margin-left:6px}
+#site .plan-install{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--text-4);margin-top:2px}
+#site .plan-for{font-size:13px;color:var(--text-3);line-height:1.5;max-width:30ch;margin-top:10px}
+#site .seat-tier.plan .site-btn{margin-top:18px}
+@media(max-width:600px){
+  #site .seat-tiers.plans{grid-template-columns:1fr}
+  #site .seat-tiers.plans .seat-tier + .seat-tier{border-left:0!important;border-top:1px solid var(--hairline)!important}
+}
+

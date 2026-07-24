@@ -5,7 +5,8 @@
  *  - volume rate applied to the whole workspace at the 10 and 25 thresholds
  *  - AI allowance warning at 80% and soft throttle at 100% (smart->standard, image paused)
  *  - admin-only visibility of the Billing section + usage banner
- *  - calculator accuracy at several seat/brand combinations
+ *  - public marketing pricing sells the Growth System (Growth Core/Pro + install, guarantee headline);
+ *    the per-seat calculator is removed from the public site (seat math remains for in-app Billing only)
  *  - legacy grandfathering (no seat lock, no throttle)
  *
  * Run: PW=... CHROME=... node tests/pricing-model.mjs
@@ -52,17 +53,26 @@ async function run(){
     await ctx.close();
   }
 
-  // ===== calculator accuracy in the DOM at several combinations =====
+  // ===== public marketing pricing now sells the Growth System (per-seat calculator removed) =====
+  // The site leads with the Growth System (Growth Core $349 + $497 install, Growth Pro $549 + $497),
+  // with the first-month value guarantee as the headline. The old per-seat calculator is gone from the
+  // public site; the seat math above still backs the in-app admin Billing meter (not public-facing).
   { const {ctx,p} = await newPage(); await p.goto(U); await p.waitForSelector('#site.on');
-    const calc = async (s,b)=>{ await p.fill('#calcSeats',String(s)); await p.fill('#calcBrands',String(b)); await p.dispatchEvent('#calcSeats','input'); await p.waitForTimeout(30); return p.evaluate(()=>document.getElementById('calcTotal').textContent); };
-    check('calc: 8 seats / 1 brand = $312', (await calc(8,1))==='$312');
-    check('calc: 10 seats / 1 brand = $350 (volume kicks in)', (await calc(10,1))==='$350');
-    check('calc: 12 seats / 2 brands = $619', (await calc(12,2))==='$619');
-    check('calc: 25 seats / 1 brand = $725', (await calc(25,1))==='$725');
-    check('calc: 30 seats / 3 brands = $1,268', (await calc(30,3))==='$1,268');
-    check('calc: shows effective per-seat rate', /\$35 per seat/.test(await p.evaluate(()=>{const e=document.getElementById('calcRate');return e.textContent;})) || true);
-    await p.fill('#calcSeats','8'); await p.dispatchEvent('#calcSeats','input'); await p.waitForTimeout(30);
-    check('calc: next-threshold savings shown', /Volume break/.test(await p.evaluate(()=>document.getElementById('calcSave').textContent)));
+    const dom = await p.evaluate(()=>{
+      const rates = [...document.querySelectorAll('#site-pricing .seat-tier.plan .st-rate')].map(e=>e.textContent.replace(/\s+/g,''));
+      const names = [...document.querySelectorAll('#site-pricing .plan-name')].map(e=>e.textContent.trim());
+      const installs = [...document.querySelectorAll('#site-pricing .plan-install')].map(e=>e.textContent);
+      return { rates, names, installs,
+        hasCalc: !!document.getElementById('pricingCalc'),
+        gtee: (document.querySelector('#site-pricing .gtee-copy')||{}).textContent||'',
+        body: document.getElementById('site-pricing').textContent };
+    });
+    check('growth plans priced $349 + $549', dom.rates.join(',')==='$349/mo,$549/mo');
+    check('growth plan names present', dom.names.join(',')==='Growth Core,Growth Pro');
+    check('both plans show the $497 install', dom.installs.every(t=>/\$497/.test(t)) && dom.installs.length===2);
+    check('guarantee stated plainly (no captured value, free month)', /no captured value, free month/i.test(dom.gtee));
+    check('per-seat calculator removed from public site', dom.hasCalc===false);
+    check('no per-seat pricing in public pricing copy', !/\/seat\/mo|per seat/i.test(dom.body));
     await ctx.close();
   }
 

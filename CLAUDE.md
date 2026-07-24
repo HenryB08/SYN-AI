@@ -4,6 +4,19 @@
 > re-deriving a ~1 MB single-file app from scratch. **Do not read `index.html`
 > in full** — see [§4 How to read this repo efficiently](#4-how-to-read-this-repo-efficiently).
 
+> **PRICING & POSITIONING — `SYNTREX_PRICING_CANONICAL.md` is authoritative.**
+> The public site **leads with the Growth System**, not per-seat SYN. The Growth
+> System is the product Syntrex sells: **Growth Core $349/mo + $497 install,
+> Growth Pro $549/mo + $497 install**, with the value guarantee (no captured
+> value in the first month, that month is free) as the headline. **SYN (the
+> per-seat workspace) is the engine that powers the Growth System, not a
+> standalone product a stranger buys** — no per-seat price appears in any
+> public-facing copy (hero, pricing section, marketing assistant, meta/JSON-LD).
+> The `SEAT_PRICE`/`priceFor` seat math survives only for the **in-app admin
+> Billing meter** (signed-in, not public). If pricing/positioning ever conflicts
+> with this file, `SYNTREX_PRICING_CANONICAL.md` wins. *(That canonical file is
+> not yet committed to the repo — add it so this note points at a real source.)*
+
 ---
 
 ## 1. What this is
@@ -13,8 +26,10 @@ SYN is a brand-governed AI workspace and platform by **Syntrex LLC**
 `index.html`:
 
 - **The public marketing site** — the signed-out experience: hero, feature
-  sections, per-seat pricing, legal pages, contact form, and a monochrome AI
-  assistant. Its job is to explain SYN and convert visitors to sign-up.
+  sections, **Growth System pricing** (Growth Core/Pro + install, with the value
+  guarantee as the headline — see the pricing note above), legal pages, contact
+  form, and a monochrome AI assistant. Its job is to sell the Growth System and
+  convert visitors to the waitlist.
 - **The signed-in application** — the workspace itself: a brand engine, tasks &
   operations, calendar, spaces & DMs, assets with permissions, a
   compliance-aware AI teammate, plus settings/billing/team admin. Its job is to
