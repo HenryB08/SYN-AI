@@ -1,0 +1,21 @@
+# Wrangler config for the syn-growth Worker (the Growth Engine data foundation).
+# Deploy: `npx wrangler deploy --config worker/wrangler.syn-growth.toml`
+# (or paste worker/syn-growth.js into the Cloudflare dashboard and set the binding + secret there).
+#
+# This is SEPARATE from worker/wrangler.toml, which configures the syn-assistant Worker.
+
+name = "syn-growth"
+main = "syn-growth.js"
+compatibility_date = "2024-11-01"
+
+# Bind the SAME D1 database syn-core uses, so growth data is unified with the workspace app.
+# Set database_name / database_id to your EXISTING syn-core D1 database (find the id with
+# `npx wrangler d1 list`). The binding name MUST be SYN_DB — the Worker references env.SYN_DB.
+[[d1_databases]]
+binding = "SYN_DB"
+database_name = "REPLACE_WITH_YOUR_SYN_CORE_D1_NAME"
+database_id   = "REPLACE_WITH_YOUR_SYN_CORE_D1_ID"
+
+# The admin secret is NOT set here (never commit secrets). Set it with:
+#   npx wrangler secret put GROWTH_ADMIN_KEY --config worker/wrangler.syn-growth.toml
+# If GROWTH_ADMIN_KEY is unset, every /admin route fails closed (401).
