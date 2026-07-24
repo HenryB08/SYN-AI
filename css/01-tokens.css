@@ -1,0 +1,115 @@
+/* ============================================================
+   01-tokens.css — design tokens — :root, :root[data-theme="light"], :root[data-theme="dark"] and every custom property.
+   MOVE, not a refactor: a byte-identical slice of the original <style>.
+   Order-dependent. This file must load after (load first) and before 02-base.css.
+   ============================================================ */
+
+:root{
+  /* ===== DESIGN TOKENS — single source of truth ===== */
+  /* Surfaces: layered near-black, never pure black; each a distinct value + one hairline */
+  /* Syntrexio identity: deep navy-black field, #111-anchored cards, white-alpha hairlines */
+  --bg:#020409;
+  --surface-0:#06070D;
+  --surface-1:#101114;
+  --surface-2:#16181D;
+  --surface-3:#1D2026;
+  --hairline:rgba(255,255,255,.08);       /* #222-on-#111 territory */
+  --hairline-strong:rgba(255,255,255,.14);
+
+  /* Text: syntrexio's #e2e2e2 / #888 white-alpha ladder */
+  --text:#E2E2E2;                    /* primary */
+  --text-2:rgba(226,226,226,.72);    /* secondary (#888-on-#111 territory, AA) */
+  --text-3:rgba(226,226,226,.55);    /* tertiary */
+  --text-4:rgba(226,226,226,.54);    /* quaternary — bumped to clear AA as text */
+
+  /* Accent: syntrexio monochrome WHITE (corrected — see docs/syntrexio-identity-spec.md v2;
+     the previous blue came from a stale cached source). Token keeps the historical --gold
+     name so every consumer picks it up unchanged. --amber carries the escalation/warning
+     semantics that must never lose their color meaning. */
+  --gold:#E2E2E2;
+  --gold-hover:#FFFFFF;
+  --gold-active:#C9CDD6;
+  --gold-ink:#0A0A0A;
+  --btn:#E2E2E2;                     /* primary button: light pill, per the reference CTA */
+  --btn-ink:#050608;
+  --btn-hover:#FFFFFF;
+  --btn-active:#C9CDD6;
+  --amber:#E2E2E2;                   /* escalation emphasis — monochrome now; the red --bad marks overdue, labels carry the rest */
+  --amber-soft:rgba(255,255,255,.12);
+  --good:#7FD99A;
+  --bad:#FF7A6B;
+  --info:#9AA3B2;
+  --shadow-pop:0 16px 48px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);
+  --ease-reveal:cubic-bezier(0.16,1,0.3,1);
+
+  /* Type scale: syntrexio display voice — bold 700/800, tight -0.03em tracking */
+  --t1-size:84px; --t1-lh:1.0;  --t1-ls:-0.03em;  --t1-wt:600;
+  --t2-size:56px; --t2-lh:1.04; --t2-ls:-0.028em; --t2-wt:600;
+  --t3-size:38px; --t3-lh:1.08; --t3-ls:-0.024em; --t3-wt:600;
+  --t4-size:26px; --t4-lh:1.14; --t4-ls:-0.016em; --t4-wt:500;
+  --t5-size:20px; --t5-lh:1.2;  --t5-ls:-0.01em;  --t5-wt:600;
+  --t6-size:17px; --t6-lh:1.28; --t6-ls:-0.004em; --t6-wt:600;
+  --t7-size:15px; --t7-lh:1.35; --t7-ls:0;        --t7-wt:700;
+  --t8-size:13px; --t8-lh:1.4;  --t8-ls:0.008em;  --t8-wt:700;
+  --body-size:15px;  --body-lh:1.62; --body-ls:0;
+  --small-size:13px; --small-lh:1.55; --small-ls:0.006em;
+  --mini-size:11px;  --mini-lh:1.5;  --mini-ls:0.05em;
+  --micro-size:10.5px;--micro-lh:1.4; --micro-ls:0.1em;   /* uppercase mono labels: 10-11px, +0.08-0.12em, tertiary */
+
+  /* Spacing rhythm */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:72px; --s9:112px;
+  /* Radius: syntrexio's soft system — 8/12/16, pills at 999, circles 50% */
+  --r-btn:4px; --r-input:4px; --r-img:4px;
+  --r-xs:4px; --r-sm:6px; --r-md:6px; --r-full:999px;
+
+  /* Legacy names remapped onto the token system so existing rules adopt it */
+  --muted:var(--text-2);
+  --faint:var(--text-3);
+  --accent:var(--gold);
+  --accent-soft:rgba(255,255,255,.08);
+  --gold-deep:var(--gold-active);
+  --glass:var(--surface-2);
+  --glass-strong:var(--surface-3);
+  --glass-border:var(--hairline-strong);
+  --glass-border-soft:var(--hairline);
+  --r-lg:6px;
+}
+/* ===== LIGHT THEME — derived by inverting the reference monochrome (its own light panels
+   are #e2e2e2 with dark ink). The reference site is single-theme dark; FLAGGED FOR REVIEW. ===== */
+:root[data-theme="light"]{
+  --bg:#ECEBE7;
+  --surface-0:#FFFFFF;
+  --surface-1:#F8F7F4;
+  --surface-2:#EFEEEA;
+  --surface-3:#E4E3DE;
+  --hairline:rgba(17,17,17,.10);
+  --hairline-strong:rgba(17,17,17,.20);
+  --text:#131313;                    /* reference card-black as ink, ~16:1 on --bg */
+  --text-2:rgba(19,19,19,.74);       /* #888-family, ~7:1 */
+  --text-3:rgba(19,19,19,.62);       /* ~5:1 */
+  --text-4:rgba(19,19,19,.60);
+  --gold:#111111;                    /* monochrome accent inverts to near-black on light */
+  --gold-hover:#000000;
+  --gold-active:#333333;
+  --gold-ink:#FFFFFF;
+  --btn:#111111;                     /* primary button inverts: dark pill, white ink */
+  --btn-ink:#FFFFFF;
+  --btn-hover:#000000;
+  --btn-active:#2E2E2E;
+  --amber:#131313;                   /* escalation emphasis — monochrome on light */
+  --amber-soft:rgba(17,17,17,.10);
+  --good:#237A3A;
+  --bad:#C0392B;
+  --info:#4A5560;
+  --accent-soft:rgba(17,17,17,.08);
+  --shadow-pop:0 16px 48px rgba(17,17,17,.16),0 0 0 1px rgba(17,17,17,.06);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{color-scheme:dark}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow:hidden}
+::selection{background:rgba(128,132,140,.4)}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+

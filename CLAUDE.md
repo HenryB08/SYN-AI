@@ -59,7 +59,9 @@ Every tracked file in the repo:
 
 | Path | What it is | Touch it when… |
 |---|---|---|
-| `index.html` | The entire product (marketing + app), ~989 KB / 8,345 lines | any UI, style, or app-logic change (see region map below) |
+| `index.html` | The product's markup + all JS (marketing + app), ~484 KB. CSS now lives in `css/`; guide screenshots in `img/guide/` | any UI, app-logic, or markup change (see region map below) |
+| `css/01-tokens.css … 06-motion.css` | The entire stylesheet, split into 6 order-dependent files linked in `<head>` | any CSS change — edit the file the rule lives in; **never reorder the links** (see CSS file map) |
+| `img/guide/*.webp` | The 12 in-app Guide screenshots (extracted from the old `GUIDE_IMGS` base64) | swapping a guide screenshot |
 | `worker/syn-assistant.js` | Cloudflare Worker for the marketing assistant; system prompt baked in, proxies Anthropic | changing what the marketing assistant knows or how it's proxied |
 | `worker/wrangler.toml` | Wrangler config for syn-assistant | changing the Worker name / compat date |
 | `worker/README.md` | Deploy + wiring instructions for syn-assistant | onboarding a deployer; changing the endpoint |
@@ -74,7 +76,16 @@ Every tracked file in the repo:
 
 ### `index.html` composition (measured, not estimated)
 
-- **Total: 989,257 bytes, 8,345 lines.**
+> **Note:** the figures below describe the **original monolithic** `index.html`
+> and remain the reference for the `<script>` region map. Two extractions have
+> since shrunk the file: the 12 guide screenshots moved to `img/guide/*.webp`,
+> and the entire `<style>` block moved to `css/` (see the CSS file map below).
+> **Current `index.html` is 483,756 bytes**; it no longer contains a `<style>`
+> block or the base64 screenshots. The `<script>` byte figures and line ranges
+> below still hold *relative to the original*; after the CSS extraction, script
+> line numbers shift up by ~2,000 (the removed `<style>` lines).
+
+- **Total (original): 989,257 bytes, 8,345 lines.**
 - Base64 data URIs: **12 `image/webp` screenshots = 330,768 bytes (33.5%)** —
   all in the `GUIDE_IMGS` object, the in-app manual. There are also 2 tiny
   inline SVG (utf-8, non-base64) data URIs (~64 B).
@@ -89,7 +100,7 @@ Every tracked file in the repo:
 | Lines | Bytes | What |
 |---|---|---|
 | 1–27 | 2.5 KB | `<head>`: meta, preconnect, Inter font links, 3 tiny boot scripts |
-| **28–2034** | **177 KB** | `<style>` — all CSS (tokens → app → marketing) |
+| **28–2034** | ~~177 KB~~ | ~~`<style>`~~ — **extracted to `css/` (6 linked files); this range is now six `<link>` tags** |
 | 2036–2731 | 77 KB | `<body>` HTML markup (app + marketing DOM) |
 | **2732–8342** | **733 KB** | `<script>` — all JS logic |
 | 8343–8345 | — | closing tags |
@@ -135,13 +146,38 @@ render/UI 58 · spaces/chat 56 · tasks 27 · utils 25 · calendar 24 · sync/cl
 guide 4 · auth/identity 3 · other (helpers spanning domains) ~122. Grouping is a
 name-heuristic, not a strict module boundary — the file is not modular.
 
-### CSS: ~1,600 declaration blocks, 25 `@media`, 13 `@keyframes`
+### CSS: extracted to `css/` (6 files, ~1,600 declaration blocks, 25 `@media`, 13 `@keyframes`)
 
-Token layer (`:root` + `:root[data-theme="light"]`, 30–137), then app
-components (`APP`, workspace suite, calendar, spaces, ops layer, pricing,
-billing), then marketing scoped under `#site` (**147 selectors mention
-`#site`**), then the motion system. Marketing is dark-only; the app supports
-light and dark via `data-theme`.
+The CSS **no longer lives in `index.html`.** The old single `<style>` block
+(176,634 B) was moved verbatim into six files under `css/`, linked in `<head>`
+in numeric order. The move was byte-exact: concatenating the six files (minus
+their header comments) reproduces the original `<style>` content character for
+character. Marketing is dark-only; the app supports light and dark via
+`data-theme`.
+
+> **⚠️ ORDER-DEPENDENT — DO NOT REORDER THE LINKS.** The six files are
+> contiguous slices of the original stylesheet in source order, and **CSS
+> cascade order is load-bearing here** (this repo has been bitten twice by
+> later rules silently overriding earlier ones — the sticky-nav and the mobile
+> media-query regressions). The `<link>` tags **must** stay in the exact order
+> `01 → 02 → 03 → 04 → 05 → 06`. Reordering them, or moving a rule between
+> files, changes which rule wins and can break rendering with no error. If you
+> edit CSS, edit the file the rule already lives in; never move it earlier or
+> later.
+
+| # | File | Original lines | What it holds |
+|---|---|---|---|
+| 01 | `css/01-tokens.css` | 29–137 | design tokens — `:root`, `:root[data-theme="light"]`, `:root[data-theme="dark"]`, every custom property |
+| 02 | `css/02-base.css` | 138–202 | shared foundation — AURORA ambient layers, BOOT / AUTH, the sign-in field |
+| 03 | `css/03-app.css` | 203–1365 | signed-in app components (sidebar, chat, workspace suite, calendar, spaces, ops, integrations, assets, billing, micro-label pass). **The stroke-icon / chrome-glyph rules live inline here** (~orig L1015 and ~L1355) — they interleave with app components in source and can't be a separate file without reordering |
+| 04 | `css/04-marketing.css` | 1366–1736 | shared button/accent/card primitives + everything scoped to `#site`: floating pill nav, hero, sections, pricing, footer, contact, AI assistant, legal, DESIGN SYSTEM v3, Phase-4 typography, Phase-5 pricing |
+| 05 | `css/05-guide-premium.css` | 1737–1793 | late app coda — the GUIDE manual styles and the PREMIUM app hover-physics layer (they appear after the marketing block in source) |
+| 06 | `css/06-motion.css` | 1794–2033 | motion system + late layer — PREMIUM motion/depth/density, DARK PRO Phase-6 motion + `@keyframes`, the flagship illustration band, the ambient layer, marketing nav chrome, the SYN 2.0 strip, the hero preview, the guide header, the pill-collapse media query |
+
+The taxonomy is by **source-order slice, not tidy concern**: the source is
+interleaved (marketing `#site` rules wrap around the motion system; icon rules
+sit inside the app layer), so a few files straddle concerns. Preserving order
+beats a tidy split — see the warning above.
 
 ---
 

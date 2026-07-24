@@ -1,0 +1,245 @@
+/* ============================================================
+   06-motion.css — motion system + late layer — PREMIUM motion/depth/density, the DARK PRO Phase-6 motion system and @keyframes, the flagship illustration band, the fixed ambient layer, marketing nav chrome, the SYN 2.0 announcement strip, the hero product preview, the guide header, and the pill-collapse media query. Marketing (#site) and motion rules interleave here in source.
+   MOVE, not a refactor: a byte-identical slice of the original <style>.
+   Order-dependent. This file must load after 05-guide-premium.css and before (load last).
+   ============================================================ */
+/* ===================== PREMIUM LAYER: motion, depth, density ===================== */
+/* icon family: 1.5px stroke, geometric */
+.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block}
+.ic.s{width:15px;height:15px}
+.sh-point .c{display:inline-flex}
+
+/* 1. animated hero background */
+.site-hero{overflow:hidden}
+#heroFx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.site-hero>.site-wrap{position:relative;z-index:1}
+@media(prefers-reduced-motion:reduce){#heroFx{display:none}}
+
+/* 2. hover physics — marketing */
+.site-btn{transition:transform .18s var(--ease-reveal),box-shadow .18s var(--ease-reveal),background .18s ease,border-color .18s ease,color .18s ease}
+.site-btn:hover{border-color:var(--hairline-strong)}
+.site-btn:active{transform:translateY(0);transition-duration:.08s}
+.site-btn.gold:hover{transform:translateY(-1.5px);background:var(--gold-hover)}
+.site-btn.ghost:hover{background:rgba(255,255,255,.07)}
+.site-links a{position:relative;padding-bottom:2px}
+.site-links a::after{content:"";position:absolute;left:0;right:100%;bottom:-2px;height:1px;background:var(--text);transition:right .22s var(--ease-reveal)}
+.site-links a:hover::after{right:0}
+.pillar-card,.cmp-col,.step-card,.seat-tier,.proof-card{transition:transform .2s var(--ease-reveal),border-color .2s ease,background .2s ease,box-shadow .2s ease}
+.pillar-card:hover,.step-card:hover,.seat-tier:hover{border-color:var(--hairline-strong)}
+.cmp-col:hover{transform:translateY(-2px);border-color:var(--hairline-strong)}
+.pillar-ico svg,.sh-point .c svg,.site-brand .logo-orb img{transition:transform .15s ease}
+.pillar-card:hover .pillar-ico svg,.step-card:hover .pillar-ico svg,.sh-point:hover .c svg{transform:scale(1.08)}
+.site-brand:hover .logo-orb img{transform:scale(1.05)}
+.site-foot .fcol a{transition:color .16s ease,transform .16s ease}
+.site-foot .fcol a:hover{transform:translateX(2px)}
+
+/* 3. scroll choreography */
+.sh-eyebrow .sec-num{margin-right:12px}
+.rv{opacity:0;transform:translateY(12px);filter:blur(4px);transition:opacity .25s var(--ease-reveal),transform .25s var(--ease-reveal),filter .25s var(--ease-reveal);transition-delay:var(--rvd,0ms)}
+.rv.in{opacity:1;transform:none;filter:none}
+@media(prefers-reduced-motion:reduce){.rv{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}.hero-preview img{transform:none!important}}
+
+/* ===================== DARK PRO Phase 6 — motion system ===================== */
+#site{--ease:var(--ease-reveal)}
+/* Hover: 150ms; buttons shift border/bg only (no scale/translate on anything larger than an icon). */
+#site .site-btn{transition:background .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
+#site .site-btn:hover,#site .site-btn.gold:hover,#site .site-btn.ghost:hover,#site .site-btn:active{transform:none!important}
+#site .site-btn.gold:hover{background:var(--btn-hover)}
+#site .site-btn.ghost:hover{background:rgba(255,255,255,.06);border-color:var(--hairline-strong)}
+#site .cmp-col:hover{transform:translateZ(0)!important}
+#site .site-foot .fcol a:hover{transform:none}
+/* Links: underline wipes in from the left (already anchored left:0 / right:100%). */
+#site .site-links a::after{transition:right .15s var(--ease)}
+/* Headline reveal via clip-path (line-style wipe, never per-letter), staggered after the eyebrow. */
+#site .sh-title.rv,#site .sec-title.rv,#site .iso-title.rv,#site .site-cta-band h2.rv{
+  clip-path:inset(100% 0 -2px 0);
+  transition:clip-path .5s var(--ease),transform .5s var(--ease),opacity .3s var(--ease),filter .3s var(--ease)}
+#site .sh-title.rv.in,#site .sec-title.rv.in,#site .iso-title.rv.in,#site .site-cta-band h2.rv.in{clip-path:inset(0 0 -2px 0)}
+@media(prefers-reduced-motion:reduce){
+  #site .sh-title.rv,#site .sec-title.rv,#site .iso-title.rv,#site .site-cta-band h2.rv{clip-path:none!important}}
+/* Nav: transparent until scrolled, then a hairline bottom border + slight background. */
+#site .site-nav{background:transparent;border-bottom-color:transparent;
+  transition:background .25s var(--ease),border-color .25s var(--ease)}
+#site .site-nav.scrolled{background:rgba(8,8,10,.72);border-bottom-color:var(--hairline)}
+
+/* 4. flagship sections */
+/* WHAT SYN DOES — Linear-style illustration band. Intentionally a FIXED near-black band on the
+   light marketing page (the low-contrast solid-volume figures do not survive on cream); the dark
+   values here are deliberate, not un-tokenised theme misses. */
+.iso-band{position:relative;background:#09090b;color:#F4F1EA;padding:78px 0 20px;margin:0}
+.iso-band .sec-eyebrow{color:rgba(255,255,255,.5)}
+.iso-band .sec-eyebrow .sec-num{color:rgba(255,255,255,.6)}   /* .4 = 3.74 on the dark band; .6 clears AA */
+.iso-title{font-family:'Inter',sans-serif;font-weight:600;font-size:clamp(30px,3.2vw,52px);letter-spacing:-.028em;line-height:1.1;max-width:22ch;margin:18px 0 0;color:#F4F1EA}
+.iso-sub{font-size:16px;line-height:1.75;color:rgba(255,255,255,.58);max-width:620px;margin-top:16px}
+.iso-grid{display:grid;grid-template-columns:repeat(3,1fr);margin-top:52px;border-top:1px solid rgba(255,255,255,.09)}
+.iso-col{border-right:1px solid rgba(255,255,255,.09)}
+.iso-col:first-child{border-left:1px solid rgba(255,255,255,.09)}
+.iso-item{padding:34px 30px 44px}
+.iso-item + .iso-item{border-top:1px solid rgba(255,255,255,.09)}
+.iso-fig-label{font-family:ui-monospace,'SFMono-Regular',Menlo,monospace;font-size:11px;letter-spacing:.2em;color:rgba(255,255,255,.5)}
+.iso-fig{position:relative;height:224px;display:flex;align-items:center;justify-content:center;margin:14px 0 10px;transition:transform .45s cubic-bezier(.16,1,.3,1)}
+.iso-fig::after{content:"";position:absolute;bottom:24px;left:50%;width:56%;height:28px;transform:translateX(-50%);background:radial-gradient(ellipse at center,rgba(0,0,0,.55),transparent 70%);z-index:0}
+.iso-obj{position:relative;z-index:1;width:236px;max-width:82%;animation:isoDrift 7s ease-in-out infinite;transition:filter .35s ease;will-change:transform}
+.iso-obj svg{width:100%;height:auto;display:block}
+.iso-col:nth-child(2) .iso-obj{animation-delay:-2.3s}
+.iso-col:nth-child(3) .iso-obj{animation-delay:-4.6s}
+.iso-item:nth-child(2) .iso-obj{animation-delay:-3.6s}
+.iso-name{font-family:'Inter',sans-serif;font-size:20px;font-weight:600;letter-spacing:-.01em;margin:4px 0 8px;color:#F4F1EA}
+.iso-desc{font-size:14px;line-height:1.66;color:rgba(255,255,255,.58);margin:0;max-width:32ch}
+@keyframes isoDrift{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.iso-item:hover .iso-fig{transform:translateY(-8px)}
+.iso-item:hover .iso-obj{filter:brightness(1.45) drop-shadow(0 0 20px rgba(255,255,255,.07))}
+@media(prefers-reduced-motion:reduce){.iso-obj{animation:none}.iso-fig{transition:none}}
+@media(max-width:900px){.iso-grid{grid-template-columns:1fr}.iso-col{border-left:1px solid rgba(255,255,255,.09)}.iso-col + .iso-col{border-top:1px solid rgba(255,255,255,.09)}}
+.cmp-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px;align-items:stretch}
+.cmp-col{border:1px solid var(--hairline);background:var(--surface-1);border-radius:var(--r-md);padding:24px}
+.cmp-col.syn{background:var(--surface-2);border-color:var(--hairline-strong);position:relative}
+.cmp-col.syn::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 18px 44px rgba(0,0,0,.45);pointer-events:none}
+.cmp-head{padding-bottom:16px;border-bottom:1px solid var(--hairline);margin-bottom:8px}
+.cmp-head h3{font-family:'Inter',sans-serif;font-size:17px;font-weight:700;letter-spacing:-.01em;margin:0 0 4px}
+.cmp-head p{font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--text-3);margin:0}
+.cmp-col.syn .cmp-head p{color:var(--text)}
+.cmp-row{display:flex;align-items:center;gap:11px;font-size:13.5px;color:var(--text-2);padding:11px 0;border-bottom:1px solid var(--hairline)}
+.cmp-row:last-child{border-bottom:none}
+.cmp-row .ic{color:var(--text)}
+.cmp-row.off{color:var(--text-4)}
+.cmp-row.off .ic{color:var(--text-4)}
+.step-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
+.step-card{border:1px solid var(--hairline);background:var(--surface-1);border-radius:var(--r-md);padding:26px 24px;position:relative}
+.step-n{font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.2em;color:var(--text-4);position:absolute;top:24px;right:22px}
+.step-card .pillar-ico{margin-bottom:16px}
+.step-card h3{font-family:'Inter',sans-serif;font-size:18px;font-weight:700;letter-spacing:-.01em;margin:0 0 8px}
+.step-card p{font-size:13.5px;line-height:1.7;color:var(--text-3);margin:0}
+.proof-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
+.proof-card{border:1px dashed var(--hairline-strong);background:var(--surface-1);border-radius:var(--r-md);padding:24px;min-height:150px}
+.proof-card .ic{color:var(--text-4);margin-bottom:16px}
+.proof-line{height:9px;border-radius:4px;background:rgba(255,255,255,.06);margin-bottom:9px}
+.proof-line.w80{width:80%}.proof-line.w70{width:70%}.proof-line.w60{width:60%}
+.proof-who{width:42%;height:7px;border-radius:4px;background:rgba(255,255,255,.04);margin-top:16px}
+.logo-row{display:flex;gap:14px;justify-content:flex-start;margin-top:40px;flex-wrap:wrap}
+.logo-slot{width:124px;height:40px;border-radius:8px;border:1px dashed var(--hairline-strong)}
+:root[data-theme="light"] .proof-line{background:rgba(17,17,17,.07)}
+:root[data-theme="light"] .proof-who{background:rgba(17,17,17,.05)}
+
+/* =====================================================================
+   DARK PRO — dark-only marketing surface, scoped to #site only.
+   Reference tier: Linear / Vercel / Stripe docs. Near-black base,
+   hairline structure, monospace labels, gold as accent only.
+   The app (#app) keeps its own light/dark toggle; this block is fixed dark.
+   ===================================================================== */
+#site{
+  --bg:#08080A;                          /* near-black base */
+  --surface-0:#0E0E11;                   /* raised */
+  --surface-1:#0E0E11;
+  --surface-2:#141418;
+  --surface-3:#1A1A1F;
+  --hairline:rgba(255,255,255,.07);      /* border hairline */
+  --hairline-strong:rgba(255,255,255,.14); /* border emphasis */
+  --glass:rgba(14,14,17,.72);
+  --glass-border:rgba(255,255,255,.10);
+  --glass-border-soft:rgba(255,255,255,.06);
+  --text:#FAFAFA;
+  --text-2:#A1A1A6;                      /* muted */
+  --text-3:#A1A1A6;
+  --text-4:#7E7E83;                      /* dim — nudged from #6E6E73 so it clears AA as text */
+  --muted:#A1A1A6;
+  --faint:#7E7E83;
+  --gold:#A1A1A6;                        /* monochrome — no chromatic accent; gray for eyebrows/labels/section numbers */
+  --gold-hover:#FFFFFF;                  /* links/labels brighten to white on hover */
+  --gold-active:#C9CDD6;
+  --gold-ink:#08080A;
+  --btn:#FFFFFF;                         /* primary CTA: white fill */
+  --btn-ink:#0A0A0C;                     /* near-black ink on white */
+  --btn-hover:#EDEDED;
+  --btn-active:#DADADA;
+  --accent-soft:rgba(255,255,255,.08);
+  --good:#E4E4E7;                        /* marketing has zero color — confirmation checks read white, not green */
+  --bad:#E4E4E7;
+  --amber:#A1A1A6;
+  color-scheme:dark;
+  background:var(--bg);
+  color:var(--text);
+}
+/* AMBIENT — one fixed layer behind all content: 1px grid drift + soft bloom + fine grain.
+   GPU-cheap (transform/opacity only), sits at z-index:-1 so section content paints over it. */
+#site .site-ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;contain:strict}
+#site > *:not(.site-ambient):not(.site-nav){position:relative;z-index:1}
+#site .sa-grid,#site .sa-bloom,#site .sa-grain{position:absolute;inset:-120px;will-change:transform}
+#site .sa-grid{
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:80px 80px;
+  animation:sa-drift 72s linear infinite;
+}
+#site .sa-bloom{
+  background:radial-gradient(38% 42% at 50% 42%,rgba(255,255,255,.03),rgba(255,255,255,0) 70%);
+  animation:sa-bloom 96s ease-in-out infinite;
+}
+#site .sa-grain{
+  inset:0;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  will-change:auto;
+}
+@keyframes sa-drift{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(80px,80px,0)}}
+@keyframes sa-bloom{
+  0%{transform:translate3d(-6%,-3%,0)}
+  50%{transform:translate3d(7%,4%,0)}
+  100%{transform:translate3d(-6%,-3%,0)}
+}
+/* nav / chrome — dark hairline structure */
+/* nav background/border is applied only after scroll — see Phase 6 (.site-nav.scrolled) */
+#site .grad,#site .sh-title .grad,#site .grad-text{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--text);-webkit-text-fill-color:currentColor}
+#site .sh-badge,#site .sh-point{background:var(--surface-2);border-color:var(--hairline)}
+#site .site-btn.ghost{background:transparent;border-color:var(--hairline-strong);color:var(--text-2)}
+#site .site-btn.ghost:hover{background:rgba(255,255,255,.05);color:var(--text);border-color:var(--hairline-strong)}
+#site .site-btn.gold{background:var(--btn);color:var(--btn-ink)}   /* primary CTA: white fill + near-black ink */
+#site .site-btn.gold:hover{background:var(--btn-hover)}
+#site .pillar-ico{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:var(--gold)}
+#site .cmp-col.syn{background:var(--surface-1)}
+#site .cmp-col.syn::before{box-shadow:0 0 0 1px var(--hairline-strong)}
+#site .sec-eyebrow span.line{background:rgba(255,255,255,.30)}
+#site .site-cta-band{background:var(--surface-1);border-color:var(--hairline)}
+#site .proof-line{background:rgba(255,255,255,.05)}
+#site .proof-who{background:rgba(255,255,255,.04)}
+#site .logo-slot{border-color:var(--hairline-strong)}
+#site .site-foot{border-top-color:var(--hairline)}
+#site .pillar-shot{background:var(--surface-2)}
+/* feather the top edge of every product micro-shot so it dissolves into the card (no hard line) */
+#site .pillar-shot img{-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 15%);mask-image:linear-gradient(180deg,transparent 0%,#000 15%)}
+/* no dark particle canvas on the marketing hero — it is type-led */
+#site #heroFx{display:none}
+
+/* SYN 2.0 announcement strip — slim, text + hairlines only (no art). */
+.syn2-strip{position:relative;display:flex;align-items:center;cursor:pointer;border-bottom:1px solid var(--hairline);background:var(--surface-1)}
+.syn2-inner{max-width:1160px;margin:0 auto;padding:14px 32px;height:100%;display:flex;align-items:center;gap:18px;flex-wrap:wrap;width:100%}
+.syn2-label{font-family:ui-monospace,'SFMono-Regular',Menlo,monospace;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);border:1px solid var(--hairline-strong);padding:4px 10px}
+.syn2-word{font-family:'Inter',sans-serif;font-weight:500;font-size:16px;letter-spacing:-.01em;color:var(--text)}
+.syn2-sub{font-size:13px;color:var(--muted)}
+.syn2-cta{font-family:ui-monospace,'SFMono-Regular',Menlo,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-left:auto;white-space:nowrap;transition:transform .15s var(--ease-reveal)}
+.syn2-strip:hover .syn2-cta{transform:translateX(4px)}
+@media(max-width:720px){.syn2-sub{display:none}}
+
+/* HERO product preview — a real app screenshot in minimal browser chrome (thin bar + dots). */
+.hero-preview{max-width:1120px;margin:56px auto 0;border:1px solid var(--hairline);border-radius:var(--r-img);overflow:hidden;background:var(--surface-1)}
+.hp-bar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--hairline)}
+.hp-bar i{width:9px;height:9px;border-radius:50%;background:var(--hairline-strong);display:block}
+.hp-bar span{margin-left:12px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text-4);letter-spacing:.02em}
+.hero-preview img{width:100%;display:block}
+
+/* GUIDE header (app side) — text only, no image band */
+.gd-band-txt{margin-bottom:16px}
+.gd-band-txt h2{font-family:'Inter',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.01em;margin:0;color:var(--text)}
+.gd-band-txt p{font-size:13px;color:var(--text-3);margin:5px 0 0}
+
+@media(max-width:1020px){.pillar-grid,.step-grid,.proof-grid,.cmp-strip{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.pillar-grid,.step-grid,.proof-grid,.cmp-strip{grid-template-columns:1fr}.lum-hero-bg{opacity:.5}}
+@media(max-width:860px){
+  /* pill collapses to logo + menu control */
+  .site-links,.site-nav-cta{display:none}
+  .site-menu-btn{display:inline-flex}
+  .site-brand .wm{flex:1}
+  .diff-grid,.feat-grid,.price-grid{grid-template-columns:1fr}
+  .site-wrap{padding-left:20px;padding-right:20px}
+  .price-card.core{order:-1}
+}

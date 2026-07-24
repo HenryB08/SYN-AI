@@ -1,0 +1,70 @@
+/* ============================================================
+   02-base.css — shared foundation — AURORA ambient background layers, BOOT / AUTH screens, and the full-viewport sign-in field.
+   MOVE, not a refactor: a byte-identical slice of the original <style>.
+   Order-dependent. This file must load after 01-tokens.css and before 03-app.css.
+   ============================================================ */
+/* ============ AURORA ============ */
+.aurora{position:fixed;inset:0;z-index:0;overflow:hidden;filter:blur(70px) saturate(1.2)}
+body.no-motion .blob{animation:none!important}
+.blob{position:absolute;border-radius:50%;opacity:.5;mix-blend-mode:screen;will-change:transform}
+.blob.b1{width:55vw;height:55vw;left:-12vw;top:-18vw;background:radial-gradient(circle at 35% 35%,#3A3F49,transparent 65%);animation:drift1 46s ease-in-out infinite}
+.blob.b2{width:48vw;height:48vw;right:-14vw;top:8vh;background:radial-gradient(circle at 60% 40%,#46362A,transparent 62%);opacity:.34;animation:drift2 58s ease-in-out infinite}
+.blob.b3{width:52vw;height:52vw;left:22vw;bottom:-26vw;background:radial-gradient(circle at 50% 50%,#2E3238,transparent 62%);opacity:.3;animation:drift3 52s ease-in-out infinite}
+.blob.b4{width:34vw;height:34vw;right:8vw;bottom:-8vw;background:radial-gradient(circle at 50% 50%,#4A4E55,transparent 60%);opacity:.2;animation:drift1 64s ease-in-out infinite reverse}
+@keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(9vw,7vh) scale(1.12)}66%{transform:translate(-5vw,12vh) scale(.94)}}
+@keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(-11vw,10vh) scale(1.16)}75%{transform:translate(5vw,-7vh) scale(.9)}}
+@keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(8vw,-10vh) scale(1.18)}}
+.veil{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at 50% 42%,transparent 0%,rgba(5,4,9,.55) 78%,rgba(5,4,9,.85) 100%);pointer-events:none}
+.grain{position:fixed;inset:0;z-index:1;opacity:.05;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E")}
+
+.glass{background:var(--glass);backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);border:1px solid var(--glass-border-soft);box-shadow:0 2px 8px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.08)}
+
+/* ============ BOOT / AUTH ============ */
+.fullscreen{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:24px}
+.fullscreen.on{display:flex}
+.boot-txt{font-family:'Inter',sans-serif;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);text-align:center}
+.boot-orb{width:86px;height:86px;margin:0 auto 26px;border-radius:6px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.03));border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(136,136,136,.3),inset 0 1px 0 rgba(255,255,255,.22);animation:float 5s ease-in-out infinite}
+.boot-orb img{width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(136,136,136,.6))}
+@keyframes float{50%{transform:translateY(-9px)}}
+
+.auth-card{width:100%;max-width:430px;border-radius:6px;padding:42px 40px 34px;text-align:center;animation:rise .5s cubic-bezier(.2,.8,.3,1)}
+/* SIGN-IN — full-viewport dark field, card centered over a subtle scrim. No imagery.
+   The scene is pinned DARK in both themes — sign-in is where the dark workspace begins. */
+.auth-scene{padding:24px;align-items:center;justify-content:center;overflow:hidden;
+  background:radial-gradient(90% 70% at 50% -6%, #241f18 0%, #14131a 46%, #0a0a0d 100%);
+  /* pin dark tokens so the card + fields read correctly regardless of the site/app theme */
+  --bg:#0a0a0d;--surface-0:#06070D;--surface-1:#101114;--surface-2:#16181D;
+  --text:#E2E2E2;--text-2:rgba(226,226,226,.72);--text-3:rgba(226,226,226,.55);
+  --muted:rgba(226,226,226,.66);--faint:rgba(226,226,226,.60);
+  --hairline:rgba(255,255,255,.08);--glass-border:rgba(255,255,255,.12);--glass-border-soft:rgba(255,255,255,.07);
+  --gold:#E2E2E2;--gold-ink:#0A0A0A;--btn:#E2E2E2;--btn-ink:#050608;color-scheme:dark}
+.auth-bg{position:absolute;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.auth-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(58% 62% at 50% 46%, transparent 34%, rgba(8,8,11,.62) 100%)}
+.auth-scene .auth-card{position:relative;z-index:1;margin:auto;background:rgba(18,17,24,.80);backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);border:1px solid rgba(255,255,255,.12);box-shadow:0 24px 70px rgba(0,0,0,.6)}
+@media(max-width:560px){.auth-bg img{height:min(70%,460px);opacity:.7}}
+.auth-card h1{font-family:'Inter',sans-serif;font-size:26px;font-weight:600;letter-spacing:.14em;margin-bottom:4px}
+.auth-sub{font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);margin-bottom:28px}
+.auth-card .f-input{margin-bottom:12px;text-align:left}
+.auth-btn{width:100%;margin-top:6px;font-size:14px;font-weight:700;padding:15px;border-radius:var(--r-btn);background:var(--gold);color:var(--gold-ink);box-shadow:0 2px 8px rgba(136,136,136,.35);transition:all .2s}
+.auth-btn:hover{transform:translateY(-2px)}
+.auth-switch{margin-top:18px;font-size:12.5px;color:var(--muted)}
+.auth-switch button{color:var(--gold);font-weight:700;margin-left:6px}
+.auth-note{margin-top:16px;font-family:'Inter',sans-serif;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);line-height:1.9}
+.auth-err{color:var(--bad);font-size:12.5px;margin-top:12px;display:none}
+.auth-tabs{display:flex;gap:7px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+.color-row{display:flex;gap:9px;align-items:center}
+.pal-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.pal-row .f-input{padding:10px 13px;font-size:13px}
+input[type=color]{width:46px;height:46px;min-width:46px;border-radius:6px;border:1px solid var(--glass-border);background:rgba(255,255,255,.05);padding:3px;cursor:pointer}
+input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+input[type=color]::-webkit-color-swatch{border-radius:6px;border:none}
+.tmsg{display:flex;gap:11px;margin-bottom:15px;align-items:flex-start}
+.tmsg .avatar{width:32px;height:32px;min-width:32px;font-size:12px}
+.tmsg-b{background:rgba(255,255,255,.05);border:1px solid var(--glass-border-soft);border-radius:2px 6px 6px 6px;padding:11px 16px;max-width:80%;backdrop-filter:blur(12px)}
+.tmsg.me{flex-direction:row-reverse}
+.tmsg.me .tmsg-b{border-radius:2px 6px 6px 6px;background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.06))}
+.tmsg-h{font-family:'Inter',sans-serif;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+.tmsg-t{font-size:14px;white-space:pre-wrap}
+.code-big{font-family:'Inter',sans-serif;font-size:30px;letter-spacing:.34em;color:var(--gold);text-align:center;padding:14px 0 6px}
+.code-sub{font-family:'Inter',sans-serif;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);text-align:center;padding-bottom:10px}
+
