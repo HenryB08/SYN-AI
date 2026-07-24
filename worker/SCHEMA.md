@@ -210,7 +210,12 @@ POST   /admin/tenants/:id/installs        → returns install_key ONCE
 POST   /admin/installs/:id/revoke
 POST   /admin/tenants/:id/job-value       → inserts a new job_values row
 GET    /admin/tenants/:id/events          → paginated (?limit=&cursor=)
+GET    /admin/tenants/:id/contacts        → paginated, newest first, with conversation_count
 ```
+
+`GET /admin/tenants/:id/contacts` is strictly tenant-scoped (`WHERE tenant_id=?`) — one tenant can
+never read another's contacts. Each row includes `conversation_count` and the parsed `meta`; consent
+comes back as a boolean.
 
 **Public (install key + origin check + CORS):**
 ```
@@ -218,7 +223,14 @@ GET    /w/config          → widget display config only (brand name + config)
 POST   /w/events          → write an event, honors idempotency_key
 POST   /w/contacts        → upsert a contact, dedupes on email / phone per tenant
 POST   /w/messages        → brand-governed AI turn (see WIDGET.md § Brand-governed AI)
+POST   /w/capture         → explicit capture form: contact + (checkbox-gated) SMS consent
 ```
+
+`POST /w/messages` also runs **server-side contact detection** on the visitor's text (email always,
+phone conservatively — see WIDGET.md § Lead capture), upserts the contact with `consent_sms=false`,
+links the conversation, and backfills `contact_id` onto that conversation's earlier events.
+`POST /w/capture` is the explicit form: it is the **only** path that can set `consent_sms=true`, and
+only when the visible checkbox was ticked (unticked by default); it stamps `consent_at` then.
 
 `POST /w/messages` builds the brand system prompt server-side from `brands.profile`, calls Anthropic
 (`claude-haiku-4-5-20251001`, `max_tokens` 500, last 12 turns, prompt-cached system prefix), screens

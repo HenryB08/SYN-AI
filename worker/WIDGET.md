@@ -130,6 +130,54 @@ etc.) and asserts each leaves the system prompt unchanged and lands only in user
 to Anthropic server-side and **never** reaches the browser; without it, `/w/messages` returns a
 copy-mappable `502`.
 
+## Lead capture
+
+Three paths turn a conversation into a contact record. All detection is **server-side**; names are
+never guessed.
+
+1. **The assistant asks / the visitor answers in chat.** `POST /w/messages` runs contact detection on
+   the visitor's text. A found email/phone upserts the contact (existing dedupe on email/phone per
+   tenant), links the conversation, and backfills `contact_id` onto that conversation's earlier events
+   so the Receipt can attribute them. `consent_sms` stays **false** — a phone in a chat message is not
+   consent to be texted. If the conversation already has a contact, a new detail **enriches that one
+   record** (email-then-phone = one contact), never a second.
+2. **Volunteered unprompted** — same detection mechanism.
+3. **The explicit form** — when the assistant offers to connect, the widget renders an inline form
+   (name, email, phone, one optional note) with a consent checkbox. Submitting `POST /w/capture` is a
+   deliberate act. It is the **only** path that can set `consent_sms=true`, and only when the box was
+   ticked; it stamps `consent_at`.
+
+### Detection — honest scope
+
+- **Email** — a standard address pattern (case-insensitive). Catches ordinary addresses. **Misses**
+  obfuscated forms ("name at domain dot com"), quoted local-parts, and non-ASCII/IDN domains. False
+  positives are rare (needs `@` + a dotted domain).
+- **Phone** — deliberately **conservative**, because a wrong number means follow-up goes to a
+  stranger. It accepts a number only when it is written with phone-shaped separators (parentheses,
+  dashes, dots, or a `+1`) **or** is a 10/11-digit run right after an intent word ("call/text/reach me
+  at/my number is"), **and** it passes NANP validity (10 digits after dropping a leading 1; area code
+  and exchange may not start with 0 or 1). A bare digit run with no separators and no intent is never
+  taken. **False positives:** it is built to NOT fire on zip codes, order numbers, prices, street
+  addresses, or SSN-shaped strings — the suite tests each. **False negatives:** it misses a plain
+  `5551234567` with no separators/context, unusual international formats, and phones described in prose
+  it can't parse. We prefer a miss to a wrong capture.
+- **Name** — never guessed from a pattern. Captured **only** via the explicit form (structured model
+  output was not implemented). Detection leaves `name` null.
+
+### Consent — legal weight, not just product
+
+Storing a number is **not** the same as consent to an SMS sequence. So: detection sets the contact but
+leaves `consent_sms` false. Only the explicit form, with a **visible checkbox and clear language about
+what they're agreeing to receive**, sets `consent_sms` true and stamps `consent_at`. The checkbox is
+**unticked by default — never pre-ticked**, and `consent_sms` is monotonic server-side (once true it
+stays true; a later detection can't silently clear it). No flow implies consent; it is always given.
+
+### What the client sees
+
+`GET /admin/tenants/:id/contacts` lists a tenant's contacts, newest first, each with its
+`conversation_count` — strictly tenant-scoped so one tenant can never read another's. This is the
+dashboard read and the way to verify captures during an install.
+
 ## Verification
 
 `node tests/growth-widget.mjs` (shell) runs the real Worker (node:sqlite D1 shim) behind a local HTTP
@@ -141,6 +189,15 @@ missing key → nothing + one warn, "only `__synGrowth` added to `window`", clos
 `node tests/growth-widget-ai.mjs` (messaging) mocks the Anthropic upstream and drives the composer:
 Enter sends (visitor → typing → reply), Shift+Enter inserts a newline, the send button works, an
 upstream failure renders as copy, a guardrail-blocked reply shows the safe offer, and the
-conversation persists across a reload. `worker/syn-growth.test.mjs` covers the server AI path
-(brand-voiced FAQ answer, banned-claim block + log, four prompt-injection attempts, conversation cap,
-per-conversation rate limit, event-once, history windowing). Screenshots go to `$SHOTS`.
+conversation persists across a reload.
+
+`node tests/growth-capture.mjs` (lead capture) drives the inline form: it appears on an offer, the
+consent box is unticked by default, ticking it stores consent, leaving it unticked stores the contact
+without consent, empty email+phone is rejected, "Not now" dismisses, and a detected email is captured
+with no form and no consent.
+
+`worker/syn-growth.test.mjs` covers the server AI + capture paths: brand-voiced FAQ answer,
+banned-claim block + log, four prompt-injection attempts, conversation cap, per-conversation rate
+limit, event-once, history windowing, email/phone detection (with false-positive checks on
+order#/price/zip/address/SSN/invalid-NANP), email-then-phone → one contact, event backfill, form
+consent (ticked/unticked), and the tenant-scoped admin contacts list. Screenshots go to `$SHOTS`.

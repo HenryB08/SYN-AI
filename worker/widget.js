@@ -141,6 +141,20 @@
       "  background: " + accent + "; color: " + ink + "; display: flex; align-items: center; justify-content: center; }",
       ".composer .send:disabled{ opacity: .5; cursor: default; }",
       ".composer .send svg{ width: 18px; height: 18px; }",
+      // inline capture form
+      ".capform{ border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fff; }",
+      ".capform .cf-title{ font-weight: 600; font-size: 13px; margin-bottom: 8px; }",
+      ".capform input{ width: 100%; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); border-radius: 8px;",
+      "  padding: 8px 10px; font: inherit; margin-bottom: 8px; color: #1a1a1a; background: #fff; }",
+      ".capform .cf-consent{ display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: #555; margin: 2px 0 10px; cursor: pointer; }",
+      ".capform .cf-consent input{ width: auto; margin: 2px 0 0; flex: 0 0 auto; }",
+      ".capform .cf-actions{ display: flex; gap: 8px; }",
+      ".capform .cf-submit{ flex: 1 1 auto; border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer;",
+      "  font: inherit; font-weight: 600; background: " + accent + "; color: " + ink + "; }",
+      ".capform .cf-submit:disabled{ opacity: .5; cursor: default; }",
+      ".capform .cf-skip{ flex: 0 0 auto; border: 1px solid rgba(0,0,0,.15); background: transparent;",
+      "  border-radius: 8px; padding: 9px 12px; cursor: pointer; font: inherit; color: #555; }",
+      ".capform .cf-err{ color: #c0392b; font-size: 12px; margin-bottom: 8px; }",
       // mobile: full-screen panel below 480px
       "@media (max-width: 479px){",
       "  .panel{ inset: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; border-radius: 0; border: 0; }",
@@ -230,6 +244,8 @@
     var convId = null;
     try { convId = sessionStorage.getItem(convKey); } catch (e) {}
     var sending = false;
+    var captured = false;   // once we have this visitor's details, stop offering the form
+    var formEl = null;      // the inline capture form, when shown (at most one)
 
     function addBubble(kind, txt) {
       var b = document.createElement("div");
@@ -277,6 +293,8 @@
         else if (res.status === 409) addBubble("bot", failCopy("full"));
         else if (res.status === 429) addBubble("bot", failCopy("rate"));
         else addBubble("bot", failCopy("error"));
+        if (b.captured) captured = true;                 // detection already stored details this turn
+        if (b.offer_form) renderCaptureForm();           // assistant offered to connect — show the form
       }).catch(function () {
         if (typing.parentNode) typing.parentNode.removeChild(typing);
         addBubble("bot", failCopy("error"));
@@ -288,6 +306,49 @@
     ta.addEventListener("keydown", function (e) {
       if ((e.key === "Enter" || e.keyCode === 13) && !e.shiftKey) { e.preventDefault(); doSend(); }
     });
+
+    // The explicit capture form. Submitting is a deliberate act; the consent checkbox is UNTICKED by
+    // default and only a ticked box grants SMS consent. A phone typed in chat never implies consent.
+    function renderCaptureForm() {
+      if (captured || formEl) return;   // never nag: one at a time, and not once we have details
+      var f = document.createElement("div");
+      f.className = "capform";
+      function input(type, ph, label) { var i = document.createElement("input"); i.type = type; i.placeholder = ph; i.setAttribute("aria-label", label); return i; }
+      var title = document.createElement("div"); title.className = "cf-title"; title.textContent = "Share your details and we'll follow up";
+      var name = input("text", "Name (optional)", "Name");
+      var email = input("email", "Email", "Email");
+      var phone = input("tel", "Phone (optional)", "Phone");
+      var note = input("text", "Anything else? (optional)", "Note");
+      var err = document.createElement("div"); err.className = "cf-err"; err.style.display = "none";
+      var consent = document.createElement("label"); consent.className = "cf-consent";
+      var cb = document.createElement("input"); cb.type = "checkbox";   // UNTICKED by default — never pre-ticked
+      var cbText = document.createElement("span");
+      cbText.textContent = "I agree to receive follow-up messages, including texts, from " + brandName + " about my inquiry. Message and data rates may apply.";
+      consent.appendChild(cb); consent.appendChild(cbText);
+      var actions = document.createElement("div"); actions.className = "cf-actions";
+      var submit = document.createElement("button"); submit.type = "button"; submit.className = "cf-submit"; submit.textContent = "Send";
+      var skip = document.createElement("button"); skip.type = "button"; skip.className = "cf-skip"; skip.textContent = "Not now";
+      actions.appendChild(submit); actions.appendChild(skip);
+      f.appendChild(title); f.appendChild(name); f.appendChild(email); f.appendChild(phone); f.appendChild(note);
+      f.appendChild(err); f.appendChild(consent); f.appendChild(actions);
+      msgs.appendChild(f); msgs.scrollTop = msgs.scrollHeight;
+      formEl = f;
+      function remove() { if (f.parentNode) f.parentNode.removeChild(f); if (formEl === f) formEl = null; }
+      skip.addEventListener("click", remove);
+      submit.addEventListener("click", function () {
+        var em = email.value.trim(), ph = phone.value.trim();
+        if (!em && !ph) { err.textContent = "Please add an email or phone so we can reach you."; err.style.display = "block"; return; }
+        err.style.display = "none"; submit.disabled = true; skip.disabled = true;
+        fetch(base + "/w/capture" + q, {
+          method: "POST", mode: "cors", credentials: "omit",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: convId, name: name.value.trim() || null, email: em || null, phone: ph || null, note: note.value.trim() || null, consent_sms: cb.checked })
+        }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
+          if (okr) { captured = true; remove(); addBubble("bot", "Thanks! Someone from our team will be in touch soon."); }
+          else { submit.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through — please try again."; err.style.display = "block"; }
+        });
+      });
+    }
 
     // Close on Escape.
     document.addEventListener("keydown", function (e) {
