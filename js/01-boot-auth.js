@@ -594,7 +594,7 @@ function synAsstToggle(){
   const open = el.classList.toggle("open");
   const launch = document.getElementById("synAsstLaunch"); if (launch) launch.style.display = open ? "none" : "";
   if (open){
-    if (!synAsstGreeted){ synAsstGreeted = true; synAsstBubble("bot", "Hi — I'm the SYN assistant. Ask me what SYN does, how pricing works, or anything about the product."); }
+    if (!synAsstGreeted){ synAsstGreeted = true; synAsstBubble("bot", "Hi, I'm the SYN assistant. Ask me what SYN does, how pricing works, or anything about the product."); }
     setTimeout(() => { const i = document.getElementById("saInput"); if (i) i.focus(); }, 40);
   }
 }
@@ -821,7 +821,7 @@ function showAuth(m){
     f.innerHTML = '<input class="f-input" id="aEmail" placeholder="Work email" autocomplete="off"><input class="f-input" id="aPass" type="password" placeholder="Password">';
     btn.textContent = "Sign In";
     sw.innerHTML = gated
-      ? 'SYN is in private beta — <button onclick="gateToWaitlist()">join the waitlist</button> for access.'
+      ? 'SYN is in private beta: <button onclick="gateToWaitlist()">join the waitlist</button> for access.'
       : '<button onclick="forgotInfo()">Forgot password?</button>';
   }
   document.getElementById("authScreen").classList.add("on");
@@ -852,7 +852,7 @@ async function authSubmit(){
     const g = await gateSignIn(em, pass);
     if (btn){ btn.disabled = false; btn.textContent = lbl; }
     if (g.rateLimited) return authErr("Too many attempts. Wait a few minutes and try again.");
-    if (!g.ok) return authErr("Access is restricted. SYN is in private beta — join the waitlist for access.");
+    if (!g.ok) return authErr("Access is restricted. SYN is in private beta. Join the waitlist for access.");
     let orgs;
     try{ orgs = (await sGetStrict("syn5:orgs")) || []; }
     catch(e){ return authErr("Signed in, but couldn’t reach SYN Core to load your workspace. Try again."); }
@@ -872,13 +872,13 @@ async function authSubmit(){
   // Identity-critical: a failed cloud read must surface as "retry", never as an empty registry
   // that makes an existing user look brand-new.
   try{ ORGS = (await sGetStrict("syn5:orgs")) || []; }
-  catch(e){ return authErr("Couldn’t reach SYN Core to verify your account. Check your connection and try again — your workspace is safe."); }
+  catch(e){ return authErr("Couldn’t reach SYN Core to verify your account. Check your connection and try again. Your workspace is safe."); }
 
   if (authMode === "signin"){
     for (const org of ORGS){
       let team;
       try{ team = (await sGetStrict("syn5:" + org.id + ":team")) || []; }
-      catch(e){ return authErr("Couldn’t reach SYN Core to verify your account. Check your connection and try again — your workspace is safe."); }
+      catch(e){ return authErr("Couldn’t reach SYN Core to verify your account. Check your connection and try again. Your workspace is safe."); }
       const u = team.find(t => (t.email || "").trim().toLowerCase() === em);
       if (u && (await hashPw(pass, em)) === u.pwHash){
         await sSet("syn5:session", { orgId: org.id, userId: u.id }, false);

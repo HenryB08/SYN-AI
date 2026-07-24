@@ -290,8 +290,8 @@
     }
     // Every failure is copy, never a raw error — the widget must never look broken on a client's site.
     function failCopy(kind) {
-      if (kind === "full") return "We've hit the length limit for this chat, but I'd be glad to connect you with our team — share your name and a good email or phone and we'll follow up.";
-      if (kind === "rate") return "You're going a little faster than I can keep up with — give me a moment and try again, or leave your name and contact and our team will reach out.";
+      if (kind === "full") return "We've hit the length limit for this chat, but I'd be glad to connect you with our team. Share your name and a good email or phone and we'll follow up.";
+      if (kind === "rate") return "You're going a little faster than I can keep up with. Give me a moment and try again, or leave your name and contact and our team will reach out.";
       return "Sorry, I'm having trouble responding right now. Leave your name and the best email or phone to reach you, and our team will follow up.";
     }
     function doSend() {
@@ -376,7 +376,7 @@
           body: JSON.stringify({ conversation_id: convId, name: name.value.trim() || null, email: em || null, phone: ph || null, note: note.value.trim() || null, consent_sms: cb.checked, consent_text: consentSentence, disclosure_text: disclosureSentence })
         }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
           if (okr) { captured = true; remove(); addBubble("bot", "Thanks! Someone from our team will be in touch soon."); }
-          else { submit.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through — please try again."; err.style.display = "block"; }
+          else { submit.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through. Please try again."; err.style.display = "block"; }
         });
       });
     }
