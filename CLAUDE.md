@@ -59,7 +59,8 @@ Every tracked file in the repo:
 
 | Path | What it is | Touch it when… |
 |---|---|---|
-| `index.html` | The product's markup + all JS (marketing + app), ~484 KB. CSS now lives in `css/`; guide screenshots in `img/guide/` | any UI, app-logic, or markup change (see region map below) |
+| `index.html` | The shell: `<head>`, the `<body>` DOM markup (marketing + app), and the `<link>`/`<script src>` tags. **~80 KB** — CSS is in `css/`, JS is in `js/`, guide shots in `img/guide/` | markup/DOM changes, or wiring a new css/js file |
+| `js/01-boot-auth.js … 08-wiring.js` | The entire application JS, split into 8 order-dependent **classic scripts** (one shared global scope, not modules), loaded at end of body | any app-logic change — edit the file the function lives in; **never reorder, never add `type="module"`/`defer`/`async`** (see JS file map) |
 | `css/01-tokens.css … 06-motion.css` | The entire stylesheet, split into 6 order-dependent files linked in `<head>` | any CSS change — edit the file the rule lives in; **never reorder the links** (see CSS file map) |
 | `img/guide/*.webp` | The 12 in-app Guide screenshots (extracted from the old `GUIDE_IMGS` base64) | swapping a guide screenshot |
 | `worker/syn-assistant.js` | Cloudflare Worker for the marketing assistant; system prompt baked in, proxies Anthropic | changing what the marketing assistant knows or how it's proxied |
@@ -76,14 +77,14 @@ Every tracked file in the repo:
 
 ### `index.html` composition (measured, not estimated)
 
-> **Note:** the figures below describe the **original monolithic** `index.html`
-> and remain the reference for the `<script>` region map. Two extractions have
-> since shrunk the file: the 12 guide screenshots moved to `img/guide/*.webp`,
-> and the entire `<style>` block moved to `css/` (see the CSS file map below).
-> **Current `index.html` is 483,756 bytes**; it no longer contains a `<style>`
-> block or the base64 screenshots. The `<script>` byte figures and line ranges
-> below still hold *relative to the original*; after the CSS extraction, script
-> line numbers shift up by ~2,000 (the removed `<style>` lines).
+> **Note:** the figures below describe the **original monolithic** `index.html`.
+> **Three** extractions have since shrunk it: the 12 guide screenshots →
+> `img/guide/*.webp`, the entire `<style>` block → `css/` (6 files), and the
+> entire inline `<script>` block → `js/` (8 files). **Current `index.html` is
+> ~79.9 KB** — essentially just the `<head>`, the `<body>` DOM, and the `<link>`
+> + `<script src>` tags. It contains **no `<style>` block, no base64 screenshots,
+> and no application JS**. The old line ranges below are historical; use the
+> `css/` and `js/` file maps to locate code now.
 
 - **Total (original): 989,257 bytes, 8,345 lines.**
 - Base64 data URIs: **12 `image/webp` screenshots = 330,768 bytes (33.5%)** —
@@ -100,9 +101,9 @@ Every tracked file in the repo:
 | Lines | Bytes | What |
 |---|---|---|
 | 1–27 | 2.5 KB | `<head>`: meta, preconnect, Inter font links, 3 tiny boot scripts |
-| **28–2034** | ~~177 KB~~ | ~~`<style>`~~ — **extracted to `css/` (6 linked files); this range is now six `<link>` tags** |
-| 2036–2731 | 77 KB | `<body>` HTML markup (app + marketing DOM) |
-| **2732–8342** | **733 KB** | `<script>` — all JS logic |
+| **28–2034** | ~~177 KB~~ | ~~`<style>`~~ — **extracted to `css/` (6 linked files); now six `<link>` tags** |
+| 2036–2731 | 77 KB | `<body>` HTML markup (app + marketing DOM) — still inline |
+| **2732–8342** | ~~733 KB~~ | ~~`<script>`~~ — **extracted to `js/` (8 files); now eight `<script src>` tags at end of body** |
 | 8343–8345 | — | closing tags |
 
 ### Ten largest contiguous regions (for planned extraction)
@@ -124,27 +125,53 @@ Every tracked file in the repo:
 tail is ~35 KB, the body markup after `</style>` (2036–2731) is the 77 KB in the
 structure table above.
 
-### Region banners inside `<script>` (grep-friendly landmarks)
+### JS: extracted to `js/` (8 classic scripts, ~409 top-level functions)
 
-The script is sectioned by `/* ---- LABEL ---- */` banners. Key ones:
-`STORAGE ADAPTER` (2750), `SYN Core cloud tier` (2759), `STATE` (2898),
-`PERSISTENCE` (2992), `BOOT` (3050), `PUBLIC MARKETING SITE ROUTING` (3051),
-`AUTH` (3384), `THREADS` (3549), `SYSTEM PROMPT` (3697), `CHAT RENDER` (3817),
-`SEND / GENERATE` (4057), `APPROVALS` (4276), `ASSETS` (4352), `ACTIVITY VIEW`
-(4723), `WEEKLY RECAP` (5019), `COMPANY ROLLUP` (5088), `AI usage / caps`
-(5245–5317), `marketing pricing calculator` (5318), `admin Billing` (5340),
-`BRAND MODAL` (5464), `INTEGRATIONS UI` (5622), `SETTINGS` (5740), `GUIDE`
-(5913), `entity factory` (6121), `notifications` (6216), `due-soon scan` (6276),
-`tasks view` (6513), `task modal` (6694), `AI task ingestion` (6899), `Ask SYN
-to plan` (6928), `event modal` (7144), `AI event ingestion` (7292), `EVENT
-WIRING` (8137), `SHELL: theme + sidebar + focus` (8301). Grep the label to jump.
+The JS **no longer lives in `index.html`.** The old single inline `<script>`
+block (404,197 B, ~5,627 lines) was moved verbatim into eight files under
+`js/`, loaded at the end of `<body>` with plain `<script src>` tags. The move
+was byte-exact: concatenating the eight files (minus their header comments)
+reproduces the original inline script content character for character. The
+three tiny head scripts (theme-before-paint, `logoFail`, and the two CDN
+`<script src>` for marked/DOMPurify) stay inline in `<head>`.
 
-### Top-level JS functions: 409, by domain (approximate grouping)
+> **⚠️ CLASSIC SCRIPTS, ONE SHARED GLOBAL SCOPE — NOT MODULES. DO NOT REORDER,
+> DO NOT ADD `type="module"`/`defer`/`async`.** All ~409 functions live on one
+> global scope and call each other freely with **no import/export graph**. They
+> are plain `<script src>` tags executed **in order, synchronously**, exactly as
+> the old inline block ran. Converting to ES modules would give each file its
+> own scope and require building that dependency graph by hand — a refactor with
+> real breakage risk, not a move. Adding `defer`/`async` changes execution
+> timing. The tags **must** stay in order `01 → 08`; a later file's top-level
+> code can read a `const` from an earlier file, but not vice-versa (temporal
+> dead zone across files). Inline `onclick`/`onerror` handlers in the markup
+> (e.g. `goSite`, `logoFail`, `guideImgFail`) work because function declarations
+> still land on `window` — keep them global.
 
-render/UI 58 · spaces/chat 56 · tasks 27 · utils 25 · calendar 24 · sync/cloud
-23 · AI/cost 19 · assets 19 · billing/pricing 12 · brand 10 · settings/team 7 ·
-guide 4 · auth/identity 3 · other (helpers spanning domains) ~122. Grouping is a
-name-heuristic, not a strict module boundary — the file is not modular.
+| # | File | ~Size | What lives in it (grep here) |
+|---|---|---|---|
+| 01 | `js/01-boot-auth.js` | 47 KB | `SYN_CORE_URL`/`apiBase`, the **storage adapter** (`sGet`/`sSet`/`saveSoon`/`cloudGet`/`cloudWrite`/`okey`), app **STATE** + `MODELS`/default data, helpers, **persistence**, **`boot()`** wiring, **public marketing-site routing** (`goSite`/`routeSite`), the **marketing AI assistant** (`synAsst*`, `SYN_ASSISTANT_URL`), workspace **join codes**, and **AUTH** (`siteAuth`/sign-in/create/join) |
+| 02 | `js/02-chat.js` | 50 KB | threads, the **SYSTEM PROMPT** builder (`[[TASK:]]`/`[[EVENT:]]` templates), brand-select sidebar, **CHAT RENDER**, attachments, generated files, the **SEND / GENERATE** pipeline (thread AI call site), approvals, profile render |
+| 03 | `js/03-assets-ops.js` | 62 KB | **ASSETS** (grid/list, upload pipeline, `canSee`, visibility modal), escalation, **ACTIVITY** view + AI transcript parse, **FOLLOW-UPS**, **DEPENDENCIES**, **WEEKLY RECAP**, **COMPANY ROLLUP**, CSV export, shared refresh/badges |
+| 04 | `js/04-pricing-brand.js` | 41 KB | per-seat pricing state, pooled + per-user AI usage, **`AI_DAILY_CAPS`/`gateAI`/`recordCost`/`estMonthSpend`**, the marketing pricing calculator, admin **Billing**, the **BRAND MODAL** (`openBrandModal`), brand research auto-fill, **INTEGRATIONS UI** |
+| 05 | `js/05-settings-data.js` | 49 KB | **SETTINGS** (`renderSettings`), view registry, the signed-in **GUIDE** (`renderGuide`/`guideImgFail`/`GUIDE_IMGS`), voice input, legacy chat + export, then the **core data layer**: global event bus, org-scoped **collections** (`coll`/`collSave`/`flushPendingWrites`), the **entity factory** (`Tasks`/`Events`/`Assets`…), notifications, due-soon scan, the **workspace sync poll** (`WS_POLL_MS`/`wsSyncOnce`), shared helpers |
+| 06 | `js/06-tasks.js` | 38 KB | **TASKS**: `T_STATUS`, sidebar nav, tasks view (board/list), drag & drop (`setTaskStatus`), quick-add, assignment, the **task modal** (`openTaskModal`/`renderTaskModalBody`/`saveTask`), project modal, **AI task ingestion** (`ingestAITasks`/`normVisibility`/`canSeeTask`), Ask-SYN-to-plan |
+| 07 | `js/07-calendar-views.js` | 52 KB | **CALENDAR** (`calView`/`renderCalendar`/month/week/day/agenda), the **event modal** (`openEventModal`/`saveEvent`), Google Calendar / ICS export, **AI event ingestion** (`ingestAIEvents`/`canSeeEvent`), the profile + integrations click-delegation (part 2), remaining view renderers |
+| 08 | `js/08-wiring.js` | 57 KB | workspace **click delegation** (`data-wact` handlers incl. `newTask`/`newEvent`/`setStatus`/`calView`), bus subscriptions (wired once), **EVENT WIRING**, the **SHELL** (`applyTheme`/`toggleTheme`/`openSearch`/sidebar/focus/**centralized Escape handler**). **Ends with `boot();`** |
+
+Split is by **source-order slice**, not tidy taxonomy — a few files straddle
+concerns (05 carries both settings-UI and the core data layer because that is
+their source order). Grouping of the ~409 functions is roughly: render/UI 58 ·
+spaces/chat 56 · tasks 27 · utils 25 · calendar 24 · sync/cloud 23 · AI/cost 19
+· assets 19 · billing/pricing 12 · brand 10 · settings/team 7 · guide 4 ·
+auth/identity 3 · cross-domain helpers ~122. **To find a function: read the
+table, open the one file, grep it** — never load all of `index.html`.
+
+> Note for tests: `tests/ai-visibility.mjs` used to grep
+> `document.documentElement.innerHTML` for the system-prompt templates, which
+> only worked while the JS was inline. It now reads the shipped source files
+> (`index.html` + `js/*.js`) instead — update in kind any test that assumes JS
+> is inline in the DOM.
 
 ### CSS: extracted to `css/` (6 files, ~1,600 declaration blocks, 25 `@media`, 13 `@keyframes`)
 

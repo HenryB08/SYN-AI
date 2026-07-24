@@ -2,8 +2,10 @@
    make an event "private to just me" that does not show on other users' calendars — instead of
    telling the user to set it manually. */
 import pkg from '/tmp/node_modules/playwright-core/index.js';
+import { readFileSync, readdirSync } from 'node:fs';
 const { chromium } = pkg;
 const U = 'file:///home/user/SYN-AI/index.html';
+const REPO = U.replace('file://', '').replace('/index.html', '');
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 let ok = 0, fail = 0; const check = (n, c) => { (c ? ok++ : fail++); if (!c) console.log('FAIL', n); };
 
@@ -75,12 +77,16 @@ check('other user cannot see the private AI task', taskVis.benSeesPriv === false
 check('other user can see the team AI task', taskVis.benSeesTeam === true);
 
 // ===== system prompt actually advertises the visibility field to the model =====
-const promptOk = await p.evaluate(() => {
-  const src = document.documentElement.innerHTML;
+// Read the shipped app source. Historically this grepped document.documentElement.innerHTML,
+// which only worked while the JS was inline in the page; after the JS was extracted to js/*.js
+// the source lives in external files, so read those directly (index.html + every js/ file).
+const promptOk = (() => {
+  const src = readFileSync(REPO + '/index.html', 'utf8') +
+    readdirSync(REPO + '/js').filter(f => f.endsWith('.js')).map(f => readFileSync(REPO + '/js/' + f, 'utf8')).join('\n');
   const hasTaskVis = /\[\[TASK: title \| assignee \| YYYY-MM-DD \| priority \| project \| visibility\]\]/.test(src);
   const hasEvtVis = /\[\[EVENT: title \| YYYY-MM-DD \| HH:MM \| attendees \| visibility\]\]/.test(src);
   return { hasTaskVis, hasEvtVis };
-});
+})();
 check('system prompt documents TASK visibility field', promptOk.hasTaskVis === true);
 check('system prompt documents EVENT visibility field', promptOk.hasEvtVis === true);
 
