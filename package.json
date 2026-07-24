@@ -1,0 +1,10 @@
+{
+  "name": "syn",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SYN — brand-governed AI workspace (static site + Cloudflare Workers). Buildless: no dependencies, no bundler.",
+  "//": "Intentionally no \"type\": \"module\" — the js/ files are classic browser scripts; leaving the default keeps `node --check js/*.js` treating them as classic, not ESM. Test/runner files use the .mjs extension so they are ESM regardless.",
+  "scripts": {
+    "test": "node scripts/run-tests.mjs"
+  }
+}

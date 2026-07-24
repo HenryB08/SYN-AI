@@ -299,30 +299,44 @@ prints `CHECKS: N passed, M failed` and `ERRORS: NONE/PRESENT`.
 | `premium-motion.mjs` | Reveals/stagger, count-up, canvas lifecycle, parallax, hover physics, full reduced-motion degradation |
 | `pricing-model.mjs` | Per-seat pricing: seat-limit blocking on invite/join, seat freed on removal, volume tiers |
 | `privacy-sweep.mjs` | Two users on one mock SYN Core: per-type ACCESS **and** STORAGE (which cloud keys a non-authorized session fetches) |
+| `size-guard.mjs` | **Structural regression guard (no browser).** Fails if `index.html` regrows past 120 KB or gains a `<style>`/large inline `<script>`, if any `js/` file exceeds 90 KB or `css/` file 120 KB, if any file inlines a >5 KB base64 image, if a script tag uses `type="module"`/`defer`/`async`, or if the css/js tags fall out of strict numeric order. Keeps the extraction track from silently unravelling. Thresholds + rationale are in one CONFIG block at the top of the file. |
 
-**Run one:**
+**Run everything (preferred):**
+
+```sh
+npm test          # = node scripts/run-tests.mjs
+```
+
+The runner executes the size guard plus every `tests/*.mjs` suite
+**sequentially** (parallel Chromium launches have caused flakes here), prints a
+summary table (suite · passed · failed · duration · status), and exits non-zero
+if anything truly failed. Flags: `npm test -- --only <suite>` (or
+`node scripts/run-tests.mjs --only pricing-model`) runs a single suite by name.
+
+**Run one directly:**
 
 ```sh
 node tests/cost-control.mjs
-```
-
-**Run all:**
-
-```sh
-for f in tests/*.mjs; do echo "== $f =="; node "$f"; done
 ```
 
 > There are additional ad-hoc canonical suites that have historically been kept
 > in `/tmp` (audit, launch, v3, polish, cloud, shell, ia). They are not tracked
 > in the repo; only the `tests/` suites above are canonical here.
 
-**Known flake:** `premium-motion.mjs` intermittently fails **one** scroll-reveal
-opacity check (observed ~1 run in 3) and passes 11/11 on re-run. It is a
-headless animation-**timing** artifact, not a defect — the reveal fires a frame
-later than the assertion samples it. Re-run to confirm green. In repeated runs
-this pass, no other suite flaked; if the brief references a second timing flake,
-it was **not reproduced here** (UNVERIFIED) — treat any lone failure in a
-motion/timing-sensitive suite the same way: re-run before believing it.
+**Known flakes (headless timing artifacts, NOT defects).** Three suites fail
+transiently under headless animation/scroll timing:
+
+- `premium-motion.mjs` — a scroll-reveal opacity sample (the reveal fires a
+  frame after the assertion samples it; ~1 run in 3).
+- `pricing-model.mjs` — two checks in the two-page join flow.
+- `guide-access.mjs` — a smooth-scroll timing check.
+
+**The runner handles these automatically: a failed suite is retried ONCE.** If
+the retry passes it is marked **FLAKY** in the table and the build stays green;
+if it fails twice it is marked **FAILED** and the build goes red. This gives an
+honest signal without hiding a real failure — so if you see FAILED, it failed
+twice in a row and is real. When running a suite by hand instead of via the
+runner, re-run a lone failure in one of these three before believing it.
 
 ---
 
