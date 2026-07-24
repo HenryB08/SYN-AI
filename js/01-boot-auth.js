@@ -588,6 +588,34 @@ async function synContactSubmit(e){
     err.style.display = "block";
   }
 }
+/* Waitlist form → same Formspree endpoint as contact, but with a hidden
+   source=SYN_WAITLIST field (set in the markup) so signups are distinguishable
+   from contact-form leads in the shared inbox. Same UX as synContactSubmit:
+   native validation gates the required email, success replaces the form in place
+   with the confirmation panel, failure shows an inline hairline error pointing to
+   email. No alert() dialogs. Until syn-growth exists, Formspree is the store. */
+async function synWaitlistSubmit(e){
+  e.preventDefault();
+  const form = e.target;
+  const btn = form.querySelector(".cf-submit");
+  const err = document.getElementById("wlError");
+  err.style.display = "none";
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Joining…";
+  try {
+    const res = await fetch("https://formspree.io/f/xkopyzln", {
+      method: "POST",
+      body: new FormData(form),
+      headers: { "Accept": "application/json" }
+    });
+    if (!res.ok) throw new Error("bad status " + res.status);
+    form.style.display = "none";
+    document.getElementById("wlDone").style.display = "block";
+  } catch (_) {
+    btn.disabled = false; btn.textContent = label;
+    err.style.display = "block";
+  }
+}
 function backToSite(){ document.getElementById("authScreen").classList.remove("on"); showSite(); routeSite(); }
 window.addEventListener("hashchange", () => { if (appIsOn()) return; if (_skipHash){ _skipHash = false; return; } routeSite(); });
 
