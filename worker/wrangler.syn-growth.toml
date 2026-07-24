@@ -16,6 +16,9 @@ binding = "SYN_DB"
 database_name = "REPLACE_WITH_YOUR_SYN_CORE_D1_NAME"
 database_id   = "REPLACE_WITH_YOUR_SYN_CORE_D1_ID"
 
-# The admin secret is NOT set here (never commit secrets). Set it with:
-#   npx wrangler secret put GROWTH_ADMIN_KEY --config worker/wrangler.syn-growth.toml
-# If GROWTH_ADMIN_KEY is unset, every /admin route fails closed (401).
+# Secrets are NOT set here (never commit secrets). Set both with:
+#   npx wrangler secret put GROWTH_ADMIN_KEY   --config worker/wrangler.syn-growth.toml
+#   npx wrangler secret put ANTHROPIC_API_KEY  --config worker/wrangler.syn-growth.toml
+# GROWTH_ADMIN_KEY  — admin credential; if unset, every /admin route fails closed (401).
+# ANTHROPIC_API_KEY — used by POST /w/messages to call Anthropic server-side; it never reaches the
+#   browser. If unset, /w/messages returns a copy-mappable 502 (the widget shows a "leave contact" line).

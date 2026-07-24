@@ -127,6 +127,12 @@
       ".msgs{ flex: 1 1 auto; overflow-y: auto; padding: 16px; background: #fafafa; }",
       ".bubble{ max-width: 85%; padding: 10px 13px; border-radius: 12px; background: #fff;",
       "  border: 1px solid rgba(0,0,0,.07); margin-bottom: 10px; white-space: pre-wrap; word-wrap: break-word; }",
+      ".bubble.me{ margin-left: auto; background: " + accent + "; color: " + ink + "; border-color: transparent; }",
+      ".typing{ display: inline-flex; gap: 4px; align-items: center; padding: 12px 13px; margin-bottom: 10px; }",
+      ".typing span{ width: 6px; height: 6px; border-radius: 50%; background: #b8b8b8; animation: syn-gw-blink 1.2s infinite both; }",
+      ".typing span:nth-child(2){ animation-delay: .2s; }",
+      ".typing span:nth-child(3){ animation-delay: .4s; }",
+      "@keyframes syn-gw-blink{ 0%,80%,100%{ opacity: .25; } 40%{ opacity: 1; } }",
       ".composer{ display: flex; align-items: flex-end; gap: 8px; padding: 12px; border-top: 1px solid rgba(0,0,0,.08);",
       "  background: #fff; }",
       ".composer textarea{ flex: 1 1 auto; resize: none; max-height: 96px; min-height: 22px; border: 0; outline: 0;",
@@ -140,7 +146,7 @@
       "  .panel{ inset: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; border-radius: 0; border: 0; }",
       "  .launcher{ bottom: 16px; " + side + ": 16px; }",
       "}",
-      "@media (prefers-reduced-motion: reduce){ .launcher, .head .close{ transition: none; } }"
+      "@media (prefers-reduced-motion: reduce){ .launcher, .head .close{ transition: none; } .typing span{ animation: none; opacity: .5; } }"
     ].join("\n");
     root.appendChild(style);
 
@@ -194,7 +200,6 @@
     send.setAttribute("aria-label", "Send");
     send.innerHTML = "<svg viewBox='0 0 24 24' fill='none' aria-hidden='true'>" +
       "<path d='M4 12l16-8-6 16-3-6-7-2z' stroke='currentColor' stroke-width='1.6' stroke-linejoin='round'/></svg>";
-    // Sending is wired in Prompt 15. For now the composer is inert but present.
     send.disabled = false;
     composer.appendChild(ta);
     composer.appendChild(send);
@@ -219,6 +224,70 @@
     }
     launcher.addEventListener("click", function () { setOpen(true); });
     close.addEventListener("click", function () { setOpen(false); });
+
+    // ---- messaging: Enter sends, Shift+Enter newlines; visitor shows immediately, then typing, then reply ----
+    var convKey = "syn_gw_conv_" + installId;
+    var convId = null;
+    try { convId = sessionStorage.getItem(convKey); } catch (e) {}
+    var sending = false;
+
+    function addBubble(kind, txt) {
+      var b = document.createElement("div");
+      b.className = kind === "me" ? "bubble me" : "bubble";
+      b.textContent = txt;   // textContent, never innerHTML — visitor and model text are untrusted
+      msgs.appendChild(b);
+      msgs.scrollTop = msgs.scrollHeight;
+      return b;
+    }
+    function showTyping() {
+      var t = document.createElement("div");
+      t.className = "typing";
+      t.setAttribute("aria-label", "Assistant is typing");
+      t.innerHTML = "<span></span><span></span><span></span>";
+      msgs.appendChild(t);
+      msgs.scrollTop = msgs.scrollHeight;
+      return t;
+    }
+    // Every failure is copy, never a raw error — the widget must never look broken on a client's site.
+    function failCopy(kind) {
+      if (kind === "full") return "We've hit the length limit for this chat, but I'd be glad to connect you with our team — share your name and a good email or phone and we'll follow up.";
+      if (kind === "rate") return "You're going a little faster than I can keep up with — give me a moment and try again, or leave your name and contact and our team will reach out.";
+      return "Sorry, I'm having trouble responding right now. Leave your name and the best email or phone to reach you, and our team will follow up.";
+    }
+    function doSend() {
+      if (sending) return;
+      var txt = ta.value.trim();
+      if (!txt) return;
+      sending = true;
+      send.disabled = true;
+      addBubble("me", txt);
+      ta.value = "";
+      var typing = showTyping();
+      fetch(base + "/w/messages" + q, {
+        method: "POST", mode: "cors", credentials: "omit",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: convId, text: txt })
+      }).then(function (r) {
+        return r.json().then(function (j) { return { status: r.status, body: j }; }, function () { return { status: r.status, body: {} }; });
+      }).then(function (res) {
+        if (typing.parentNode) typing.parentNode.removeChild(typing);
+        var b = res.body || {};
+        if (b.conversation_id) { convId = b.conversation_id; try { sessionStorage.setItem(convKey, convId); } catch (e) {} }
+        if (res.status === 200 && typeof b.reply === "string" && b.reply) addBubble("bot", b.reply);
+        else if (res.status === 409) addBubble("bot", failCopy("full"));
+        else if (res.status === 429) addBubble("bot", failCopy("rate"));
+        else addBubble("bot", failCopy("error"));
+      }).catch(function () {
+        if (typing.parentNode) typing.parentNode.removeChild(typing);
+        addBubble("bot", failCopy("error"));
+      }).then(function () {
+        sending = false; send.disabled = false; ta.focus();
+      });
+    }
+    send.addEventListener("click", doSend);
+    ta.addEventListener("keydown", function (e) {
+      if ((e.key === "Enter" || e.keyCode === 13) && !e.shiftKey) { e.preventDefault(); doSend(); }
+    });
 
     // Close on Escape.
     document.addEventListener("keydown", function (e) {

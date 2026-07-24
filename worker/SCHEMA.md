@@ -217,7 +217,15 @@ GET    /admin/tenants/:id/events          → paginated (?limit=&cursor=)
 GET    /w/config          → widget display config only (brand name + config)
 POST   /w/events          → write an event, honors idempotency_key
 POST   /w/contacts        → upsert a contact, dedupes on email / phone per tenant
+POST   /w/messages        → brand-governed AI turn (see WIDGET.md § Brand-governed AI)
 ```
+
+`POST /w/messages` builds the brand system prompt server-side from `brands.profile`, calls Anthropic
+(`claude-haiku-4-5-20251001`, `max_tokens` 500, last 12 turns, prompt-cached system prefix), screens
+the output against the profile's banned claims, and returns the reply. It writes `inquiry_received`
+(first visitor message), `first_response_sent` (first reply), and `guardrail_blocked` (on a trip).
+Per-conversation rate limit (8/min) is enforced on top of the per-install limit. **Needs the
+`ANTHROPIC_API_KEY` secret; the key never reaches the browser.**
 
 **Widget shell (public, no auth, no DB):**
 ```
@@ -253,5 +261,10 @@ ORIGIN="https://a-test-client.example.com" \
 Or paste `worker/syn-growth.js` into the Cloudflare dashboard, add the **`SYN_DB`** D1
 binding (the existing syn-core database) and the **`GROWTH_ADMIN_KEY`** secret there.
 
-**Secret to set:** `GROWTH_ADMIN_KEY` (admin credential; fail-closed if unset).
+**Secrets to set:**
+- `GROWTH_ADMIN_KEY` — admin credential; every `/admin` route fails closed (401) if unset.
+- `ANTHROPIC_API_KEY` — the Anthropic key the AI proxy uses for `POST /w/messages`. Set with
+  `npx wrangler secret put ANTHROPIC_API_KEY`. It lives only in the Worker env and never reaches
+  the browser; without it, `/w/messages` returns a copy-mappable `502 upstream_failed`.
+
 **D1 binding to attach:** `SYN_DB` (the same database syn-core uses).
