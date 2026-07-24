@@ -18,6 +18,13 @@
    In the Claude preview this is not needed. On a live site it is required
    for chat and research to work. */
 const SYN_CORE_URL = "https://syn-core.henrybello.workers.dev";
+/* SITE_BASE_URL — the canonical public origin of this site. Single source of truth
+   for any FULLY-QUALIFIED self-reference; the static <link rel="canonical">, og:url,
+   and JSON-LD in index.html mirror this value. Every internal asset/route reference is
+   RELATIVE (never rooted at SITE_BASE_URL) so the app runs unchanged at the current
+   /SYN-AI/ subpath and at the domain root — use this only when an absolute URL is truly
+   required (share links, canonical redirects), never for loading local assets. */
+const SITE_BASE_URL = "https://syn.syntrexio.com";
 function apiBase(){
   return (SYN_CORE_URL && SYN_CORE_URL.startsWith("http")) ? SYN_CORE_URL : "https://api.anthropic.com";
 }

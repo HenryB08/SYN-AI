@@ -1,0 +1,5 @@
+# SYN — https://syn.syntrexio.com
+User-agent: *
+Allow: /
+
+Sitemap: https://syn.syntrexio.com/sitemap.xml
