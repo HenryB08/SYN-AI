@@ -306,6 +306,23 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   c("old session token no longer verifies after logout-all (epoch bumped)", after.status === 401);
 }
 
+/* =================== break-glass admin password reset (GATE_SIGNING_KEY) =================== */
+{
+  const e = mkEnv({ ADMIN_TENANT_ID: "o_HQ" });
+  await mod.ensureTables(e);
+  const setPw = (key, body, ip = "121.0.0.1") => worker.fetch(new Request("https://x.dev/auth/admin/set-password", { method: "POST", headers: { "CF-Connecting-IP": ip, ...(key ? { "Authorization": "Bearer " + key } : {}), "Content-Type": "application/json" }, body: JSON.stringify(body) }), e);
+  // works with NO Origin header (plain curl) — handled before the origin gate
+  c("break-glass with no Origin is not blocked by the origin gate", (await setPw("gsk-secret", { email: "admin@syn.test", new_password: "brandnewpw1" })).status === 200);
+  const u = e.SYN_DB._db.prepare("SELECT * FROM users WHERE email=?").get("admin@syn.test");
+  c("break-glass seeded + set the admin (verified, admin, session_epoch bumped)", !!u && u.email_verified === 1 && u.role === "admin" && u.session_epoch === 2);
+  // the new password logs in via real auth
+  const li = await call(e, "POST", "/auth/login", { ip: "121.0.0.2", body: { email: "admin@syn.test", password: "brandnewpw1" } });
+  c("admin logs in with the new password via /auth/login", li.status === 200 && typeof (await li.json()).token === "string");
+  // wrong signing key is rejected; short password rejected
+  c("break-glass rejects a wrong signing key", (await setPw("nope", { email: "admin@syn.test", new_password: "another12" })).status === 401);
+  c("break-glass rejects a short password", (await setPw("gsk-secret", { email: "admin@syn.test", new_password: "short" })).status === 400);
+}
+
 /* =================== protected surface still rejects no/invalid token =================== */
 {
   const e = mkEnv();

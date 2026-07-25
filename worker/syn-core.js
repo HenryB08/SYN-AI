@@ -317,8 +317,39 @@ function canAccessKey(principal, key){
   return keyTenant(key) === u.tenant_id;
 }
 
+// BREAK-GLASS: set/reset a user's password directly, authenticated by GATE_SIGNING_KEY (a secret that is
+// already required config). Anyone holding GATE_SIGNING_KEY can already forge an admin session, so gating
+// a password-set behind it grants no new power — it is a server-to-server operator escape hatch for when
+// the operator has no way into the UI (no reset button / unknown password). Seeds the admin if the email
+// is absent, sets the password (min 8), verifies the email, and bumps session_epoch (revokes old
+// sessions). Rate-limited. Handled BEFORE the browser Origin gate so a plain curl (no Origin) works.
+async function adminSetPassword(request, env){
+  const plain = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "Content-Type": "application/json" } });
+  await ensureTables(env);
+  const ip = request.headers.get("CF-Connecting-IP") || "0.0.0.0";
+  const rk = ip + "|adminpw";
+  const retry = await rateBlocked(env, rk);
+  if (retry > 0) return new Response(JSON.stringify({ error: "too_many_attempts" }), { status: 429, headers: { "Content-Type": "application/json", "Retry-After": String(retry) } });
+  const key = env.GATE_SIGNING_KEY || "";
+  if (!key || !(await ctEqualStr(bearer(request), key))){ await rateFail(env, rk); return plain({ error: "unauthorized" }, 401); }
+  let body; try { body = await request.json(); } catch (_){ body = {}; }
+  const email = normEmail(body.email || env.GATE_EMAIL);
+  const pw = String(body.new_password || "");
+  if (!email || pw.length < 8) return plain({ error: "invalid_input", hint: "{ email, new_password (>= 8 chars) }" }, 400);
+  let user = await getUserByEmail(env, email);
+  if (!user){ try { await seedAdminUser(env, email, pw); } catch (_){} user = await getUserByEmail(env, email); }
+  if (!user) return plain({ error: "user_not_found" }, 404);
+  await env[D1_BINDING].prepare("UPDATE users SET password_hash=?, email_verified=1, status='active', session_epoch=session_epoch+1 WHERE id=?")
+    .bind(await hashPassword(pw), user.id).run();
+  await rateClear(env, rk);
+  return plain({ ok: true, email, note: "password set; email verified; existing sessions revoked" }, 200);
+}
+
 export default {
   async fetch(request, env){
+    // BREAK-GLASS admin password reset — before the browser Origin gate (curl carries no Origin).
+    if (new URL(request.url).pathname === "/auth/admin/set-password" && request.method === "POST") return adminSetPassword(request, env);
+
     const origin = request.headers.get("Origin");
 
     // Origin allowlist — fail closed on absent/unknown origin.
