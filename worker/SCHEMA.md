@@ -148,7 +148,12 @@ Indexes: `(install_id, created_at)` and `(tenant_id, type, created_at)`.
 `inquiry_received`, `first_response_sent`, `followup_scheduled`, `followup_sent`,
 `followup_replied`, `appointment_booked`, `appointment_completed`, `call_missed`,
 `textback_sent`, `conversation_started`, `conversation_ended`, `escalated_to_human`,
-`guardrail_blocked`.
+`guardrail_blocked`. The Receipt generator also writes an internal `receipt_generated` audit event
+(not part of the public `/w/events` vocabulary) — see RECEIPT.md.
+
+**Cron triggers (two):** `*/15 * * * *` drives the follow-up send; `0 8 1 * *` (08:00 UTC on the 1st)
+generates the prior month's Receipt for every active tenant. The `scheduled()` handler branches on
+`event.cron`. See EMAIL-FOLLOWUP.md and RECEIPT.md.
 
 ### `followups`
 | column | type | notes |
@@ -265,6 +270,11 @@ POST   /admin/tenants/:id/job-value       → inserts a new job_values row
 GET    /admin/tenants/:id/events          → paginated (?limit=&cursor=)
 GET    /admin/tenants/:id/contacts        → paginated, newest first, with conversation_count
 GET    /admin/tenants/:id/bookings        → appointment_booked over a range (?from=&to=): contact + time; count (see BOOKING.md)
+POST   /admin/tenants/:id/receipts        → generate (idempotent) the monthly Receipt for a period (see RECEIPT.md)
+GET    /admin/tenants/:id/receipts        → list a tenant's Receipts, newest first (+ compact summary)
+GET    /admin/tenants/:id/receipts/:rid   → one Receipt (JSON), or ?format=html for the rendered statement
+GET    /admin/tenants/:id/receipts/:rid/events → drill-down: the exact event rows behind each figure
+POST   /admin/tenants/:id/receipts/:rid/send   → email the Receipt from the client's own sending identity
 GET    /admin/tenants/:id/contacts/:cid/export   → everything held about one contact (data-access)
 POST   /admin/tenants/:id/contacts/:cid/withdraw → manual consent withdrawal (source admin)
 POST   /admin/tenants/:id/contacts/:cid/delete   → erase contact/convos/messages; keep anonymized events + consent

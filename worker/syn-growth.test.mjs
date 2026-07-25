@@ -1187,6 +1187,150 @@ async function seedBooking(e, origin, bookingCfg, extra){
   c("booking widget: WIDGET_JS reads booking from config + supports link and embed modes", worker0.WIDGET_JS.includes("conf.booking") && worker0.WIDGET_JS.includes('mode === "embed"'));
 }
 
+// ======================================================================================
+// ===== THE RECEIPT (Prompt 22): monthly proof of value, hand-verifiable from events =====
+// ======================================================================================
+// Insert an event straight into the DB so timestamps / conversation pairing / after-hours are exact.
+function insEv(e, o){
+  e.SYN_DB._db.prepare("INSERT INTO events (id,tenant_id,install_id,contact_id,type,payload,created_at,idempotency_key) VALUES (?,?,?,?,?,?,?,?)")
+    .run(o.id, o.tenant, o.install, o.contact || null, o.type, o.payload ? JSON.stringify(o.payload) : null, o.created_at, o.idk || null);
+}
+async function seedTenant(e, slug, { tz = "UTC", config = {} } = {}){
+  const t = (await (await call(e, "POST", "/admin/tenants", { adminKey: ADMIN, body: { name: slug, slug, timezone: tz } })).json()).tenant;
+  const b = (await (await call(e, "POST", `/admin/tenants/${t.id}/brands`, { adminKey: ADMIN, body: { name: slug + " Co" } })).json()).brand;
+  const ins = (await (await call(e, "POST", `/admin/tenants/${t.id}/installs`, { adminKey: ADMIN, body: { brand_id: b.id, allowed_origins: ["https://" + slug + ".com"], config } })).json()).install;
+  return { tenant: t, brand: b, install: ins };
+}
+const setJobValue = (e, tid, cents, effFrom) => call(e, "POST", `/admin/tenants/${tid}/job-value`, { adminKey: ADMIN, body: { average_job_value_cents: cents, effective_from: effFrom } });
+const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30T23:59:59.999Z" };
+
+// ---- Tenant A: a full, hand-countable June ----
+{
+  const e = env();
+  const A = await seedTenant(e, "acme", { tz: "UTC", config: { business_hours: { days: [1,2,3,4,5], start: 9, end: 17 }, followup: { from_email: "hello@mail.acme.test" }, reply_to: "owner@acme.test", receipt_to: "owner@acme.test" } });
+  const tid = A.tenant.id, iid = A.install.id;
+  // job value: $250 in effect from May 1 (the period value) + a LATER $900 from July 1 that must be ignored
+  await setJobValue(e, tid, 25000, "2026-05-01T00:00:00.000Z");
+  await setJobValue(e, tid, 90000, "2026-07-01T00:00:00.000Z");
+  // 4 inquiries: 2 in business hours (Wed 10:00, 11:00), 2 after hours (Sat 12:00, Wed 22:00)
+  insEv(e, { id: "ev_i1", tenant: tid, install: iid, contact: "con1", type: "inquiry_received", payload: { conversation_id: "c1" }, created_at: "2026-06-03T10:00:00.000Z" });
+  insEv(e, { id: "ev_i2", tenant: tid, install: iid, contact: "con2", type: "inquiry_received", payload: { conversation_id: "c2" }, created_at: "2026-06-03T11:00:00.000Z" });
+  insEv(e, { id: "ev_i3", tenant: tid, install: iid, contact: "con3", type: "inquiry_received", payload: { conversation_id: "c3" }, created_at: "2026-06-06T12:00:00.000Z" }); // Saturday
+  insEv(e, { id: "ev_i4", tenant: tid, install: iid, contact: null,   type: "inquiry_received", payload: { conversation_id: "c4" }, created_at: "2026-06-03T22:00:00.000Z" }); // Wed 22:00
+  // 3 responses (c1 30s, c2 90s, c3 120s); c4 unanswered
+  insEv(e, { id: "ev_r1", tenant: tid, install: iid, contact: null, type: "first_response_sent", payload: { conversation_id: "c1" }, created_at: "2026-06-03T10:00:30.000Z" });
+  insEv(e, { id: "ev_r2", tenant: tid, install: iid, contact: null, type: "first_response_sent", payload: { conversation_id: "c2" }, created_at: "2026-06-03T11:01:30.000Z" });
+  insEv(e, { id: "ev_r3", tenant: tid, install: iid, contact: null, type: "first_response_sent", payload: { conversation_id: "c3" }, created_at: "2026-06-06T12:02:00.000Z" });
+  // follow-ups: 2 sent, 1 replied
+  insEv(e, { id: "ev_f1", tenant: tid, install: iid, contact: "con1", type: "followup_sent", payload: { step: 1 }, created_at: "2026-06-04T09:00:00.000Z" });
+  insEv(e, { id: "ev_f2", tenant: tid, install: iid, contact: "con2", type: "followup_sent", payload: { step: 1 }, created_at: "2026-06-05T09:00:00.000Z" });
+  insEv(e, { id: "ev_fr1", tenant: tid, install: iid, contact: "con1", type: "followup_replied", payload: {}, created_at: "2026-06-05T10:00:00.000Z" });
+  // 2 bookings (con1, con5)
+  insEv(e, { id: "ev_b1", tenant: tid, install: iid, contact: "con1", type: "appointment_booked", payload: { conversation_id: "c1" }, created_at: "2026-06-07T15:00:00.000Z" });
+  insEv(e, { id: "ev_b2", tenant: tid, install: iid, contact: "con5", type: "appointment_booked", payload: {}, created_at: "2026-06-08T16:00:00.000Z" });
+  // missed call recovered (con6 pair)
+  insEv(e, { id: "ev_cm", tenant: tid, install: iid, contact: "con6", type: "call_missed", payload: {}, created_at: "2026-06-09T18:00:00.000Z" });
+  insEv(e, { id: "ev_tb", tenant: tid, install: iid, contact: "con6", type: "textback_sent", payload: {}, created_at: "2026-06-09T18:01:00.000Z" });
+  // OUT OF PERIOD control: a July inquiry that must NOT count
+  insEv(e, { id: "ev_jul", tenant: tid, install: iid, contact: "con7", type: "inquiry_received", payload: { conversation_id: "cJ" }, created_at: "2026-07-02T10:00:00.000Z" });
+
+  const gen = await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } });
+  const rj = await gen.json(); const R = rj.receipt; const f = R.metrics.figures;
+  c("receipt: generated (201) for the period", gen.status === 201 && !rj.deduped && /^rcp_/.test(R.id) && R.metrics.period.label === "June 2026");
+  c("receipt: inquiries_received = 4 (July excluded)", f.inquiries_received.count === 4 && !f.inquiries_received.event_ids.includes("ev_jul"));
+  c("receipt: inquiries_answered = 3, median 90s / avg 80s", f.inquiries_answered.count === 3 && f.inquiries_answered.median_response_seconds === 90 && f.inquiries_answered.avg_response_seconds === 80);
+  c("receipt: after_hours_inquiries = 2 (Sat + Wed 22:00)", f.after_hours_inquiries.count === 2 && f.after_hours_inquiries.event_ids.sort().join() === ["ev_i3","ev_i4"].sort().join());
+  c("receipt: followups_sent = 2, followups_replied = 1", f.followups_sent.count === 2 && f.followups_replied.count === 1);
+  c("receipt: appointments_booked = 2", f.appointments_booked.count === 2);
+  c("receipt: missed_calls_recovered = 1", f.missed_calls_recovered.count === 1);
+  c("receipt: leads_captured = 5 distinct contacts", R.metrics.leads_captured.count === 5);
+  c("receipt: value uses the PERIOD job value ($250), not the current ($900)", R.job_value_cents === 25000 && R.metrics.value.job_value_cents === 25000 && R.metrics.value.value_recovered_cents === 50000);
+  c("receipt: value formula stated in plain language", /Appointments booked \(2\)/.test(R.metrics.value.formula) && /\$500\.00/.test(R.metrics.value.formula));
+  c("receipt: guarantee verdict = value captured", R.metrics.guarantee.captured_value === true && /Value captured/.test(R.metrics.guarantee.verdict));
+  c("receipt: states its own period + generation date + per-figure method", !!R.generated_at && !!f.inquiries_received.method && !!f.after_hours_inquiries.method);
+  // audit event written
+  c("receipt: a receipt_generated audit event is written", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE type='receipt_generated' AND tenant_id=?").get(tid).n === 1);
+
+  // ---- idempotent + immutable ----
+  const gen2 = await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } });
+  const rj2 = await gen2.json();
+  c("receipt: regenerating the same period is idempotent (same id, deduped)", rj2.deduped === true && rj2.receipt.id === R.id && e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM receipts WHERE tenant_id=?").get(tid).n === 1);
+  // add a late event + a backdated higher job value, then regenerate — the past Receipt must not move
+  insEv(e, { id: "ev_late", tenant: tid, install: iid, contact: "con9", type: "inquiry_received", payload: { conversation_id: "cL" }, created_at: "2026-06-15T10:00:00.000Z" });
+  await setJobValue(e, tid, 99999, "2026-06-10T00:00:00.000Z");
+  const gen3 = await (await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json();
+  c("receipt: a later event does NOT change the past Receipt (immutable snapshot)", gen3.receipt.metrics.figures.inquiries_received.count === 4 && gen3.receipt.job_value_cents === 25000);
+
+  // ---- drill-down returns EXACTLY the snapshotted rows behind each figure ----
+  const drill = await (await call(e, "GET", `/admin/tenants/${tid}/receipts/${R.id}/events`, { adminKey: ADMIN })).json();
+  c("receipt drill-down: inquiries_received → exactly the 4 seeded rows (late event excluded)",
+    drill.figures.inquiries_received.events.length === 4 && drill.figures.inquiries_received.events.map(x => x.id).sort().join() === ["ev_i1","ev_i2","ev_i3","ev_i4"].sort().join());
+  c("receipt drill-down: after_hours → exactly ev_i3 + ev_i4", drill.figures.after_hours_inquiries.events.map(x => x.id).sort().join() === ["ev_i3","ev_i4"].sort().join());
+  c("receipt drill-down: appointments_booked → exactly ev_b1 + ev_b2", drill.figures.appointments_booked.events.map(x => x.id).sort().join() === ["ev_b1","ev_b2"].sort().join());
+  c("receipt drill-down: every returned row is tenant-scoped to A", Object.values(drill.figures).every(g => g.events.every(ev => ev.tenant_id === tid)));
+
+  // ---- HTML render + list + get ----
+  const htmlRes = await call(e, "GET", `/admin/tenants/${tid}/receipts/${R.id}?format=html`, { adminKey: ADMIN });
+  const html = await htmlRes.text();
+  c("receipt HTML: renders with brand, verdict, and the value figure", /text\/html/.test(htmlRes.headers.get("Content-Type") || "") && /Value Receipt/.test(html) && /\$500\.00/.test(html) && /Value captured/.test(html));
+  const list = await (await call(e, "GET", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN })).json();
+  c("receipt list: newest first, with compact summary", list.receipts.length === 1 && list.receipts[0].id === R.id && list.receipts[0].summary.appointments_booked === 2 && list.receipts[0].value_recovered_cents === 50000);
+
+  // ---- email from the client's identity (Resend seam) ----
+  e.RESEND_API_KEY = "re_test"; e.sends = [];
+  e.RESEND_FETCH = async (url, opts) => { e.sends.push({ url, headers: opts.headers, body: JSON.parse(opts.body) }); return new Response(JSON.stringify({ id: "email_r1" }), { status: 200, headers: { "content-type": "application/json" } }); };
+  const send = await (await call(e, "POST", `/admin/tenants/${tid}/receipts/${R.id}/send`, { adminKey: ADMIN })).json();
+  c("receipt email: sent from the client identity to the client inbox", send.ok === true && e.sends.length === 1 && e.sends[0].body.from.includes("hello@mail.acme.test") && e.sends[0].body.to[0] === "owner@acme.test" && /Value Receipt/.test(e.sends[0].body.html));
+  c("receipt email: sender is NEVER syntrexio.com", !e.sends[0].body.from.includes("syntrexio.com"));
+  c("receipt email: marks the receipt sent_at", e.SYN_DB._db.prepare("SELECT sent_at, status FROM receipts WHERE id=?").get(R.id).status === "sent");
+}
+
+// ---- Tenant B: activity + a lead but NO job value → captured, value 'not yet configured' (no fabrication) ----
+{
+  const e = env();
+  const B = await seedTenant(e, "bravo", { tz: "UTC" });
+  insEv(e, { id: "b_i1", tenant: B.tenant.id, install: B.install.id, contact: "bcon1", type: "inquiry_received", payload: { conversation_id: "b1" }, created_at: "2026-06-10T10:00:00.000Z" });
+  insEv(e, { id: "b_b1", tenant: B.tenant.id, install: B.install.id, contact: "bcon1", type: "appointment_booked", payload: {}, created_at: "2026-06-11T15:00:00.000Z" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${B.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("receipt (unset job value): activity shown, no dollar figure fabricated", R.metrics.value.configured === false && R.metrics.value.value_recovered_cents === null && R.job_value_cents === null && /not yet configured/i.test(R.metrics.value.formula));
+  c("receipt (unset job value): appointments still counted", R.metrics.figures.appointments_booked.count === 1);
+  c("receipt (unset job value): verdict still 'captured' on a real lead/booking", R.metrics.guarantee.captured_value === true);
+}
+
+// ---- Tenant C: no captured value → first-month guarantee applies ----
+{
+  const e = env();
+  const C = await seedTenant(e, "charlie", { tz: "UTC" });
+  insEv(e, { id: "c_cs", tenant: C.tenant.id, install: C.install.id, contact: null, type: "conversation_started", payload: { url: "https://x" }, created_at: "2026-06-12T10:00:00.000Z" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${C.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("receipt: no captured value → guarantee applies (honest verdict, not fudged)", R.metrics.guarantee.captured_value === false && R.metrics.leads_captured.count === 0 && /guarantee applies/i.test(R.metrics.guarantee.verdict));
+}
+
+// ---- Tenant scoping: A's receipt is not readable under B's id ----
+{
+  const e = env();
+  const A = await seedTenant(e, "alpha", { tz: "UTC" });
+  const B = await seedTenant(e, "beta", { tz: "UTC" });
+  insEv(e, { id: "a_i1", tenant: A.tenant.id, install: A.install.id, contact: "acon", type: "inquiry_received", payload: { conversation_id: "a1" }, created_at: "2026-06-10T10:00:00.000Z" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${A.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  const cross = await call(e, "GET", `/admin/tenants/${B.tenant.id}/receipts/${R.id}`, { adminKey: ADMIN });
+  const crossDrill = await call(e, "GET", `/admin/tenants/${B.tenant.id}/receipts/${R.id}/events`, { adminKey: ADMIN });
+  c("receipt: cross-tenant read of a receipt is refused (404)", cross.status === 404 && crossDrill.status === 404);
+  const unauth = await call(e, "GET", `/admin/tenants/${A.tenant.id}/receipts`, { adminKey: A.install.install_key });
+  c("receipt: install key cannot read receipts (admin only → 401)", unauth.status === 401);
+}
+
+// ---- Monthly cron: generates the prior month for every active tenant, idempotently ----
+{
+  const e = env();
+  const A = await seedTenant(e, "cronco", { tz: "UTC" });
+  insEv(e, { id: "cr_i1", tenant: A.tenant.id, install: A.install.id, contact: "ccon", type: "inquiry_received", payload: { conversation_id: "cr1" }, created_at: "2026-06-15T10:00:00.000Z" });
+  const run1 = await worker0.generateMonthlyReceipts(e, "2026-07-15T08:00:00.000Z");
+  c("receipt cron: generates prior month (June) for active tenants", run1.period.period_start === JUNE.period_start && run1.results.some(r => r.tenant_id === A.tenant.id && r.receipt_id));
+  const run2 = await worker0.generateMonthlyReceipts(e, "2026-07-15T08:00:00.000Z");
+  c("receipt cron: re-run is idempotent (all deduped, no duplicate rows)", run2.results.every(r => r.deduped) && e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM receipts WHERE tenant_id=?").get(A.tenant.id).n === 1);
+}
+
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);
 console.log(fail ? "ERRORS: PRESENT" : "ERRORS: NONE");
 if (fail) process.exitCode = 1;

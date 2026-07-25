@@ -220,6 +220,9 @@ async function ensureTables(env){
       period_start TEXT NOT NULL, period_end TEXT NOT NULL, metrics TEXT,
       job_value_cents INTEGER, generated_at TEXT NOT NULL, sent_at TEXT, status TEXT NOT NULL DEFAULT 'draft')`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS idx_receipts_tenant ON receipts(tenant_id, period_start)`),
+    // One immutable Receipt per (tenant, period) — enforces idempotent generation; a second generate for
+    // the same period returns the existing row instead of duplicating or drifting.
+    DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_receipts_period ON receipts(tenant_id, period_start, period_end)`),
     // consent_events — APPEND-ONLY audit trail of every consent change. Same immutability principle as
     // job_values and events: a mutable consent_sms flag is not evidence; these rows are. text_shown is
     // the exact language the visitor saw, so we can prove WHAT they agreed to, not just that they did.
@@ -1436,6 +1439,351 @@ async function runDueFollowups(env){
   return { considered: due.length, sent: results.filter(r => r.status === "sent").length, results };
 }
 
+/* ============================ the Receipt (monthly proof of value) ============================ */
+// The Receipt turns the append-only event stream into a defensible monthly statement. EVERY headline
+// number is reconstructable by hand from the raw events, so a dispute is settled by inspection, not
+// argument. Two immutability guarantees make it trustworthy: (1) generation SNAPSHOTS the numbers and
+// the period's job value into the receipts row, and (2) it snapshots the exact event IDs behind every
+// figure — so the drill-down returns precisely the rows that produced each number and a later event can
+// never silently change a past Receipt. See worker/RECEIPT.md.
+const RECEIPT_SCHEMA_VERSION = 1;
+const RECEIPTS_CRON = "0 8 1 * *";                 // 08:00 UTC on the 1st — prior month's Receipts (distinct from the follow-up cron)
+const DEFAULT_BUSINESS_HOURS = { days: [1, 2, 3, 4, 5], start: 9, end: 17 };   // Mon–Fri 09:00–17:00, tenant timezone
+
+function usd(cents){ return ((Number(cents) || 0) / 100).toLocaleString("en-US", { style: "currency", currency: "USD" }); }
+function medianOf(arr){ if (!arr.length) return null; const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2); }
+function avgOf(arr){ if (!arr.length) return null; return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length); }
+
+// A calendar month → an inclusive [start,end] ISO window + a human label. "2026-06" → June 2026.
+function monthPeriodFromStr(m){
+  const mm = /^(\d{4})-(\d{2})$/.exec(String(m || "")); if (!mm) return null;
+  const y = +mm[1], mo = +mm[2]; if (mo < 1 || mo > 12) return null;
+  const start = new Date(Date.UTC(y, mo - 1, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(y, mo, 0, 23, 59, 59, 999));   // day 0 of next month = last day of this month
+  return { period_start: start.toISOString(), period_end: end.toISOString(),
+    label: start.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" }) };
+}
+// The prior calendar month relative to a reference time (defaults to now; tests pass a fixed ref).
+function prevMonthPeriod(nowIso){
+  const d = nowIso ? new Date(nowIso) : new Date();
+  const y = d.getUTCFullYear(), mo = d.getUTCMonth();
+  const py = mo === 0 ? y - 1 : y, pm = mo === 0 ? 11 : mo - 1;
+  return monthPeriodFromStr(py + "-" + String(pm + 1).padStart(2, "0"));
+}
+
+// The job value IN EFFECT for the period: the latest job_values row whose effective_from is on/before the
+// period end. Uses the period's value, never the current one; a value set later (or with a future
+// effective_from) is not used. Returns the row or null (unset).
+async function jobValueInEffect(env, tenantId, asOfIso){
+  return env.SYN_DB.prepare("SELECT id, average_job_value_cents, effective_from FROM job_values WHERE tenant_id=? AND effective_from<=? ORDER BY effective_from DESC, created_at DESC LIMIT 1")
+    .bind(tenantId, asOfIso).first();
+}
+// Business hours for a tenant: timezone from the tenant row, the window from the tenant's primary
+// install config.business_hours ({days:[0-6], start, end}) if set, else Mon–Fri 09:00–17:00.
+async function businessHoursFor(env, tenant){
+  const bh = { days: [...DEFAULT_BUSINESS_HOURS.days], start: DEFAULT_BUSINESS_HOURS.start, end: DEFAULT_BUSINESS_HOURS.end, tz: (tenant && tenant.timezone) ? tenant.timezone : "UTC" };
+  try {
+    const ins = await env.SYN_DB.prepare("SELECT config FROM installs WHERE tenant_id=? ORDER BY created_at ASC LIMIT 1").bind(tenant.id).first();
+    if (ins && ins.config){ const c = JSON.parse(ins.config); const h = c && c.business_hours;
+      if (h && typeof h === "object"){
+        if (Array.isArray(h.days) && h.days.length) bh.days = h.days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6);
+        if (Number.isInteger(h.start)) bh.start = h.start;
+        if (Number.isInteger(h.end)) bh.end = h.end;
+      } }
+  } catch (_){ /* default hours */ }
+  return bh;
+}
+function bhLabel(bh){
+  const nm = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const days = [...bh.days].sort((a, b) => a - b);
+  const daysTxt = (days.join(",") === "1,2,3,4,5") ? "Mon–Fri" : days.map(d => nm[d]).join(", ");
+  return daysTxt + " " + String(bh.start).padStart(2, "0") + ":00–" + String(bh.end).padStart(2, "0") + ":00 (" + bh.tz + ")";
+}
+// Is this timestamp OUTSIDE business hours, in the tenant's timezone? Intl gives the local weekday/hour.
+function isAfterHours(iso, bh){
+  try {
+    const d = new Date(iso); const tz = bh.tz || "UTC";
+    const wd = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(d);
+    const hour = parseInt(new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", hourCycle: "h23" }).format(d), 10);
+    const dow = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd];
+    const inDays = bh.days.includes(dow), inHours = hour >= bh.start && hour < bh.end;
+    return !(inDays && inHours);
+  } catch (_){ return false; }
+}
+
+// Compute every figure from the tenant's events in [periodStart, periodEnd]. Each figure carries the
+// EXACT event IDs that produced it (snapshotted for the drill-down + immutability). Reads events once.
+async function computeReceiptMetrics(env, tenantId, periodStart, periodEnd, periodLabel, bh, jobValue){
+  const rows = (await env.SYN_DB.prepare(
+    "SELECT id, install_id, contact_id, type, payload, created_at FROM events WHERE tenant_id=? AND created_at>=? AND created_at<=? ORDER BY created_at ASC, id ASC")
+    .bind(tenantId, periodStart, periodEnd).all()).results || [];
+  const parse = r => { try { return r.payload ? JSON.parse(r.payload) : {}; } catch (_){ return {}; } };
+  const byType = {}; rows.forEach(r => { (byType[r.type] = byType[r.type] || []).push(r); });
+  const inquiries = byType["inquiry_received"] || [];
+  const responses = byType["first_response_sent"] || [];
+  const followupsSent = byType["followup_sent"] || [];
+  const followupsReplied = byType["followup_replied"] || [];
+  const booked = byType["appointment_booked"] || [];
+  const callMissed = byType["call_missed"] || [];
+  const textback = byType["textback_sent"] || [];
+
+  // Answered: pair each inquiry_received with a first_response_sent in the SAME conversation; response
+  // time is the gap between them (only when the response is at/after the inquiry).
+  const respByConv = {}; responses.forEach(r => { const c = parse(r).conversation_id; if (c && !respByConv[c]) respByConv[c] = r; });
+  const pairs = [];
+  inquiries.forEach(inq => { const c = parse(inq).conversation_id; const r = c ? respByConv[c] : null;
+    if (r){ const secs = Math.round((Date.parse(r.created_at) - Date.parse(inq.created_at)) / 1000); if (secs >= 0) pairs.push({ inquiry_event_id: inq.id, response_event_id: r.id, response_seconds: secs }); } });
+  const respSecs = pairs.map(p => p.response_seconds);
+
+  // After-hours inquiries: the ones outside business hours — a human would have missed them.
+  const afterHours = inquiries.filter(inq => isAfterHours(inq.created_at, bh));
+
+  // Missed calls recovered: a call_missed paired with a textback_sent to the same conversation/contact.
+  const tbByConv = {}, tbByContact = {};
+  textback.forEach(t => { const pl = parse(t); if (pl.conversation_id) tbByConv[pl.conversation_id] = t; if (t.contact_id) tbByContact[t.contact_id] = t; });
+  const recovered = [];
+  callMissed.forEach(cm => { const pl = parse(cm); const m = (pl.conversation_id && tbByConv[pl.conversation_id]) || (cm.contact_id && tbByContact[cm.contact_id]);
+    if (m) recovered.push({ call_event_id: cm.id, textback_event_id: m.id }); });
+
+  // Captured leads: distinct contacts (by contact_id) attached to any event in the period.
+  const leadSet = new Set(); rows.forEach(r => { if (r.contact_id) leadSet.add(r.contact_id); });
+
+  const figures = {
+    inquiries_received: { count: inquiries.length, event_ids: inquiries.map(e => e.id),
+      method: "Count of inquiry_received events in the period." },
+    inquiries_answered: { count: pairs.length, median_response_seconds: medianOf(respSecs), avg_response_seconds: avgOf(respSecs), pairs,
+      event_ids: pairs.flatMap(p => [p.inquiry_event_id, p.response_event_id]),
+      method: "Each inquiry_received matched to a first_response_sent in the same conversation; response time is the gap between the two timestamps." },
+    after_hours_inquiries: { count: afterHours.length, event_ids: afterHours.map(e => e.id),
+      method: "inquiry_received events whose time falls outside business hours (" + bhLabel(bh) + ") — a human would have missed these." },
+    followups_sent: { count: followupsSent.length, event_ids: followupsSent.map(e => e.id),
+      method: "Count of followup_sent events in the period." },
+    followups_replied: { count: followupsReplied.length, event_ids: followupsReplied.map(e => e.id),
+      method: "Count of followup_replied events in the period." },
+    appointments_booked: { count: booked.length, event_ids: booked.map(e => e.id),
+      method: "Count of appointment_booked events in the period." },
+    missed_calls_recovered: { count: recovered.length, pairs: recovered, event_ids: recovered.flatMap(r => [r.call_event_id, r.textback_event_id]),
+      method: "call_missed events paired with a textback_sent to the same conversation/contact (active once SMS ships)." },
+  };
+  const leads_captured = { count: leadSet.size, contact_ids: [...leadSet],
+    method: "Distinct contacts (by contact_id) attached to any event in the period." };
+
+  const value = jobValue
+    ? { configured: true, job_value_cents: jobValue.average_job_value_cents, job_value_effective_from: jobValue.effective_from, job_value_source_id: jobValue.id,
+        value_recovered_cents: booked.length * jobValue.average_job_value_cents,
+        formula: "Appointments booked (" + booked.length + ") × average job value (" + usd(jobValue.average_job_value_cents) + ", in effect from " + String(jobValue.effective_from).slice(0, 10) + ") = " + usd(booked.length * jobValue.average_job_value_cents) }
+    : { configured: false, job_value_cents: null, value_recovered_cents: null,
+        formula: "Average job value not yet configured — activity above is real; no dollar figure is claimed." };
+
+  // Guarantee: captured value = at least one captured lead OR one booked appointment. Vanity counts don't count.
+  const captured = leadSet.size > 0 || booked.length > 0;
+  const guarantee = { captured_value: captured, leads_captured: leadSet.size, appointments_booked: booked.length,
+    definition: "Captured value = at least one captured lead (a contact we obtained) OR at least one booked appointment in the period. Chats with no contact and other vanity counts do not count as captured value.",
+    verdict: captured ? "Value captured this period." : "No value captured this period — the first-month guarantee applies and this month is free." };
+
+  return { schema_version: RECEIPT_SCHEMA_VERSION, period: { start: periodStart, end: periodEnd, label: periodLabel || "" },
+    business_hours: bh, figures, leads_captured, value, guarantee, generated_at: nowIso() };
+}
+
+function normalizeReceipt(row){
+  let metrics = null; try { metrics = row.metrics ? JSON.parse(row.metrics) : null; } catch (_){ metrics = null; }
+  return { id: row.id, tenant_id: row.tenant_id, period_start: row.period_start, period_end: row.period_end,
+    metrics, job_value_cents: row.job_value_cents, generated_at: row.generated_at, sent_at: row.sent_at, status: row.status };
+}
+
+// Generate (or return the existing, immutable) Receipt for a tenant + period. IDEMPOTENT on
+// (tenant, period): a second call returns the already-generated row unchanged. Snapshots the metrics +
+// the period's job value into the row, and writes a receipt_generated audit event.
+async function generateReceipt(env, tenantId, periodStart, periodEnd, periodLabel){
+  const tenant = await env.SYN_DB.prepare("SELECT * FROM tenants WHERE id=?").bind(tenantId).first();
+  if (!tenant) return { error: "tenant_not_found", status: 404 };
+  const existing = await env.SYN_DB.prepare("SELECT * FROM receipts WHERE tenant_id=? AND period_start=? AND period_end=?").bind(tenantId, periodStart, periodEnd).first();
+  if (existing) return { receipt: normalizeReceipt(existing), deduped: true };
+  const bh = await businessHoursFor(env, tenant);
+  const jobValue = await jobValueInEffect(env, tenantId, periodEnd);
+  const metrics = await computeReceiptMetrics(env, tenantId, periodStart, periodEnd, periodLabel || "", bh, jobValue);
+  const id = newId("rcp"); const gen = nowIso();
+  try {
+    await env.SYN_DB.prepare("INSERT INTO receipts (id,tenant_id,period_start,period_end,metrics,job_value_cents,generated_at,sent_at,status) VALUES (?,?,?,?,?,?,?,NULL,'generated')")
+      .bind(id, tenantId, periodStart, periodEnd, JSON.stringify(metrics), jobValue ? jobValue.average_job_value_cents : null, gen).run();
+  } catch (e){
+    // Lost a race on the unique (tenant, period) index — return the row that won.
+    const won = await env.SYN_DB.prepare("SELECT * FROM receipts WHERE tenant_id=? AND period_start=? AND period_end=?").bind(tenantId, periodStart, periodEnd).first();
+    if (won) return { receipt: normalizeReceipt(won), deduped: true };
+    return { error: "receipt_write_failed", status: 500 };
+  }
+  // Auditable generation: a receipt_generated event (idempotent per period). Needs an install for the
+  // NOT NULL install_id, so it rides the tenant's primary install.
+  try {
+    const ins = await env.SYN_DB.prepare("SELECT id FROM installs WHERE tenant_id=? ORDER BY created_at ASC LIMIT 1").bind(tenantId).first();
+    if (ins) await insertEvent(env, { tenant_id: tenantId, install_id: ins.id, contact_id: null, type: "receipt_generated",
+      payload: { receipt_id: id, period_start: periodStart, period_end: periodEnd }, idempotency_key: "receipt_" + tenantId + "_" + periodStart + "_" + periodEnd });
+  } catch (_){ /* audit event is best-effort */ }
+  const row = await env.SYN_DB.prepare("SELECT * FROM receipts WHERE id=?").bind(id).first();
+  return { receipt: normalizeReceipt(row), deduped: false };
+}
+
+// The monthly cron entry point: generate the PRIOR month's Receipt for every ACTIVE tenant. Idempotent
+// per tenant/period, so a re-run is a no-op. nowIso overridable for tests.
+async function generateMonthlyReceipts(env, nowIso2){
+  await ensureTables(env);
+  const period = prevMonthPeriod(nowIso2);
+  const tenants = (await env.SYN_DB.prepare("SELECT id FROM tenants WHERE status='active'").all()).results || [];
+  const results = [];
+  for (const t of tenants){
+    try { const r = await generateReceipt(env, t.id, period.period_start, period.period_end, period.label);
+      if (r.error) results.push({ tenant_id: t.id, error: r.error });
+      else results.push({ tenant_id: t.id, receipt_id: r.receipt.id, deduped: r.deduped }); }
+    catch (e){ try { await logError(env, { source: "cron", kind: "receipt_gen_failed", tenant_id: t.id, detail: String((e && e.message) || e).slice(0, 200) }); } catch (_){}
+      results.push({ tenant_id: t.id, error: "exception" }); }
+  }
+  return { period, tenants: tenants.length, results };
+}
+
+/* ---- Receipt rendering (clean HTML for email + the client dashboard) ---- */
+function fmtSecs(s){ if (s == null) return "—"; if (s < 60) return s + "s"; if (s < 3600) return Math.round(s / 60) + " min"; return (s / 3600).toFixed(1) + " h"; }
+function receiptHtml(receipt, tenant, brandName){
+  const m = receipt.metrics || {}; const f = m.figures || {}; const g = m.guarantee || {}; const v = m.value || {};
+  const name = esc(brandName || (tenant && tenant.name) || "Your business");
+  const captured = !!g.captured_value;
+  const banner = captured
+    ? '<div style="background:#e9f7ef;border:1px solid #b7e0c4;color:#1c6b38;border-radius:10px;padding:14px 16px;font-weight:600">✓ ' + esc(g.verdict || "Value captured this period.") + '</div>'
+    : '<div style="background:#fdf3e7;border:1px solid #f0d6ad;color:#8a5a12;border-radius:10px;padding:14px 16px;font-weight:600">◑ ' + esc(g.verdict || "First-month guarantee applies.") + '</div>';
+  const rowFig = (label, fig, extra) => {
+    const c = fig ? fig.count : 0; const method = fig ? fig.method : "";
+    return '<tr><td style="padding:12px 14px;border-top:1px solid #eee;vertical-align:top"><div style="font-weight:600;color:#111">' + esc(label) + '</div><div style="font-size:12px;color:#666;margin-top:3px">' + esc(method) + '</div></td>' +
+      '<td style="padding:12px 14px;border-top:1px solid #eee;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums"><span style="font-size:20px;font-weight:700;color:#111">' + c + '</span>' + (extra ? '<div style="font-size:12px;color:#666;margin-top:2px">' + esc(extra) + '</div>' : '') + '</td></tr>';
+  };
+  const ans = f.inquiries_answered || {};
+  const valueLine = v.configured
+    ? '<div style="font-size:26px;font-weight:800;color:#111">' + esc(usd(v.value_recovered_cents)) + '</div><div style="font-size:12px;color:#666;margin-top:4px">' + esc(v.formula) + '</div>'
+    : '<div style="font-size:16px;font-weight:700;color:#8a5a12">Not yet configured</div><div style="font-size:12px;color:#666;margin-top:4px">' + esc(v.formula) + '</div>';
+  const body =
+    '<div style="max-width:640px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;line-height:1.5;padding:8px">' +
+      '<div style="padding:4px 2px 14px"><div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#888">' + name + '</div>' +
+        '<div style="font-size:24px;font-weight:800;margin-top:2px">Value Receipt</div>' +
+        '<div style="font-size:13px;color:#666;margin-top:2px">' + esc((m.period && m.period.label) || "") + ' · generated ' + esc(String(receipt.generated_at || "").slice(0, 10)) + '</div></div>' +
+      banner +
+      '<div style="border:1px solid #eee;border-radius:12px;margin-top:16px;overflow:hidden">' +
+        '<div style="padding:14px 16px;background:#fafafa;font-weight:700">What the system did this period</div>' +
+        '<table style="width:100%;border-collapse:collapse">' +
+          rowFig("Inquiries received", f.inquiries_received) +
+          rowFig("Inquiries answered", ans, "median response " + fmtSecs(ans.median_response_seconds)) +
+          rowFig("After-hours inquiries caught", f.after_hours_inquiries) +
+          rowFig("Follow-ups sent", f.followups_sent) +
+          rowFig("Follow-ups that got a reply", f.followups_replied) +
+          rowFig("Appointments booked", f.appointments_booked) +
+          rowFig("Missed calls recovered", f.missed_calls_recovered) +
+        '</table></div>' +
+      '<div style="border:1px solid #eee;border-radius:12px;margin-top:16px;padding:16px">' +
+        '<div style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#888">Estimated value recovered</div>' +
+        '<div style="margin-top:6px">' + valueLine + '</div></div>' +
+      '<div style="border:1px solid #eee;border-radius:12px;margin-top:16px;padding:16px">' +
+        '<div style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#888">Guarantee</div>' +
+        '<div style="font-size:12px;color:#666;margin-top:6px">' + esc(g.definition || "") + '</div>' +
+        '<div style="margin-top:8px;font-weight:600">' + esc(g.verdict || "") + '</div></div>' +
+      '<div style="font-size:11px;color:#999;margin-top:18px;padding:0 2px">Every number above is computed only from your own event records for ' + esc((m.period && m.period.label) || "this period") + ', and is fixed as of the generation date — later activity does not change a past Receipt. Prepared by ' + PROCESSOR_NAME + ' on behalf of ' + name + '.</div>' +
+    '</div>';
+  return "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>" + name + " — Value Receipt</title></head><body style=\"margin:0;background:#f4f4f5;padding:16px 0\">" + body + "</body></html>";
+}
+
+/* ---- Receipt admin handlers ---- */
+function receiptPeriodFromBody(body){
+  if (body && body.period_start && body.period_end){
+    const s = normBound(String(body.period_start), false), e = normBound(String(body.period_end), true);
+    return { period_start: s, period_end: e, label: String(body.label || "") };
+  }
+  if (body && body.month){ const p = monthPeriodFromStr(body.month); if (p) return p; return null; }
+  return prevMonthPeriod();   // default: prior calendar month
+}
+// POST /admin/tenants/:id/receipts — generate (idempotent) for a period.
+async function receiptsGenerate(env, tenantId, body){
+  const period = receiptPeriodFromBody(body);
+  if (!period || !period.period_start || !period.period_end) return json({ error: "invalid_period", hint: "pass {month:\"YYYY-MM\"} or {period_start,period_end}" }, 400);
+  const r = await generateReceipt(env, tenantId, period.period_start, period.period_end, period.label);
+  if (r.error) return json({ error: r.error }, r.status || 400);
+  return json({ receipt: r.receipt, deduped: r.deduped }, r.deduped ? 200 : 201);
+}
+// GET /admin/tenants/:id/receipts — list, newest period first, with a compact summary per row.
+async function receiptsList(env, tenantId, url){
+  const t = await env.SYN_DB.prepare("SELECT id FROM tenants WHERE id=?").bind(tenantId).first();
+  if (!t) return json({ error: "tenant_not_found" }, 404);
+  const limit = Math.min(EVENTS_PAGE_MAX, Math.max(1, parseInt(url.searchParams.get("limit") || "24", 10) || 24));
+  const rows = (await env.SYN_DB.prepare("SELECT * FROM receipts WHERE tenant_id=? ORDER BY period_start DESC, generated_at DESC LIMIT ?").bind(tenantId, limit).all()).results || [];
+  const receipts = rows.map(row => { const r = normalizeReceipt(row); const m = r.metrics || {}; const f = m.figures || {};
+    return { id: r.id, period_start: r.period_start, period_end: r.period_end, label: (m.period && m.period.label) || "", status: r.status, generated_at: r.generated_at, sent_at: r.sent_at,
+      job_value_cents: r.job_value_cents, value_recovered_cents: (m.value && m.value.value_recovered_cents) != null ? m.value.value_recovered_cents : null,
+      captured_value: !!(m.guarantee && m.guarantee.captured_value),
+      summary: { inquiries_received: (f.inquiries_received || {}).count || 0, inquiries_answered: (f.inquiries_answered || {}).count || 0,
+        after_hours_inquiries: (f.after_hours_inquiries || {}).count || 0, followups_sent: (f.followups_sent || {}).count || 0,
+        appointments_booked: (f.appointments_booked || {}).count || 0 } }; });
+  return json({ tenant_id: tenantId, receipts });
+}
+// GET /admin/tenants/:id/receipts/:rid — one Receipt (JSON, or ?format=html for the rendered statement).
+async function receiptGet(env, tenantId, rid, url){
+  const row = await env.SYN_DB.prepare("SELECT * FROM receipts WHERE id=? AND tenant_id=?").bind(rid, tenantId).first();
+  if (!row) return json({ error: "receipt_not_found" }, 404);
+  if ((url.searchParams.get("format") || "") === "html"){
+    const tenant = await env.SYN_DB.prepare("SELECT * FROM tenants WHERE id=?").bind(tenantId).first();
+    const ins = await env.SYN_DB.prepare("SELECT brand_id FROM installs WHERE tenant_id=? ORDER BY created_at ASC LIMIT 1").bind(tenantId).first();
+    const brand = ins ? await env.SYN_DB.prepare("SELECT name FROM brands WHERE id=?").bind(ins.brand_id).first() : null;
+    const html = receiptHtml(normalizeReceipt(row), tenant, brand ? brand.name : null);
+    return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" } });
+  }
+  return json({ receipt: normalizeReceipt(row) });
+}
+// GET /admin/tenants/:id/receipts/:rid/events — the DRILL-DOWN: the exact event rows behind each figure,
+// using the event IDs SNAPSHOTTED at generation, so a dispute is settled by inspection and later events
+// never appear. Strictly tenant-scoped.
+async function receiptDrill(env, tenantId, rid){
+  const row = await env.SYN_DB.prepare("SELECT * FROM receipts WHERE id=? AND tenant_id=?").bind(rid, tenantId).first();
+  if (!row) return json({ error: "receipt_not_found" }, 404);
+  const m = normalizeReceipt(row).metrics || {}; const figures = m.figures || {};
+  // Gather every referenced event id, fetch the rows once (tenant-scoped), then group per figure.
+  const allIds = new Set();
+  Object.values(figures).forEach(fig => (fig.event_ids || []).forEach(id => allIds.add(id)));
+  const idList = [...allIds];
+  const rowsById = {};
+  if (idList.length){
+    const ph = idList.map(() => "?").join(",");
+    const evs = (await env.SYN_DB.prepare("SELECT id, tenant_id, install_id, contact_id, type, payload, created_at FROM events WHERE tenant_id=? AND id IN (" + ph + ")").bind(tenantId, ...idList).all()).results || [];
+    evs.forEach(e => { let payload = null; try { payload = e.payload ? JSON.parse(e.payload) : null; } catch (_){ payload = null; } rowsById[e.id] = { ...e, payload }; });
+  }
+  const behind = {};
+  Object.keys(figures).forEach(key => { const fig = figures[key];
+    behind[key] = { count: fig.count, method: fig.method, events: (fig.event_ids || []).map(id => rowsById[id]).filter(Boolean) }; });
+  return json({ receipt_id: rid, tenant_id: tenantId, period: m.period || null, figures: behind });
+}
+// POST /admin/tenants/:id/receipts/:rid/send — email the rendered Receipt from the CLIENT's own sending
+// identity (never Syntrex), same pattern as follow-ups. Recipient is the client's own inbox.
+async function receiptSend(env, tenantId, rid){
+  const row = await env.SYN_DB.prepare("SELECT * FROM receipts WHERE id=? AND tenant_id=?").bind(rid, tenantId).first();
+  if (!row) return json({ error: "receipt_not_found" }, 404);
+  const tenant = await env.SYN_DB.prepare("SELECT * FROM tenants WHERE id=?").bind(tenantId).first();
+  const ins = await env.SYN_DB.prepare("SELECT * FROM installs WHERE tenant_id=? ORDER BY created_at ASC LIMIT 1").bind(tenantId).first();
+  if (!ins) return json({ error: "no_install_for_tenant" }, 400);
+  const brand = await env.SYN_DB.prepare("SELECT name FROM brands WHERE id=?").bind(ins.brand_id).first();
+  let config = {}; try { config = JSON.parse(ins.config || "{}"); } catch (_){ config = {}; }
+  const ident = followupIdentity(env, brand ? brand.name : null, config);
+  if (!ident) return json({ error: "no_verified_sender" }, 400);
+  const to = (config.receipt_to && String(config.receipt_to).trim()) || (config.reply_to && String(config.reply_to).trim()) || null;
+  if (!to) return json({ error: "no_recipient", hint: "set config.receipt_to or config.reply_to to the client's inbox" }, 400);
+  if (!env.RESEND_API_KEY && !env.RESEND_FETCH) return json({ error: "resend_key_missing" }, 400);
+  const rec = normalizeReceipt(row); const m = rec.metrics || {};
+  const html = receiptHtml(rec, tenant, brand ? brand.name : null);
+  const subject = (brand ? brand.name : "Your business") + " — Value Receipt · " + ((m.period && m.period.label) || "");
+  const payload = { from: ident.fromName + " <" + ident.fromEmail + ">", to: [to], subject, html };
+  if (ident.replyTo) payload.reply_to = ident.replyTo;
+  try {
+    const doFetch = env.RESEND_FETCH || fetch;
+    const resp = await doFetch(RESEND_BASE + "/emails", { method: "POST", headers: { "Authorization": "Bearer " + (env.RESEND_API_KEY || ""), "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!resp.ok){ let t = ""; try { t = await resp.text(); } catch (_){} return json({ error: "resend_" + resp.status, detail: t.slice(0, 120) }, 502); }
+    let providerId = null; try { const j = await resp.json(); providerId = j && j.id ? j.id : null; } catch (_){ }
+    await env.SYN_DB.prepare("UPDATE receipts SET sent_at=?, status='sent' WHERE id=?").bind(nowIso(), rid).run();
+    return json({ ok: true, receipt_id: rid, to, provider_id: providerId });
+  } catch (e){ return json({ error: "send_failed", detail: String((e && e.message) || e).slice(0, 120) }, 502); }
+}
+
 /* ============================ widget shell (served at /w/widget.js) ============================ */
 // The client-side widget, embedded verbatim so this Worker stays a single self-contained module
 // (dashboard-paste friendly, no imports/bundler). It is byte-identical to worker/widget.js — that
@@ -2002,6 +2350,15 @@ export default {
   // Cloudflare Cron Trigger → send due follow-up emails. Set the schedule in the dashboard (see
   // worker/EMAIL-FOLLOWUP.md). ctx.waitUntil keeps the run alive until every due send finishes.
   async scheduled(event, env, ctx){
+    const cron = (event && event.cron) ? String(event.cron).trim() : "";
+    // Two cron triggers (see worker/RECEIPT.md + worker/EMAIL-FOLLOWUP.md): the monthly Receipts run on
+    // RECEIPTS_CRON; everything else drives the frequent follow-up send.
+    if (cron === RECEIPTS_CRON){
+      ctx.waitUntil(generateMonthlyReceipts(env).catch(async (e) => {
+        try { await logError(env, { source: "cron", kind: "receipts_run_failed", detail: String((e && e.message) || e).slice(0, 200) }); } catch (_){}
+      }));
+      return;
+    }
     ctx.waitUntil(runDueFollowups(env).catch(async (e) => {
       try { await logError(env, { source: "cron", kind: "followup_run_failed", detail: String((e && e.message) || e).slice(0, 200) }); } catch (_){}
     }));
@@ -2089,6 +2446,12 @@ export default {
       if (seg[1] === "tenants" && seg[3] === "events" && method === "GET") return listEvents(env, seg[2], url);
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg.length === 4 && method === "GET") return listContacts(env, seg[2], url);
       if (seg[1] === "tenants" && seg[3] === "bookings" && seg.length === 4 && method === "GET") return listBookings(env, seg[2], url);
+      // receipts — the monthly proof of value (generate is idempotent per period; see worker/RECEIPT.md)
+      if (seg[1] === "tenants" && seg[3] === "receipts" && seg.length === 4 && method === "POST") return receiptsGenerate(env, seg[2], body || {});
+      if (seg[1] === "tenants" && seg[3] === "receipts" && seg.length === 4 && method === "GET") return receiptsList(env, seg[2], url);
+      if (seg[1] === "tenants" && seg[3] === "receipts" && seg.length === 5 && method === "GET") return receiptGet(env, seg[2], seg[4], url);
+      if (seg[1] === "tenants" && seg[3] === "receipts" && seg[5] === "events" && method === "GET") return receiptDrill(env, seg[2], seg[4]);
+      if (seg[1] === "tenants" && seg[3] === "receipts" && seg[5] === "send" && method === "POST") return receiptSend(env, seg[2], seg[4]);
       // consent + data rights (contact under a tenant): /admin/tenants/:id/contacts/:cid/(export|withdraw|delete)
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "export" && method === "GET") return exportContact(env, seg[2], seg[4]);
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "withdraw" && method === "POST") return adminWithdraw(env, seg[2], seg[4], body || {}, ctx);
@@ -2116,4 +2479,4 @@ export default {
 };
 
 // Exported for tests/seed (harmless in the Worker runtime).
-export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM, scheduleFollowups, cancelFollowups, sendFollowupEmail, runDueFollowups, followupIdentity, FOLLOWUP_DEFAULT_STEPS_HOURS, bookingConfig, wBook };
+export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM, scheduleFollowups, cancelFollowups, sendFollowupEmail, runDueFollowups, followupIdentity, FOLLOWUP_DEFAULT_STEPS_HOURS, bookingConfig, wBook, generateReceipt, generateMonthlyReceipts, computeReceiptMetrics, jobValueInEffect, businessHoursFor, isAfterHours, prevMonthPeriod, monthPeriodFromStr, receiptHtml, RECEIPTS_CRON, RECEIPT_SCHEMA_VERSION };
