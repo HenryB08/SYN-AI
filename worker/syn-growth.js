@@ -51,6 +51,19 @@ const ANTHROPIC_BASE = "https://api.anthropic.com";
 // Shown to the visitor whenever we won't answer (guardrail trip, empty model output). Never an error.
 const SAFE_OFFER = "I want to make sure you get the right information on that — let me connect you with our team. Could you share your name and the best email or phone number to reach you?";
 
+// ---- Anthropic cost model (observability). Prices are USD per 1,000,000 tokens, list price.
+// Held here as named constants so a price change is a one-line edit. cost_cents on each usage_events
+// row is computed from the token counts the API returns × these prices, so it is always reproducible
+// from (model, input_tokens, output_tokens). Cache-token pricing is a future refinement; the widget's
+// cached system prefix makes real input cheaper than this, so this errs on the safe (over-count) side.
+const PRICE_PER_MTOK = {
+  "claude-haiku-4-5-20251001": { input: 1.00, output: 5.00 },
+};
+// Fallback price if an unknown model id ever appears, so cost is never silently zero.
+const PRICE_FALLBACK = { input: 1.00, output: 5.00 };
+// health-summary flags any install throwing MORE than this many errors in the window (overridable per call).
+const DEFAULT_NOISY_INSTALL_THRESHOLD = 10;
+
 // Append-only event vocabulary the Receipt reads from. Define once, here.
 const EVENT_TYPES = [
   "inquiry_received", "first_response_sent", "followup_scheduled", "followup_sent",
@@ -181,6 +194,24 @@ async function ensureTables(env){
       text_shown TEXT, ip TEXT, user_agent TEXT, created_at TEXT NOT NULL)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS idx_consent_events_contact ON consent_events(contact_id, created_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS idx_consent_events_tenant ON consent_events(tenant_id, created_at)`),
+    // usage_events — APPEND-ONLY per-call cost ledger. One row per Anthropic call the widget makes, so
+    // per-tenant spend is a fact, not an estimate. cost_cents is REAL (a single message costs a small
+    // fraction of a cent; INTEGER cents would round every message to 0).
+    DB.prepare(`CREATE TABLE IF NOT EXISTS usage_events (
+      id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      install_id TEXT NOT NULL REFERENCES installs(id), conversation_id TEXT,
+      model TEXT NOT NULL, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_cents REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS idx_usage_tenant_created ON usage_events(tenant_id, created_at)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS idx_usage_install_created ON usage_events(install_id, created_at)`),
+    // error_events — APPEND-ONLY failure log. The early-warning trail a widget on a client's site would
+    // otherwise fail silently against. detail NEVER holds a visitor's message body or any secret.
+    DB.prepare(`CREATE TABLE IF NOT EXISTS error_events (
+      id TEXT PRIMARY KEY, tenant_id TEXT, install_id TEXT,
+      source TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT, created_at TEXT NOT NULL)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS idx_error_created ON error_events(created_at)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS idx_error_tenant_created ON error_events(tenant_id, created_at)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS idx_error_install_created ON error_events(install_id, created_at)`),
     // per-install fixed-window rate limiter (public routes)
     DB.prepare(`CREATE TABLE IF NOT EXISTS growth_rl (bucket TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start INTEGER NOT NULL)`),
   ]);
@@ -207,10 +238,12 @@ async function resolveInstall(env, key, origin){
   if (!key || !key.startsWith(INSTALL_KEY_PREFIX)) return { error: "missing_install_key", status: 401 };
   const install = await env.SYN_DB.prepare("SELECT * FROM installs WHERE install_key=?").bind(key).first();
   if (!install) return { error: "invalid_install_key", status: 401 };
-  if (install.status === "revoked") return { error: "revoked", status: 401 };
+  // Carry the install on revoked/origin rejections too, so the error trail can attribute the problem to
+  // the right install/tenant (a widget calling from an unexpected origin, or with a revoked key).
+  if (install.status === "revoked") return { error: "revoked", status: 401, install };
   let origins = [];
   try { origins = JSON.parse(install.allowed_origins || "[]"); } catch (_){ origins = []; }
-  if (!origin || !origins.includes(origin)) return { error: "origin_not_allowed", status: 403 };
+  if (!origin || !origins.includes(origin)) return { error: "origin_not_allowed", status: 403, install };
   return { install };
 }
 async function rateHit(env, bucket, limit){
@@ -663,7 +696,18 @@ async function wMessages(env, install, body, cors){
   // Call the model. Any upstream failure returns a copy-only failure state — never a raw error.
   let out;
   try { out = await callAnthropic(env, system, msgs); }
-  catch (e){ return json({ error: "upstream_failed", conversation_id: convId }, 502, cors); }
+  catch (e){
+    // The failure is invisible to the visitor (they get safe copy) but must not be invisible to us.
+    await logError(env, { source: "anthropic", kind: "call_failed", tenant_id: install.tenant_id, install_id: install.id,
+      detail: String((e && e.message) || e).slice(0, 200) });
+    return json({ error: "upstream_failed", conversation_id: convId }, 502, cors);
+  }
+  // Cost capture: one usage_events row per model call, written the moment the call returns — before the
+  // guardrail check, so a blocked reply (which still cost money) is still counted.
+  const usage = out.usage || {};
+  await writeUsage(env, { tenant_id: install.tenant_id, install_id: install.id, conversation_id: convId, model: MSG_MODEL,
+    input_tokens: usage.input_tokens, output_tokens: usage.output_tokens,
+    cost_cents: usageCostCents(MSG_MODEL, usage.input_tokens, usage.output_tokens) });
   let reply = out.text || "";
   let blocked = false;
 
@@ -673,6 +717,10 @@ async function wMessages(env, install, body, cors){
     blocked = true;
     await insertEvent(env, { tenant_id: install.tenant_id, install_id: install.id, contact_id: conv.contact_id, type: "guardrail_blocked",
       payload: { conversation_id: convId, banned_claim: hit, blocked_output: reply.slice(0, 500) }, idempotency_key: null });
+    // Also surface it on the error/observability trail. detail is the matched claim (from the brand
+    // profile, not the visitor) — never the blocked output or the visitor's message.
+    await logError(env, { source: "guardrail", kind: "banned_claim_blocked", tenant_id: install.tenant_id, install_id: install.id,
+      detail: "banned_claim: " + hit });
     reply = SAFE_OFFER;
   }
   if (!reply) reply = SAFE_OFFER;   // empty model output → safe offer, never a blank bubble
@@ -869,6 +917,102 @@ async function deleteContact(env, tenantId, contactId){
     anonymized_kept: { events: (evAnon && evAnon.changes) || 0, consent_events: (cevAnon && cevAnon.changes) || 0 },
     note: "Contact, conversations, and messages deleted. events kept (payload nulled) for Receipt integrity; consent_events kept (ip/user_agent nulled) as proof of consent. See COMPLIANCE.md.",
   });
+}
+
+/* ============================ observability: cost + errors ============================ */
+// cost_cents for a call, reproducible from (model, input_tokens, output_tokens) × the constant prices.
+// USD/MTok → cents/token = price × 100 / 1e6 = price / 10000.
+function usageCostCents(model, inTok, outTok){
+  const p = PRICE_PER_MTOK[model] || PRICE_FALLBACK;
+  return (Number(inTok) || 0) * p.input / 10000 + (Number(outTok) || 0) * p.output / 10000;
+}
+function round4(n){ return Math.round((Number(n) || 0) * 10000) / 10000; }   // trim float noise in aggregates
+// Append one usage_events row. Best-effort: an observability write must NEVER break the visitor's reply,
+// so a failure here is logged as an error_event and swallowed.
+async function writeUsage(env, u){
+  try {
+    await env.SYN_DB.prepare("INSERT INTO usage_events (id,tenant_id,install_id,conversation_id,model,input_tokens,output_tokens,cost_cents,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
+      .bind(newId("use"), u.tenant_id, u.install_id, u.conversation_id || null, u.model, Number(u.input_tokens) || 0, Number(u.output_tokens) || 0, Number(u.cost_cents) || 0, nowIso()).run();
+  } catch (e){
+    await logError(env, { source: "usage", kind: "db_write_failed", tenant_id: u.tenant_id, install_id: u.install_id, detail: "usage_events insert failed" });
+  }
+}
+// Append one error_events row. detail is capped and must never carry a visitor message body or a secret.
+// Logging must itself never throw (a broken DB can't be allowed to crash the handler).
+async function logError(env, e){
+  try {
+    await env.SYN_DB.prepare("INSERT INTO error_events (id,tenant_id,install_id,source,kind,detail,created_at) VALUES (?,?,?,?,?,?,?)")
+      .bind(newId("err"), e.tenant_id || null, e.install_id || null, e.source || "unknown", e.kind || "error",
+        e.detail != null ? String(e.detail).slice(0, 500) : null, nowIso()).run();
+  } catch (_){ /* logging is best-effort; never let it throw */ }
+}
+// Date-range helpers for the admin usage routes. A date-only bound (YYYY-MM-DD) expands to cover the
+// whole day; created_at is an ISO string, so lexicographic comparison is chronological.
+function normBound(s, end){
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s + (end ? "T23:59:59.999Z" : "T00:00:00.000Z");
+  return s;
+}
+function isoHoursAgo(h){ return new Date(Date.now() - h * 3600 * 1000).toISOString(); }
+
+// GET /admin/tenants/:id/usage — one tenant's spend over a range: totals + a daily breakdown.
+// This is the number you check to confirm a client costs a few dollars, not more than they pay.
+async function tenantUsage(env, tenantId, url){
+  const t = await env.SYN_DB.prepare("SELECT id FROM tenants WHERE id=?").bind(tenantId).first();
+  if (!t) return json({ error: "tenant_not_found" }, 404);
+  const from = normBound(url.searchParams.get("from"), false), to = normBound(url.searchParams.get("to"), true);
+  const where = ["tenant_id=?"], args = [tenantId];
+  if (from){ where.push("created_at >= ?"); args.push(from); }
+  if (to){ where.push("created_at <= ?"); args.push(to); }
+  const w = where.join(" AND ");
+  const tot = await env.SYN_DB.prepare("SELECT COUNT(*) messages, COALESCE(SUM(input_tokens),0) input_tokens, COALESCE(SUM(output_tokens),0) output_tokens, COALESCE(SUM(cost_cents),0) cost_cents FROM usage_events WHERE " + w).bind(...args).first();
+  const daily = (await env.SYN_DB.prepare("SELECT substr(created_at,1,10) day, COUNT(*) messages, COALESCE(SUM(input_tokens),0) input_tokens, COALESCE(SUM(output_tokens),0) output_tokens, COALESCE(SUM(cost_cents),0) cost_cents FROM usage_events WHERE " + w + " GROUP BY day ORDER BY day").bind(...args).all()).results || [];
+  return json({ tenant_id: tenantId, from, to,
+    totals: { messages: tot.messages, input_tokens: tot.input_tokens, output_tokens: tot.output_tokens, cost_cents: round4(tot.cost_cents) },
+    daily: daily.map(d => ({ day: d.day, messages: d.messages, input_tokens: d.input_tokens, output_tokens: d.output_tokens, cost_cents: round4(d.cost_cents) })) });
+}
+
+// GET /admin/usage — portfolio spend across ALL tenants for a range, with a per-tenant breakdown.
+async function portfolioUsage(env, url){
+  const from = normBound(url.searchParams.get("from"), false), to = normBound(url.searchParams.get("to"), true);
+  const where = [], args = [];
+  if (from){ where.push("created_at >= ?"); args.push(from); }
+  if (to){ where.push("created_at <= ?"); args.push(to); }
+  const w = where.length ? "WHERE " + where.join(" AND ") : "";
+  const tot = await env.SYN_DB.prepare("SELECT COUNT(*) messages, COALESCE(SUM(input_tokens),0) input_tokens, COALESCE(SUM(output_tokens),0) output_tokens, COALESCE(SUM(cost_cents),0) cost_cents FROM usage_events " + w).bind(...args).first();
+  const per = (await env.SYN_DB.prepare("SELECT tenant_id, COUNT(*) messages, COALESCE(SUM(input_tokens),0) input_tokens, COALESCE(SUM(output_tokens),0) output_tokens, COALESCE(SUM(cost_cents),0) cost_cents FROM usage_events " + w + " GROUP BY tenant_id ORDER BY cost_cents DESC").bind(...args).all()).results || [];
+  return json({ from, to,
+    totals: { messages: tot.messages, input_tokens: tot.input_tokens, output_tokens: tot.output_tokens, cost_cents: round4(tot.cost_cents) },
+    by_tenant: per.map(p => ({ tenant_id: p.tenant_id, messages: p.messages, input_tokens: p.input_tokens, output_tokens: p.output_tokens, cost_cents: round4(p.cost_cents) })) });
+}
+
+// GET /admin/errors — recent errors across all tenants, newest first, filterable by ?tenant= and ?kind=.
+async function listErrors(env, url){
+  const limit = Math.min(EVENTS_PAGE_MAX, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
+  const tenant = url.searchParams.get("tenant"), kind = url.searchParams.get("kind");
+  const where = [], args = [];
+  if (tenant){ where.push("tenant_id=?"); args.push(tenant); }
+  if (kind){ where.push("kind=?"); args.push(kind); }
+  const w = where.length ? "WHERE " + where.join(" AND ") : "";
+  const rows = (await env.SYN_DB.prepare("SELECT * FROM error_events " + w + " ORDER BY created_at DESC, id DESC LIMIT ?").bind(...args, limit).all()).results || [];
+  return json({ errors: rows });
+}
+
+// GET /admin/health-summary — the one endpoint to check each morning. Last 24h (override ?since=/?threshold=):
+// total messages, total cost, error count by kind, and any install throwing more than the threshold.
+// PRODUCTION NOTE: today this is polled. The same query set, run on a schedule (Cloudflare Cron Trigger),
+// would POST to a Slack incoming webhook or email when errors_by_kind or noisy_installs is non-empty —
+// turning this from "check it" into "it tells you". That push path is deliberately out of scope here.
+async function healthSummary(env, url){
+  const since = url.searchParams.get("since") || isoHoursAgo(24);
+  const threshold = Math.max(1, parseInt(url.searchParams.get("threshold") || String(DEFAULT_NOISY_INSTALL_THRESHOLD), 10) || DEFAULT_NOISY_INSTALL_THRESHOLD);
+  const usage = await env.SYN_DB.prepare("SELECT COUNT(*) messages, COALESCE(SUM(cost_cents),0) cost_cents FROM usage_events WHERE created_at >= ?").bind(since).first();
+  const byKind = (await env.SYN_DB.prepare("SELECT kind, COUNT(*) count FROM error_events WHERE created_at >= ? GROUP BY kind ORDER BY count DESC").bind(since).all()).results || [];
+  const errorsTotal = byKind.reduce((s, k) => s + k.count, 0);
+  const noisy = (await env.SYN_DB.prepare("SELECT install_id, COUNT(*) errors FROM error_events WHERE created_at >= ? AND install_id IS NOT NULL GROUP BY install_id HAVING COUNT(*) > ? ORDER BY errors DESC").bind(since, threshold).all()).results || [];
+  return json({ since, window_hours: 24, noisy_threshold: threshold,
+    messages: usage.messages, cost_cents: round4(usage.cost_cents),
+    errors_total: errorsTotal, errors_by_kind: byKind, noisy_installs: noisy });
 }
 
 /* ============================ widget shell (served at /w/widget.js) ============================ */
@@ -1320,6 +1464,7 @@ function serveWidget(){
 /* ============================ router ============================ */
 export default {
   async fetch(request, env){
+   try {
     const url = new URL(request.url);
     const path = url.pathname;
     const seg = path.split("/").filter(Boolean);
@@ -1349,10 +1494,21 @@ export default {
         return new Response(null, { status: 204, headers: corsFor(origin) });
       }
       await ensureTables(env);
-      const r = await resolveInstall(env, installKeyFrom(request, url), origin);
+      const providedKey = installKeyFrom(request, url);
+      const r = await resolveInstall(env, providedKey, origin);
       // On failure, only send CORS headers if the origin is actually allowlisted (i.e. not a 403
       // origin mismatch) — never reflect an origin we rejected.
-      if (r.error) return json({ error: r.error }, r.status, r.status === 403 ? {} : corsFor(origin));
+      if (r.error){
+        // Early warning: a widget whose key is invalid/revoked, or whose origin is not allowlisted, is
+        // a real client-site problem. Log those (never the key itself). Skip empty/garbage keys so random
+        // scanners hitting /w/* don't flood the trail.
+        if (providedKey && providedKey.startsWith(INSTALL_KEY_PREFIX)){
+          await logError(env, { source: "install_key", kind: r.error,
+            tenant_id: r.install ? r.install.tenant_id : null, install_id: r.install ? r.install.id : null,
+            detail: "path=" + path + " origin=" + (origin || "none") });
+        }
+        return json({ error: r.error }, r.status, r.status === 403 ? {} : corsFor(origin));
+      }
       const install = r.install;
       const cors = corsFor(origin);
       // Per-install fixed-window rate limit (a public key on a public page gets hit).
@@ -1392,12 +1548,23 @@ export default {
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "withdraw" && method === "POST") return adminWithdraw(env, seg[2], seg[4], body || {}, ctx);
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "delete" && method === "POST") return deleteContact(env, seg[2], seg[4]);
       if (seg[1] === "tenants" && seg[3] === "sms-inbound" && method === "POST") return adminSmsInbound(env, seg[2], body || {}, ctx);
+      // observability — cost + errors (admin-only; per-tenant routes are tenant-scoped by :id)
+      if (seg[1] === "usage" && seg.length === 2 && method === "GET") return portfolioUsage(env, url);
+      if (seg[1] === "errors" && seg.length === 2 && method === "GET") return listErrors(env, url);
+      if (seg[1] === "health-summary" && seg.length === 2 && method === "GET") return healthSummary(env, url);
+      if (seg[1] === "tenants" && seg[3] === "usage" && seg.length === 4 && method === "GET") return tenantUsage(env, seg[2], url);
       return json({ error: "not_found" }, 404);
     }
 
     return json({ error: "not_found" }, 404);
+    } catch (err){
+      // Last-resort: any unhandled error in a handler is logged and the client gets a clean 500, never a
+      // stack trace or a crash. logError is itself best-effort, so this can never re-throw.
+      try { await logError(env, { source: "handler", kind: "unhandled", detail: String((err && err.message) || err).slice(0, 200) }); } catch (_){}
+      return json({ error: "internal_error" }, 500);
+    }
   },
 };
 
 // Exported for tests/seed (harmless in the Worker runtime).
-export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken };
+export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken };

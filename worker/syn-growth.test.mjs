@@ -656,6 +656,161 @@ const consentRows = (e, contactId) => e.SYN_DB._db.prepare("SELECT * FROM consen
   c("privacy: mentions STOP + unsubscribe rights", /STOP/.test(html) && /unsubscribe/i.test(html));
 }
 
+// ===================== OBSERVABILITY: per-tenant cost tracking =====================
+const usageRows = (e, installId) => e.SYN_DB._db.prepare("SELECT * FROM usage_events WHERE install_id=?").all(installId);
+const errRows = (e, kind) => e.SYN_DB._db.prepare("SELECT * FROM error_events WHERE kind=?").all(kind);
+const PER_MSG = worker0.usageCostCents(worker0.MSG_MODEL, 20, 8);   // the mock returns 20 in / 8 out
+
+// one usage_events row per message, correct token counts, cost reproducible from the constant prices
+{
+  const e = aiEnv("Sure, happy to help.");
+  const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+  await msg(e, install, "https://c.com", { text: "Hi there" });
+  const rows = usageRows(e, install.id);
+  c("usage: exactly one usage_events row per message", rows.length === 1);
+  const u = rows[0] || {};
+  c("usage: token counts captured from the API response (20 in / 8 out)", u.input_tokens === 20 && u.output_tokens === 8);
+  c("usage: row is tenant + install + conversation scoped", u.tenant_id === tenant.id && u.install_id === install.id && typeof u.conversation_id === "string" && u.conversation_id.length > 0);
+  c("usage: model recorded", u.model === worker0.MSG_MODEL);
+  c("usage: cost_cents matches token counts at constant prices (0.006c)", Math.abs(u.cost_cents - PER_MSG) < 1e-12 && Math.abs(u.cost_cents - 0.006) < 1e-12);
+}
+
+// per-tenant usage route: totals + a daily breakdown, tenant-scoped, date-range filtered
+{
+  const e = aiEnv("ok");
+  const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+  let conv = undefined;
+  for (let i = 0; i < 3; i++){ const j = await (await msg(e, install, "https://c.com", { text: "msg " + i, conversation_id: conv })).json(); conv = j.conversation_id; }
+  const j = await (await adminGet(e, `/admin/tenants/${tenant.id}/usage`)).json();
+  c("tenant usage: totals aggregate (3 msgs, 60 in, 24 out)", j.totals.messages === 3 && j.totals.input_tokens === 60 && j.totals.output_tokens === 24);
+  c("tenant usage: total cost = 3 × per-message", Math.abs(j.totals.cost_cents - 3 * PER_MSG) < 1e-9);
+  c("tenant usage: daily breakdown sums to the total", Array.isArray(j.daily) && j.daily.length >= 1 && j.daily.reduce((s, d) => s + d.messages, 0) === 3);
+  const past = await (await adminGet(e, `/admin/tenants/${tenant.id}/usage?from=2000-01-01&to=2000-01-02`)).json();
+  c("tenant usage: date range filters (empty far-past window)", past.totals.messages === 0 && past.totals.cost_cents === 0);
+  c("tenant usage: unknown tenant → 404", (await (await adminGet(e, "/admin/tenants/ten_nope/usage")).json()).error === "tenant_not_found");
+  c("tenant usage: admin-only (401 without key)", (await call(e, "GET", `/admin/tenants/${tenant.id}/usage`)).status === 401);
+}
+
+// portfolio route: sums across tenants with a per-tenant breakdown, strictly separated
+{
+  const e = aiEnv("ok");
+  const A = await seedProfiled(e, "https://a.com", PROFILE);
+  const B = await seedProfiled(e, "https://b.com", PROFILE);
+  await msg(e, A.install, "https://a.com", { text: "a1" });
+  await msg(e, A.install, "https://a.com", { text: "a2" });
+  await msg(e, B.install, "https://b.com", { text: "b1" });
+  const j = await (await adminGet(e, "/admin/usage")).json();
+  c("portfolio: total messages across tenants (3)", j.totals.messages === 3);
+  c("portfolio: per-tenant breakdown for both", j.by_tenant.length === 2 &&
+    j.by_tenant.some(x => x.tenant_id === A.tenant.id && x.messages === 2) &&
+    j.by_tenant.some(x => x.tenant_id === B.tenant.id && x.messages === 1));
+  c("portfolio: total cost = sum of per-tenant costs", Math.abs(j.totals.cost_cents - j.by_tenant.reduce((s, x) => s + x.cost_cents, 0)) < 1e-9);
+  const ja = await (await adminGet(e, `/admin/tenants/${A.tenant.id}/usage`)).json();
+  c("portfolio: per-tenant route is strictly scoped (A sees only its 2)", ja.totals.messages === 2);
+  c("portfolio: admin-only (401 without key)", (await call(e, "GET", "/admin/usage")).status === 401);
+}
+
+// ===================== OBSERVABILITY: error capture =====================
+// a forced Anthropic failure logs an error_events row, returns 502, and does NOT crash or bill usage
+{
+  const e = aiEnv("unused");
+  e.ANTHROPIC_FETCH = async () => new Response("upstream boom", { status: 500 });
+  const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const r = await msg(e, install, "https://c.com", { text: "hello there" });
+  c("error: anthropic failure returns 502 (no crash)", r.status === 502);
+  const errs = errRows(e, "call_failed");
+  c("error: anthropic failure logged (source=anthropic, tenant+install attributed)", errs.length === 1 && errs[0].source === "anthropic" && errs[0].tenant_id === tenant.id && errs[0].install_id === install.id);
+  c("error: a failed call writes no usage row (we were not billed)", usageRows(e, install.id).length === 0);
+  c("error: detail never contains the visitor's message body", !/hello there/.test(errs[0].detail || ""));
+}
+
+// a guardrail block logs an error_events row; the blocked call still recorded usage (it cost money)
+{
+  const e = aiEnv("Absolutely — we are the CHEAPEST in town!");
+  const { install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const j = await (await msg(e, install, "https://c.com", { text: "are you cheap?" })).json();
+  c("error: guardrail trip returns the safe offer (blocked)", j.blocked === true);
+  const errs = errRows(e, "banned_claim_blocked");
+  c("error: guardrail block logged (source=guardrail)", errs.length === 1 && errs[0].source === "guardrail" && errs[0].install_id === install.id);
+  // detail carries the matched claim (brand-profile data, safe) but NOT the visitor message or the full
+  // model output — "Absolutely"/"we are" appear only in the blocked output, never in the claim.
+  c("error: guardrail detail is the matched claim, not visitor text or the blocked output", /banned_claim: cheapest in town/.test(errs[0].detail) && !/are you cheap/.test(errs[0].detail) && !/Absolutely/i.test(errs[0].detail) && !/we are/i.test(errs[0].detail));
+  c("error: the blocked call still recorded one usage row", usageRows(e, install.id).length === 1);
+}
+
+// an install-key rejection is logged (attributed to the install), and garbage keys are NOT (noise guard)
+{
+  const e = aiEnv("ok");
+  const { tenant, install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const r = await call(e, "POST", "/w/messages", { origin: "https://evil.com", key: install.install_key, body: { text: "x" } });
+  c("error: origin mismatch rejected (403)", r.status === 403);
+  const rej = e.SYN_DB._db.prepare("SELECT * FROM error_events WHERE source='install_key'").all();
+  c("error: install-key rejection logged (kind=origin_not_allowed, attributed)", rej.some(x => x.kind === "origin_not_allowed" && x.install_id === install.id && x.tenant_id === tenant.id));
+  c("error: the install key itself is never stored", rej.every(x => !String(x.detail || "").includes(install.install_key)));
+  const before = rej.length;
+  await call(e, "POST", "/w/messages", { origin: "https://c.com", key: "garbage-not-a-key", body: { text: "x" } });
+  const after = e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM error_events WHERE source='install_key'").get().n;
+  c("error: garbage (non-prefixed) keys are not logged (scanner-noise guard)", after === before);
+}
+
+// errors route: newest-first, filterable by kind and tenant, admin-only
+{
+  const e = aiEnv("ok");
+  const A = await seedProfiled(e, "https://a.com", PROFILE);
+  await call(e, "POST", "/w/messages", { origin: "https://evil.com", key: A.install.install_key, body: { text: "x" } });
+  const all = await (await adminGet(e, "/admin/errors")).json();
+  c("errors: route returns recent errors", Array.isArray(all.errors) && all.errors.length >= 1);
+  const byKind = await (await adminGet(e, "/admin/errors?kind=origin_not_allowed")).json();
+  c("errors: filter by kind", byKind.errors.length >= 1 && byKind.errors.every(x => x.kind === "origin_not_allowed"));
+  const byTenant = await (await adminGet(e, `/admin/errors?tenant=${A.tenant.id}`)).json();
+  c("errors: filter by tenant", byTenant.errors.length >= 1 && byTenant.errors.every(x => x.tenant_id === A.tenant.id));
+  c("errors: admin-only (401 without key)", (await call(e, "GET", "/admin/errors")).status === 401);
+}
+
+// ===================== OBSERVABILITY: health-summary (the morning check) =====================
+{
+  const e = aiEnv("ok");
+  const { install } = await seedProfiled(e, "https://c.com", PROFILE);
+  await msg(e, install, "https://c.com", { text: "one" });
+  await msg(e, install, "https://c.com", { text: "two" });
+  for (let i = 0; i < 3; i++) await call(e, "POST", "/w/messages", { origin: "https://evil.com", key: install.install_key, body: { text: "x" } });
+  const j = await (await adminGet(e, "/admin/health-summary?threshold=2")).json();
+  c("health: 24h message + cost totals", j.messages === 2 && Math.abs(j.cost_cents - 2 * PER_MSG) < 1e-9);
+  c("health: errors counted by kind", j.errors_total === 3 && j.errors_by_kind.some(k => k.kind === "origin_not_allowed" && k.count === 3));
+  c("health: flags the noisy install (>2 errors in the window)", Array.isArray(j.noisy_installs) && j.noisy_installs.some(n => n.install_id === install.id && n.errors === 3));
+  c("health: admin-only (401 without key)", (await call(e, "GET", "/admin/health-summary")).status === 401);
+}
+
+// ===================== PART 4: the cost ceiling is real, not assumed =====================
+// Drive one conversation to its hard message cap and sum usage_events. The per-call usage is pinned at
+// the WORST case the code allows (output = MSG_MAX_TOKENS; input = the ~4000-char single-turn bound), so
+// the summed cost is the true maximum a single conversation can ever reach.
+{
+  const e = aiEnv("filler");
+  e.ANTHROPIC_FETCH = async () => new Response(JSON.stringify({
+    content: [{ type: "text", text: "filler reply" }],
+    usage: { input_tokens: 4000, output_tokens: worker0.MSG_MAX_TOKENS },
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  const { install } = await seedProfiled(e, "https://c.com", PROFILE);
+  let conv = undefined, calls = 0, full = false;
+  for (let i = 0; i < 130 && !full; i++){
+    e.SYN_DB._db.prepare("DELETE FROM growth_rl").run();   // simulate messages spread over time: defeat the burst rate limits, NOT the message cap
+    const r = await msg(e, install, "https://c.com", { text: "x".repeat(20), conversation_id: conv });
+    if (r.status === 409){ full = true; break; }
+    conv = (await r.json()).conversation_id; calls++;
+  }
+  const maxCalls = worker0.MAX_MESSAGES_PER_CONVERSATION / 2;
+  const perCall = worker0.usageCostCents(worker0.MSG_MODEL, 4000, worker0.MSG_MAX_TOKENS);
+  const ceiling = maxCalls * perCall;
+  const agg = e.SYN_DB._db.prepare("SELECT COUNT(*) n, COALESCE(SUM(cost_cents),0) c FROM usage_events WHERE conversation_id=?").get(conv);
+  c("ceiling: the conversation hit its hard message cap (409)", full === true);
+  c("ceiling: the model was called exactly max-messages/2 times", calls === maxCalls);
+  c("ceiling: one usage row per model call", agg.n === maxCalls);
+  c("ceiling: summed cost equals calls × per-call cost", Math.abs(agg.c - ceiling) < 1e-6);
+  c("ceiling: a conversation cannot exceed the ceiling (" + ceiling.toFixed(2) + "c)", agg.c <= ceiling + 1e-9);
+  console.log("  [report] per-message cost in tests = " + PER_MSG.toFixed(4) + "c | worst-case per-call = " + perCall.toFixed(4) + "c | per-conversation ceiling = " + ceiling.toFixed(2) + "c ($" + (ceiling / 100).toFixed(4) + ")");
+}
+
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);
 console.log(fail ? "ERRORS: PRESENT" : "ERRORS: NONE");
 if (fail) process.exitCode = 1;

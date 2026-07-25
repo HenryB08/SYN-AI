@@ -125,14 +125,25 @@ function typeAndKey(page, text, shift){
 {
   ai.reply = "We're open 9 to 5, Monday to Friday."; ai.status = 200;
   const { ctx, page } = await freshPage();
+  // Observe whether the typing indicator EVER appears, before sending. The indicator is inserted
+  // synchronously in doSend then removed the instant the (fast, local) reply lands, so a single
+  // point-in-time sample races the network; a MutationObserver records the transient reliably.
+  await page.evaluate(() => {
+    window.__typingSeen = false;
+    const root = window.__roots[0];
+    const check = () => { if (root.querySelector(".typing")) window.__typingSeen = true; };
+    window.__typingObs = new MutationObserver(check);
+    window.__typingObs.observe(root, { childList: true, subtree: true });
+    check();
+  });
   await typeAndKey(page, "What are your hours?", false);
   // visitor bubble shows right away
   const early = await bubbles(page);
   c("send: visitor message shows immediately", early.includes("What are your hours?"));
-  const typingSeen = await hasTyping(page);
   // wait for reply
   await page.waitForFunction((txt) => [...window.__roots[0].querySelectorAll(".bubble")].some(b => b.textContent === txt), "We're open 9 to 5, Monday to Friday.", { timeout: 4000 }).catch(() => {});
   const after = await bubbles(page);
+  const typingSeen = await page.evaluate(() => window.__typingSeen);
   c("send: typing indicator appeared then the reply rendered", typingSeen && after.includes("We're open 9 to 5, Monday to Friday.") && !(await hasTyping(page)));
   c("send: greeting + visitor + reply all present", after[0] === "Hi! How can we help?" && after.includes("What are your hours?"));
   await page.screenshot({ path: join(SHOTS, "10-ai-conversation.png") });

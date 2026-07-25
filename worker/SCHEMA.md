@@ -210,6 +210,36 @@ INSERTs.
 `contacts` also gains `unsub_token` (added by an idempotent `ALTER TABLE`) — an unguessable per-contact
 token backing the no-login email unsubscribe.
 
+### `usage_events` — append-only per-call cost ledger (observability)
+One row per Anthropic call `POST /w/messages` makes, so per-tenant spend is a fact, not an estimate.
+
+| column | type | notes |
+|---|---|---|
+| `id` | TEXT PK | `use_…` |
+| `tenant_id` | TEXT FK→tenants | index `(tenant_id, created_at)` |
+| `install_id` | TEXT FK→installs | index `(install_id, created_at)` |
+| `conversation_id` | TEXT | nullable |
+| `model` | TEXT | e.g. `claude-haiku-4-5-20251001` |
+| `input_tokens` / `output_tokens` | INTEGER | from the Anthropic `usage` response |
+| `cost_cents` | REAL | = tokens × `PRICE_PER_MTOK[model]` (a message costs a fraction of a cent, so REAL not INTEGER) |
+| `created_at` | TEXT | ISO |
+
+Written **before** the guardrail check, so a blocked reply (which still cost money) is still counted.
+`cost_cents` is always reproducible from `(model, input_tokens, output_tokens)` × the price constants at
+the top of `syn-growth.js`. Cache-token pricing is a documented future refinement.
+
+### `error_events` — append-only failure log (observability)
+The early-warning trail; a widget failing on a client's site is otherwise invisible until they complain.
+
+| column | type | notes |
+|---|---|---|
+| `id` | TEXT PK | `err_…` |
+| `tenant_id` / `install_id` | TEXT | nullable; attributed when known |
+| `source` | TEXT | `anthropic` \| `guardrail` \| `install_key` \| `usage` \| `handler` |
+| `kind` | TEXT | e.g. `call_failed`, `banned_claim_blocked`, `origin_not_allowed`, `revoked`, `db_write_failed`, `unhandled` |
+| `detail` | TEXT | capped ≤500 chars; **never** a visitor's message body or any secret |
+| `created_at` | TEXT | ISO, indexed |
+
 ### `growth_rl` (internal)
 Per-install fixed-window rate limiter — `bucket` (`req:<install_id>`), `count`,
 `window_start`. Holds no business data.
@@ -233,7 +263,13 @@ GET    /admin/tenants/:id/contacts/:cid/export   → everything held about one c
 POST   /admin/tenants/:id/contacts/:cid/withdraw → manual consent withdrawal (source admin)
 POST   /admin/tenants/:id/contacts/:cid/delete   → erase contact/convos/messages; keep anonymized events + consent
 POST   /admin/tenants/:id/sms-inbound            → STOP/UNSUBSCRIBE/QUIT handler (stand-in for the SMS provider webhook)
+GET    /admin/tenants/:id/usage           → one tenant's cost over a range (?from=&to=): totals + daily breakdown
+GET    /admin/usage                       → portfolio spend across all tenants (?from=&to=), per-tenant breakdown
+GET    /admin/errors                      → recent errors, newest first (?tenant=&kind=&limit=)
+GET    /admin/health-summary              → last 24h: messages, cost, error count by kind, noisy installs (?since=&threshold=)
 ```
+Observability details (cost model, error taxonomy, the morning-check endpoint, the Slack/email push
+path) are in **`worker/OBSERVABILITY.md`**.
 
 Compliance/consent details are in **`worker/COMPLIANCE.md`** (audit trail, opt-out, data rights, and
 the legal judgments flagged for review). The append-only `consent_events` table records every consent
