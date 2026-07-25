@@ -1,3 +1,4 @@
+// Deploy trigger: syn-growth Git auto-deploy (worker/wrangler.syn-growth.toml).
 /**
  * syn-growth — SYN Growth Engine Worker (data foundation).
  *
