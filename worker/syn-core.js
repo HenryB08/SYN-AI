@@ -389,7 +389,17 @@ export default {
       let body; try { body = await request.json(); } catch (_){ body = {}; }
       const email = normEmail(body.email);
       const password = String(body.password || "");
-      const user = await getUserByEmail(env, email);
+      let user = await getUserByEmail(env, email);
+      // OPERATOR LOCKOUT SAFETY NET: if the admin account was never seeded (fresh D1, or the app cut over
+      // to /auth/login without ever hitting /gate) and the GATE credentials are presented, create the
+      // admin here so the operator can log in via real auth and can NEVER be locked out. Fires ONLY when
+      // no account exists for this email — once seeded, the gate password is not a standing backdoor (a
+      // later password reset stands; a wrong password just 401s). Constant-time on both fields.
+      if (!user && env.GATE_EMAIL && env.GATE_PASSWORD){
+        const gEmailOk = await ctEqualStr(email, normEmail(env.GATE_EMAIL));
+        const gPassOk  = await ctEqualStr(password, String(env.GATE_PASSWORD));
+        if (gEmailOk && gPassOk){ try { await seedAdminUser(env, env.GATE_EMAIL, env.GATE_PASSWORD); } catch (_){} user = await getUserByEmail(env, email); }
+      }
       // Always run a PBKDF2 verify (real hash, or the dummy) so missing-account and wrong-password cost
       // the same → no enumeration by timing. Wrong email OR wrong password → the SAME generic error.
       const passOk = await verifyPassword(password, user ? user.password_hash : DUMMY_PBKDF2);

@@ -87,6 +87,14 @@ later self-service reset sticks. **Result:** the admin logs in through `/auth/lo
 credentials as the gate. Set `ADMIN_TENANT_ID` to the operator's existing org id to link the admin
 account to the existing workspace; otherwise the admin is all-access by role.
 
+**Lockout safety net (so the app can cut over to `/auth/login` and never lock the operator out):**
+`/auth/login` itself seeds the admin. If **no account exists** for the submitted email **and** the email+
+password match `GATE_EMAIL`/`GATE_PASSWORD` (constant-time), the admin is created on the spot and a
+session issued — so a fresh D1, or an app that never hits `/gate`, still lets the operator in. It fires
+**only when the account is absent**: once seeded, the gate password is *not* a standing backdoor (a later
+self-service reset stands; a wrong password 401s), and a stranger presenting the gate password gets
+nothing (gate-email-only). Covered by `worker/syn-core.test.mjs`.
+
 ## The private-beta flag (you control when public signup opens)
 
 `SIGNUP_MODE` (Wrangler secret/var):

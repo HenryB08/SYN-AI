@@ -246,6 +246,23 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   c("legacy gate token still all-access during transition", gateRead.status === 200);
 }
 
+/* =================== operator lockout safety net: /auth/login seeds the admin from gate creds =================== */
+{
+  const e = mkEnv({ SIGNUP_MODE: "invite", ADMIN_TENANT_ID: "o_HQ" });
+  await mod.ensureTables(e);
+  // FRESH DB, /gate was NEVER hit (the app cut over to /auth/login). Gate creds must still log the admin in.
+  const before = e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM users").get().n;
+  const li = await call(e, "POST", "/auth/login", { ip: "111.0.0.1", body: { email: "admin@syn.test", password: "gate-pass-123456" } });
+  const lj = await li.json();
+  c("fresh DB: /auth/login with gate creds seeds + logs in the admin (no lockout)", before === 0 && li.status === 200 && typeof lj.token === "string" && lj.user.role === "admin" && lj.user.product === "both");
+  // Once seeded, a WRONG password 401s (the gate password is not a standing backdoor past seeding).
+  const wrong = await call(e, "POST", "/auth/login", { ip: "111.0.0.2", body: { email: "admin@syn.test", password: "not-the-gate-pw" } });
+  c("after seed, a wrong password is rejected (no permanent gate backdoor)", wrong.status === 401);
+  // A non-admin unknown email + gate password does NOT create anything (safety net is gate-email-only).
+  const other = await call(e, "POST", "/auth/login", { ip: "111.0.0.3", body: { email: "stranger@syn.test", password: "gate-pass-123456" } });
+  c("safety net is gate-email-only (a stranger with the gate password gets nothing)", other.status === 401 && !e.SYN_DB._db.prepare("SELECT id FROM users WHERE email=?").get("stranger@syn.test"));
+}
+
 /* =================== invite/allowlist flag gates public signup =================== */
 {
   const e = mkEnv({ SIGNUP_MODE: "invite" });
