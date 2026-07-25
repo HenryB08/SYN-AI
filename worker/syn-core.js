@@ -198,6 +198,15 @@ async function ensureTables(env){
     env[D1_BINDING].prepare(`CREATE INDEX IF NOT EXISTS idx_invites_email ON auth_invites(email)`),
     env[D1_BINDING].prepare(`CREATE INDEX IF NOT EXISTS idx_invites_code ON auth_invites(code)`),
   ]);
+  // MIGRATIONS — CREATE TABLE IF NOT EXISTS never alters an already-created table, so columns added after
+  // the first deploy must be back-filled with ALTER TABLE ... ADD COLUMN. Each is idempotent: a re-run on
+  // a table that already has the column throws "duplicate column name", which we swallow. Runs OUTSIDE the
+  // batch (a failed statement would abort the whole batch). Add new post-launch columns here.
+  const migrations = [
+    `ALTER TABLE users ADD COLUMN product TEXT NOT NULL DEFAULT 'workspace'`,
+    `ALTER TABLE auth_invites ADD COLUMN product TEXT`,
+  ];
+  for (const sql of migrations){ try { await env[D1_BINDING].prepare(sql).run(); } catch (_){ /* column already exists */ } }
 }
 // Rate limiter, keyed by "ip|bucket" so each endpoint has its own budget (reuses the gate_rl table).
 async function rateBlocked(env, rlKey){
@@ -337,7 +346,13 @@ async function adminSetPassword(request, env){
   const pw = String(body.new_password || "");
   if (!email || pw.length < 8) return plain({ error: "invalid_input", hint: "{ email, new_password (>= 8 chars) }" }, 400);
   let user = await getUserByEmail(env, email);
-  if (!user){ try { await seedAdminUser(env, email, pw); } catch (_){} user = await getUserByEmail(env, email); }
+  if (!user){
+    let seedErr = null;
+    try { await seedAdminUser(env, email, pw); } catch (e){ seedErr = String((e && e.message) || e); }
+    user = await getUserByEmail(env, email);
+    // Surface the real reason instead of masking a failed seed as a bare "user_not_found".
+    if (!user) return plain({ error: "seed_failed", detail: seedErr || "insert produced no row", hint: "run ensureTables migrations / check the users schema" }, 500);
+  }
   if (!user) return plain({ error: "user_not_found" }, 404);
   await env[D1_BINDING].prepare("UPDATE users SET password_hash=?, email_verified=1, status='active', session_epoch=session_epoch+1 WHERE id=?")
     .bind(await hashPassword(pw), user.id).run();

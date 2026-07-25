@@ -323,6 +323,21 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   c("break-glass rejects a short password", (await setPw("gsk-secret", { email: "admin@syn.test", new_password: "short" })).status === 400);
 }
 
+/* =================== migration: legacy users table (pre-`product`) is back-filled =================== */
+{
+  const e = mkEnv({ GATE_EMAIL: "henry@syntrexio.test", GATE_PASSWORD: "gatepw12345678", ADMIN_TENANT_ID: "o_HQ" });
+  // Simulate a LIVE DB created by an earlier deploy WITHOUT the product column (CREATE IF NOT EXISTS = no-op).
+  e.SYN_DB._db.exec(`CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, email_verified INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', role TEXT NOT NULL DEFAULT 'member', tenant_id TEXT, session_epoch INTEGER NOT NULL DEFAULT 1, verify_jti TEXT, reset_jti TEXT, created_at TEXT NOT NULL, last_login_at TEXT)`);
+  e.SYN_DB._db.exec(`CREATE TABLE auth_invites (id TEXT PRIMARY KEY, email TEXT, code TEXT, tenant_id TEXT, role TEXT, used_by TEXT, used_at TEXT, created_at TEXT NOT NULL)`);
+  c("pre-migration: legacy users table has NO product column", !e.SYN_DB._db.prepare("PRAGMA table_info(users)").all().some(x => x.name === "product"));
+  const setPw = (body, ip = "131.0.0.1") => worker.fetch(new Request("https://x.dev/auth/admin/set-password", { method: "POST", headers: { "CF-Connecting-IP": ip, "Authorization": "Bearer gsk-secret", "Content-Type": "application/json" }, body: JSON.stringify(body) }), e);
+  const r = await setPw({ email: "henry@syntrexio.test", new_password: "brandnewpw1" });
+  c("migration back-fills product; break-glass then SEEDS the admin (no user_not_found)", r.status === 200 && (await r.json()).ok === true);
+  c("product column now exists after ensureTables migration", e.SYN_DB._db.prepare("PRAGMA table_info(users)").all().some(x => x.name === "product"));
+  const li = await call(e, "POST", "/auth/login", { ip: "131.0.0.2", body: { email: "henry@syntrexio.test", password: "brandnewpw1" } });
+  c("admin logs in on the migrated DB", li.status === 200 && (await li.json()).user.role === "admin");
+}
+
 /* =================== protected surface still rejects no/invalid token =================== */
 {
   const e = mkEnv();
