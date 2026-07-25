@@ -1,24 +1,29 @@
-# Wrangler config for the syn-growth Worker (the Growth Engine data foundation).
-# Deploy: `npx wrangler deploy --config worker/wrangler.syn-growth.toml`
-# (or paste worker/syn-growth.js into the Cloudflare dashboard and set the binding + secret there).
+# Wrangler config for the syn-growth Worker (the Growth Engine).
 #
-# This is SEPARATE from worker/wrangler.toml, which configures the syn-assistant Worker.
+# The Cloudflare Git build uses ONE root directory per worker, and all three configs live in worker/.
+# So the syn-growth project uses root directory "worker" with a DEPLOY COMMAND that names THIS config:
+#   npx wrangler deploy --config wrangler.syn-growth.toml
+# (paths are relative to the root dir, so it's "wrangler.syn-growth.toml", not "worker/…"). The bare
+# wrangler.toml in this folder configures syn-core; --config here overrides it for the syn-growth build.
 
 name = "syn-growth"
 main = "syn-growth.js"
-compatibility_date = "2024-11-01"
+compatibility_date = "2025-11-01"
 
-# Bind the SAME D1 database syn-core uses, so growth data is unified with the workspace app.
-# Set database_name / database_id to your EXISTING syn-core D1 database (find the id with
-# `npx wrangler d1 list`). The binding name MUST be SYN_DB — the Worker references env.SYN_DB.
+# Cron triggers: follow-ups every 15 min + prior-month Receipts on the 1st at 08:00 UTC (see
+# worker/EMAIL-FOLLOWUP.md + worker/RECEIPT.md). scheduled() branches on event.cron.
+[triggers]
+crons = ["*/15 * * * *", "0 8 1 * *"]
+
+# The SAME D1 database syn-core uses (the account's only D1) — so Growth data + the shared `users` table
+# (real auth) live in one database. Binding name MUST be SYN_DB (the Worker references env.SYN_DB).
 [[d1_databases]]
-binding = "SYN_DB"
-database_name = "REPLACE_WITH_YOUR_SYN_CORE_D1_NAME"
-database_id   = "REPLACE_WITH_YOUR_SYN_CORE_D1_ID"
+binding       = "SYN_DB"
+database_name = "syn-core"
+database_id   = "d37969f2-ef28-45ab-ba3b-b9320c1e3701"
 
-# Secrets are NOT set here (never commit secrets). Set both with:
-#   npx wrangler secret put GROWTH_ADMIN_KEY   --config worker/wrangler.syn-growth.toml
-#   npx wrangler secret put ANTHROPIC_API_KEY  --config worker/wrangler.syn-growth.toml
-# GROWTH_ADMIN_KEY  — admin credential; if unset, every /admin route fails closed (401).
-# ANTHROPIC_API_KEY — used by POST /w/messages to call Anthropic server-side; it never reaches the
-#   browser. If unset, /w/messages returns a copy-mappable 502 (the widget shows a "leave contact" line).
+# Secrets are NEVER committed here — set each on the syn-growth Worker with `npx wrangler secret put`:
+#   GROWTH_ADMIN_KEY   — admin credential; if unset, every /admin route fails closed (401)
+#   ANTHROPIC_API_KEY  — server-side widget AI (/w/messages); never reaches the browser
+#   RESEND_API_KEY     — follow-up + Receipt email (sent from the CLIENT's verified identity)
+#   AUTH_SIGNING_KEY   — MUST equal syn-core's value, so /me/* can verify session tokens (dashboard)

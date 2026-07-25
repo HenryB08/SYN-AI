@@ -1,10 +1,16 @@
-# Wrangler config for the syn-assistant Worker (moved off wrangler.toml, which now configures syn-core
-# for the Git-connected auto-deploy with root directory "worker").
-# Deploy: npx wrangler deploy --config worker/wrangler.syn-assistant.toml
+# Wrangler config for the syn-assistant Worker (the marketing assistant; system prompt baked in,
+# proxies Anthropic). No D1 — it touches no database.
+#
+# The Cloudflare Git build uses ONE root directory per worker, and all three configs live in worker/.
+# So the syn-assistant project uses root directory "worker" with a DEPLOY COMMAND that names THIS config:
+#   npx wrangler deploy --config wrangler.syn-assistant.toml
+# (relative to the root dir). The bare wrangler.toml in this folder configures syn-core; --config here
+# overrides it for the syn-assistant build.
+
 name = "syn-assistant"
 main = "syn-assistant.js"
-compatibility_date = "2024-11-01"
+compatibility_date = "2025-11-01"
 
-# The Anthropic API key is a SECRET, never committed here. Set it with:
-#   npx wrangler secret put ANTHROPIC_API_KEY
-# (see README.md)
+# The Anthropic API key is a SECRET, never committed here. Set it on the syn-assistant Worker with:
+#   npx wrangler secret put ANTHROPIC_API_KEY --config wrangler.syn-assistant.toml
+# (see README.md). No D1 binding — syn-assistant stores nothing.
