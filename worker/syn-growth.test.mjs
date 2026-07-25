@@ -1246,7 +1246,8 @@ const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30
   c("receipt: leads_captured = 5 distinct contacts", R.metrics.leads_captured.count === 5);
   c("receipt: value uses the PERIOD job value ($250), not the current ($900)", R.job_value_cents === 25000 && R.metrics.value.job_value_cents === 25000 && R.metrics.value.value_recovered_cents === 50000);
   c("receipt: value formula stated in plain language", /Appointments booked \(2\)/.test(R.metrics.value.formula) && /\$500\.00/.test(R.metrics.value.formula));
-  c("receipt: guarantee verdict = value captured", R.metrics.guarantee.captured_value === true && /Value captured/.test(R.metrics.guarantee.verdict));
+  c("receipt: guarantee verdict = value captured, names the basis (leads + bookings)", R.metrics.guarantee.captured_value === true && /^Value captured this period — 5 captured leads and 2 bookings\.$/.test(R.metrics.guarantee.verdict));
+  c("receipt: guarantee definition says a captured lead counts on its own", /a single captured lead counts as value on its own/.test(R.metrics.guarantee.definition));
   c("receipt: states its own period + generation date + per-figure method", !!R.generated_at && !!f.inquiries_received.method && !!f.after_hours_inquiries.method);
   // audit event written
   c("receipt: a receipt_generated audit event is written", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE type='receipt_generated' AND tenant_id=?").get(tid).n === 1);
@@ -1294,7 +1295,7 @@ const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30
   const R = (await (await call(e, "POST", `/admin/tenants/${B.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
   c("receipt (unset job value): activity shown, no dollar figure fabricated", R.metrics.value.configured === false && R.metrics.value.value_recovered_cents === null && R.job_value_cents === null && /not yet configured/i.test(R.metrics.value.formula));
   c("receipt (unset job value): appointments still counted", R.metrics.figures.appointments_booked.count === 1);
-  c("receipt (unset job value): verdict still 'captured' on a real lead/booking", R.metrics.guarantee.captured_value === true);
+  c("receipt (unset job value): verdict still 'captured', names basis with singular grammar", R.metrics.guarantee.captured_value === true && R.metrics.guarantee.verdict === "Value captured this period — 1 captured lead and 1 booking.");
 }
 
 // ---- Tenant C: no captured value → first-month guarantee applies ----
@@ -1304,6 +1305,15 @@ const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30
   insEv(e, { id: "c_cs", tenant: C.tenant.id, install: C.install.id, contact: null, type: "conversation_started", payload: { url: "https://x" }, created_at: "2026-06-12T10:00:00.000Z" });
   const R = (await (await call(e, "POST", `/admin/tenants/${C.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
   c("receipt: no captured value → guarantee applies (honest verdict, not fudged)", R.metrics.guarantee.captured_value === false && R.metrics.leads_captured.count === 0 && /guarantee applies/i.test(R.metrics.guarantee.verdict));
+}
+
+// ---- Tenant D: a single captured lead, ZERO bookings → still 'captured' (a lead counts on its own) ----
+{
+  const e = env();
+  const D = await seedTenant(e, "delta", { tz: "UTC" });
+  insEv(e, { id: "d_i1", tenant: D.tenant.id, install: D.install.id, contact: "dcon1", type: "inquiry_received", payload: { conversation_id: "d1" }, created_at: "2026-06-14T10:00:00.000Z" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${D.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("receipt: one lead, no booking → captured, verdict names the lead only", R.metrics.guarantee.captured_value === true && R.metrics.figures.appointments_booked.count === 0 && R.metrics.guarantee.verdict === "Value captured this period — 1 captured lead.");
 }
 
 // ---- Tenant scoping: A's receipt is not readable under B's id ----

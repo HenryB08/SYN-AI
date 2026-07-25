@@ -1575,11 +1575,20 @@ async function computeReceiptMetrics(env, tenantId, periodStart, periodEnd, peri
     : { configured: false, job_value_cents: null, value_recovered_cents: null,
         formula: "Average job value not yet configured — activity above is real; no dollar figure is claimed." };
 
-  // Guarantee: captured value = at least one captured lead OR one booked appointment. Vanity counts don't count.
-  const captured = leadSet.size > 0 || booked.length > 0;
-  const guarantee = { captured_value: captured, leads_captured: leadSet.size, appointments_booked: booked.length,
-    definition: "Captured value = at least one captured lead (a contact we obtained) OR at least one booked appointment in the period. Chats with no contact and other vanity counts do not count as captured value.",
-    verdict: captured ? "Value captured this period." : "No value captured this period — the first-month guarantee applies and this month is free." };
+  // Guarantee: captured value = at least one captured lead OR at least one booking in the period. A
+  // captured lead counts as value ON ITS OWN — no booking required; anonymous chats that leave no
+  // contact do not count. This is the exact rule the money-back guarantee is judged on.
+  const nLeads = leadSet.size, nBooked = booked.length;
+  const captured = nLeads > 0 || nBooked > 0;
+  // Plain-language basis, so the verdict states WHAT counted as value this period.
+  const basis = [];
+  if (nLeads > 0) basis.push(nLeads + " captured lead" + (nLeads === 1 ? "" : "s"));
+  if (nBooked > 0) basis.push(nBooked + " booking" + (nBooked === 1 ? "" : "s"));
+  const guarantee = { captured_value: captured, leads_captured: nLeads, appointments_booked: nBooked,
+    definition: "Captured value means at least one captured lead (a contact we obtained) OR at least one booked appointment in the period — a single captured lead counts as value on its own, even with no booking. Anonymous chats that leave no contact do not count.",
+    verdict: captured
+      ? "Value captured this period — " + basis.join(" and ") + "."
+      : "No value captured this period — the first-month guarantee applies and this month is free." };
 
   return { schema_version: RECEIPT_SCHEMA_VERSION, period: { start: periodStart, end: periodEnd, label: periodLabel || "" },
     business_hours: bh, figures, leads_captured, value, guarantee, generated_at: nowIso() };

@@ -18,6 +18,27 @@ same `node:sqlite` D1 shim the unit suite uses.
 
 ---
 
+## 0. Post-audit resolution (applied on this branch)
+
+Two items from this audit were acted on after review:
+
+- **After-hours "midnight boundary" (§4):** re-checked against the shipped `isAfterHours` and **confirmed
+  there is no arithmetic bug** — midnight parses to hour 0 → after-hours (the code uses `hourCycle:"h23"`,
+  so it never hits the ICU "24" quirk), and it is correct across DST timezones (America/New_York verified).
+  §7 stands: **no arithmetic error, nothing to fix here.** The 17:00 end-exclusive and month-boundary
+  (§6 D2) points remain documented *choices*, not errors.
+- **Guarantee "captured value" definition (§8B/8C/8D) — RULED by Henry:** captured value = **at least one
+  captured lead OR at least one booking in the period; a captured lead counts as value on its own.** The
+  verdict logic already matched this (`nLeads > 0 || nBooked > 0`); the change makes the **plain-language
+  wording state it exactly** — the `definition` now says a single captured lead counts on its own even
+  with no booking, and the captured `verdict` **names the basis** (e.g. *"Value captured this period — 5
+  captured leads and 2 bookings."*, or *"— 1 captured lead."* when a lone lead is the value). Covered by
+  new suite assertions (lead+booking, singular grammar, lead-only). **§8A (the free-month wording being
+  asserted on every month, not just the first) was NOT part of this ruling and is left unchanged** — it
+  remains open for a separate decision.
+
+---
+
 ## 1. Method — independent recomputation
 
 I wrote a second implementation of every figure (raw synchronous SQL over `events`, my own pairing

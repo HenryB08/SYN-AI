@@ -54,11 +54,13 @@ per-install `config.business_hours = { "days":[1,2,3,4,5], "start":9, "end":17 }
 ## 3. The guarantee verdict
 
 **Captured value** is defined honestly against the canonical offer: **at least one captured lead (a
-contact we obtained) OR at least one booked appointment in the period.** Chats with no contact and other
-vanity counts do **not** count. The Receipt states the verdict plainly — *"Value captured this period."*
-or *"No value captured this period — the first-month guarantee applies and this month is free."* The
-verdict is computed, not curated; a Receipt that fudged toward "captured" to dodge a free month would
-destroy the guarantee's credibility, so it does not.
+contact we obtained) OR at least one booked appointment in the period.** A **captured lead counts as
+value on its own** — no booking is required. Anonymous chats that leave no contact do **not** count. The
+Receipt states the verdict plainly and names what counted — *"Value captured this period — 5 captured
+leads and 2 bookings."* (or *"— 1 captured lead."* when a single lead is the only value) or *"No value
+captured this period — the first-month guarantee applies and this month is free."* The verdict is
+computed, not curated; a Receipt that fudged toward "captured" to dodge a free month would destroy the
+guarantee's credibility, so it does not.
 
 ## 4. Generation & delivery
 
@@ -107,7 +109,7 @@ Seed June 2026 (tz UTC, business hours Mon–Fri 09:00–17:00, job value $250 e
   recovered **1** · captured leads **5**.
 - Value recovered: **`Appointments booked (2) × average job value ($250.00, in effect from 2026-05-01)
   = $500.00`**.
-- Verdict: **Value captured this period.**
+- Verdict: **Value captured this period — 5 captured leads and 2 bookings.**
 
 Every figure's `event_ids` point back to exactly those seeded rows; the drill-down returns them. See the
 test suite for the full assertion set.
