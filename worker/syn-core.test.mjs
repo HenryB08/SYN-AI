@@ -75,7 +75,7 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   c("signup → generic 200", su.status === 200 && (await su.json()).ok === true);
   const u = e.SYN_DB._db.prepare("SELECT * FROM users WHERE email=?").get("alice@example.com");
   c("signup: account created, unverified, email lowercased", !!u && u.email_verified === 0 && u.email === "alice@example.com");
-  c("signup: password stored as PBKDF2 record, never plaintext", /^pbkdf2\$210000\$/.test(u.password_hash) && !u.password_hash.includes("hunter2"));
+  c("signup: password stored as PBKDF2 record @ 100000 iters (runtime ceiling), never plaintext", /^pbkdf2\$100000\$/.test(u.password_hash) && !u.password_hash.includes("hunter2"));
 
   // login before verify → 403 email_not_verified
   const pre = await call(e, "POST", "/auth/login", { ip: "10.0.0.1", body: { email: "alice@example.com", password: "hunter2hunter2" } });

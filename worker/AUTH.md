@@ -16,7 +16,10 @@ website visitors, not app logins.
 
 ## Algorithm & lifetimes (the answers up front)
 
-- **Password hashing:** **PBKDF2-HMAC-SHA256, 210,000 iterations**, per-user random 16-byte salt, via
+- **Password hashing:** **PBKDF2-HMAC-SHA256, 100,000 iterations** — the **hard ceiling** the Cloudflare
+  Workers runtime allows. The runtime rejects any PBKDF2 request above 100,000 (`"iteration counts above
+  100000 are not supported"`), which throws inside `deriveBits` and makes **every** hash and verify fail —
+  so nobody can sign up, log in, or have a password set. **Do not raise `PBKDF2_ITERS` above 100000.** Per-user random 16-byte salt, via
   WebCrypto. *Why:* the Workers runtime ships no native bcrypt/scrypt/argon2; PBKDF2 is the strongest KDF
   that **is** native. The stored record is self-describing — `pbkdf2$<iters>$<saltB64>$<hashB64>` — so the
   cost can be raised later with no migration. The plaintext password is **never** stored or logged.
@@ -149,7 +152,7 @@ client over, the `gate*` helpers in `js/01-boot-auth.js` map 1:1:
    revoking one device while keeping others requires a `sessions` table (session id per token). Hardening
    path: short (~15 min) access tokens + a rotating refresh token in the `sessions` table.
 2. **No brute-force lockout on the *account*, only per IP.** A distributed attacker rotating IPs isn't
-   slowed by the IP limiter. PBKDF2 (210k) makes offline cracking costly, but add per-account throttling
+   slowed by the IP limiter. PBKDF2 (100k, the runtime ceiling) makes offline cracking costly, but add per-account throttling
    / captcha for online guessing at scale.
 3. **Rate-limit state is best-effort** (a D1 row per `ip|bucket`); it isn't atomic under high
    concurrency and an attacker on a huge IP pool sidesteps it. Cloudflare WAF/Turnstile in front is the

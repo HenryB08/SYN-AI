@@ -48,11 +48,14 @@ const RL_WINDOW_MS = 15 * 60 * 1000;           // …within/for a 15-minute bloc
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;  // session (access) token lifetime: 7 days (see AUTH.md §sessions)
 const VERIFY_TTL_SECONDS  = 24 * 60 * 60;      // email-verify link: 24h
 const RESET_TTL_SECONDS   = 60 * 60;           // password-reset link: 1h (expires fast)
-const PBKDF2_ITERS = 210000;                   // OWASP-2023 floor for PBKDF2-HMAC-SHA256
+const PBKDF2_ITERS = 100000;                   // HARD CEILING: the Cloudflare Workers runtime rejects
+                                               // PBKDF2 iteration counts above 100000 ("iteration counts
+                                               // above 100000 are not supported"). Do NOT raise this — a
+                                               // higher value makes EVERY hash/verify throw at runtime.
 const SIGNUP_MODE_DEFAULT = "invite";          // "invite" (private beta) | "open" (public)
 // A fixed, valid PBKDF2 record used ONLY to equalize login timing when the email does not exist, so a
 // missing account and a wrong password take the same work (no account enumeration via timing).
-const DUMMY_PBKDF2 = "pbkdf2$210000$memDMq1mteqVekYx2U30cg$txUd6SLfTOGMQ0KAMVfwE-dMJJw1pgVKZ5iiI1ebBfw";
+const DUMMY_PBKDF2 = "pbkdf2$100000$eWuqF8XIsam08BtYEREypA$fhOgDW52UkmL6PpbgrmhOZNgk5UttVCoxEiGlOqF05M";
 
 /* ---- CORS: explicit allowlist, reflect the specific origin, never "*", fail closed ---- */
 function isAllowedOrigin(o){ return typeof o === "string" && ALLOWED_ORIGINS.includes(o); }

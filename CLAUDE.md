@@ -89,7 +89,7 @@ as-is.
 - **✅ REAL AUTH (Prompt 26, server side) now lives in `worker/syn-core.js` alongside
   the gate — see `worker/AUTH.md`.** Per-user accounts in a `users` table in syn-core's
   D1: `POST /auth/{signup,verify,login,forgot,reset,logout,me,invite}`, PBKDF2-HMAC-SHA256
-  (210k iters) password hashing, 7-day signed session tokens, 24h/1h single-use
+  (100k iters — the Cloudflare Workers PBKDF2 ceiling; higher throws) password hashing, 7-day signed session tokens, 24h/1h single-use
   verify/reset links, per-`ip|bucket` rate limiting, no account enumeration. Protected
   routes (`/kv/`, `/v1/messages`) now accept **a session token OR the legacy gate token**;
   regular sessions are **tenant-scoped** to `syn5:<tenant_id>:*` (gate + admin sessions
