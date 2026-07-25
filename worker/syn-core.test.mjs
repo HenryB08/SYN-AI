@@ -102,6 +102,7 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   const me = await call(e, "GET", "/auth/me", { token: lj.token });
   const mj = await me.json();
   c("/auth/me returns the authenticated user", me.status === 200 && mj.user.email === "alice@example.com" && mj.user.email_verified === true);
+  c("login/me expose product (default 'workspace')", lj.user.product === "workspace" && mj.user.product === "workspace");
 }
 
 /* =================== wrong password: generic + rate-limited =================== */
@@ -231,7 +232,7 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   const gj = await g.json();
   c("gate login still works + issues a token", g.status === 200 && typeof gj.token === "string");
   const seeded = e.SYN_DB._db.prepare("SELECT * FROM users WHERE email=?").get("admin@syn.test");
-  c("gate login seeded a real admin account (verified, role=admin, tenant linked)", !!seeded && seeded.role === "admin" && seeded.email_verified === 1 && seeded.tenant_id === "o_HQ");
+  c("gate login seeded a real admin account (verified, role=admin, product=both, tenant linked)", !!seeded && seeded.role === "admin" && seeded.email_verified === 1 && seeded.product === "both" && seeded.tenant_id === "o_HQ");
   // the seeded admin logs in via real auth with the same credentials
   const li = await call(e, "POST", "/auth/login", { ip: "66.0.0.2", body: { email: "admin@syn.test", password: "gate-pass-123456" } });
   const lj = await li.json();
@@ -260,11 +261,11 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   const s2 = await call(e, "POST", "/auth/signup", { ip: "88.0.0.3", body: { email: "friend@example.com", password: "password12" } });
   c("invite mode: allowlisted email signup creates the account", s2.status === 200 && !!e.SYN_DB._db.prepare("SELECT id FROM users WHERE email=?").get("friend@example.com"));
   // invite CODE path: single-use, and can carry a tenant + role
-  const codeRes = await (await call(e, "POST", "/auth/invite", { token: gtok, body: { code: true, tenant_id: "o_TEAM", role: "member" } })).json();
+  const codeRes = await (await call(e, "POST", "/auth/invite", { token: gtok, body: { code: true, tenant_id: "ten_TEAM", role: "member", product: "growth" } })).json();
   const code = codeRes.invite.code;
   const s3 = await call(e, "POST", "/auth/signup", { ip: "88.0.0.4", body: { email: "coded@example.com", password: "password12", invite_code: code } });
   const codedUser = e.SYN_DB._db.prepare("SELECT * FROM users WHERE email=?").get("coded@example.com");
-  c("invite code signup creates the account, joined to the invite's tenant/role", s3.status === 200 && !!codedUser && codedUser.tenant_id === "o_TEAM" && codedUser.role === "member");
+  c("invite code signup creates the account, joined to the invite's tenant/role/product", s3.status === 200 && !!codedUser && codedUser.tenant_id === "ten_TEAM" && codedUser.role === "member" && codedUser.product === "growth");
   const codeReuse = await call(e, "POST", "/auth/signup", { ip: "88.0.0.5", body: { email: "second@example.com", password: "password12", invite_code: code } });
   c("invite code is single-use (second signup with same code not created)", codeReuse.status === 200 && !e.SYN_DB._db.prepare("SELECT id FROM users WHERE email=?").get("second@example.com"));
   // non-admin cannot manage invites

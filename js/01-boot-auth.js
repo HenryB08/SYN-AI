@@ -18,6 +18,9 @@
    In the Claude preview this is not needed. On a live site it is required
    for chat and research to work. */
 const SYN_CORE_URL = "https://syn-core.henrybello.workers.dev";
+/* SYN_GROWTH_URL — the Growth Engine Worker. The Growth client DASHBOARD reads its own results
+   (leads, bookings, Receipts, config) from here, authorized by the same syn-core session token. */
+const SYN_GROWTH_URL = "https://syn-growth.henrybello.workers.dev";
 /* SITE_BASE_URL — the canonical public origin of this site. Single source of truth
    for any FULLY-QUALIFIED self-reference; the static <link rel="canonical">, og:url,
    and JSON-LD in index.html mirror this value. Every internal asset/route reference is
@@ -81,6 +84,162 @@ async function gateSignIn(email, password){
 }
 /* From the gated sign-in card back out to the public waitlist. */
 function gateToWaitlist(){ const a = document.getElementById("authScreen"); if (a) a.classList.remove("on"); showSite(); goSite("home", "waitlist"); }
+
+/* ================= REAL AUTH (per-user accounts via syn-core /auth/*) + GROWTH DASHBOARD =================
+   Prompt 26 built real auth server-side; this wires the app to it. In cloud mode the sign-in card posts
+   to /auth/login and stores a signed SESSION token (it slots into the same Bearer slot the gate used, so
+   token-gated /kv reads keep working for Workspace users). Routing is by the EXPLICIT `product` field on
+   the user (§PART 2): product==='growth' → the self-contained Growth dashboard (#growth), which reads
+   /me/* from syn-growth with that token; 'workspace'/'both' → the full Workspace app. The old /gate stays
+   as a fallback but is no longer the login path. */
+let authToken = null, authUser = null, authExp = 0;
+try{ const raw = localStorage.getItem("syn5:auth"); if (raw){ const j = JSON.parse(raw); authToken = j.token || null; authUser = j.user || null; authExp = j.exp || 0; } }catch(e){}
+function authValid(){ return !!authToken && authExp > Math.floor(Date.now()/1000); }
+function authHeaders(){ return authToken ? { "Authorization": "Bearer " + authToken } : {}; }
+function authStore(j){ authToken = j.token; authUser = j.user || null; authExp = j.exp || 0;
+  try{ localStorage.setItem("syn5:auth", JSON.stringify({ token: authToken, user: authUser, exp: authExp })); }catch(e){}
+  gateStore(j.token);   // reuse the gate Bearer slot so token-gated /kv reads (Workspace users) carry the session token
+}
+function authClear(){ authToken = null; authUser = null; authExp = 0; try{ localStorage.removeItem("syn5:auth"); }catch(e){} gateClear(); }
+async function authLogin(email, password){
+  try{
+    const res = await fetch(cloudBase() + "/auth/login", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ email, password }) });
+    if (res.status === 429) return { rateLimited: true };
+    const j = await res.json().catch(() => null);
+    if (res.status === 403 && j && j.error === "email_not_verified") return { ok:false, error: "email_not_verified" };
+    if (!res.ok || !j || !j.token) return { ok:false, error: (j && j.error) || "invalid_credentials" };
+    authStore(j); return { ok:true, user: j.user };
+  }catch(e){ return { ok:false, error:"network" }; }
+}
+async function authSignup(email, password){ try{ const res = await fetch(cloudBase()+"/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})}); const j=await res.json().catch(()=>null); return { ok:res.ok, message:(j&&j.message)||"", error:(j&&j.error)||null }; }catch(e){ return { ok:false, error:"network" }; } }
+async function authForgot(email){ try{ await fetch(cloudBase()+"/auth/forgot",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email})}); }catch(e){} return { ok:true }; }
+async function authReset(token, password){ try{ const res=await fetch(cloudBase()+"/auth/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,password})}); const j=await res.json().catch(()=>null); return { ok:res.ok, error:(j&&j.error)||null }; }catch(e){ return { ok:false, error:"network" }; } }
+async function authVerify(token){ try{ const res=await fetch(cloudBase()+"/auth/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})}); const j=await res.json().catch(()=>null); return { ok:res.ok, error:(j&&j.error)||null }; }catch(e){ return { ok:false, error:"network" }; } }
+/* On boot, handle a #verify=<token> or #reset=<token> deep link (from the auth emails). Returns true if
+   it took over the screen. Minimal UI: verify confirms then routes to sign-in; reset shows a set-password prompt. */
+async function handleAuthHashRoutes(){
+  const hsh = (location.hash || "");
+  const mv = /#verify=([^&]+)/.exec(hsh), mr = /#reset=([^&]+)/.exec(hsh);
+  if (mv){ document.getElementById("bootScreen").classList.remove("on"); const r = await authVerify(decodeURIComponent(mv[1])); try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} hideSite(); showAuth("signin"); authErr(r.ok ? "" : "That verification link is invalid or expired."); if (r.ok){ const el=document.getElementById("authErr"); if(el){ el.style.color="var(--good)"; el.style.display="block"; el.textContent="Email confirmed — sign in below."; } } return true; }
+  if (mr){ document.getElementById("bootScreen").classList.remove("on"); const token = decodeURIComponent(mr[1]); try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} hideSite(); showAuth("signin");
+    const pass = window.prompt ? window.prompt("Enter a new password (min 8 characters):") : null;
+    if (pass){ const r = await authReset(token, pass); authErr(r.ok ? "" : "That reset link is invalid or expired."); if (r.ok){ const el=document.getElementById("authErr"); if(el){ el.style.color="var(--good)"; el.style.display="block"; el.textContent="Password reset — sign in with your new password."; } } }
+    return true; }
+  return false;
+}
+
+/* --- Growth dashboard: data + the self-contained #growth scene --- */
+function growthBase(){ return (SYN_GROWTH_URL && SYN_GROWTH_URL.startsWith("http")) ? SYN_GROWTH_URL : ""; }
+async function growthGet(path){ const res = await fetch(growthBase()+path, { headers: authHeaders() }); if (res.status === 401){ growthSignOut("Your session expired. Sign in again."); throw new Error("gv401"); } if (!res.ok) throw new Error("gv_"+res.status); return res.json(); }
+async function growthPut(path, body){ const res = await fetch(growthBase()+path, { method:"PUT", headers:{ "Content-Type":"application/json", ...authHeaders() }, body: JSON.stringify(body) }); if (res.status === 401){ growthSignOut("Your session expired. Sign in again."); throw new Error("gv401"); } if (!res.ok) throw new Error("gv_"+res.status); return res.json(); }
+async function gvOpenReceipt(path){ try{ const res = await fetch(growthBase()+path, { headers: authHeaders() }); if (!res.ok) return; const html = await res.text(); const url = URL.createObjectURL(new Blob([html], { type:"text/html" })); window.open(url, "_blank", "noopener"); }catch(e){} }
+function gvEsc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function gvUsd(cents){ if (cents==null) return "—"; return "$" + (cents/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function gvWhen(iso){ if(!iso) return ""; try{ return new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"}); }catch(e){ return String(iso).slice(0,10); } }
+
+async function enterGrowth(user){
+  authUser = user || authUser;
+  const a = document.getElementById("authScreen"); if (a) a.classList.remove("on");
+  hideSite();
+  const app = document.getElementById("app"); if (app) app.classList.remove("on");
+  const bs = document.getElementById("bootScreen"); if (bs) bs.classList.remove("on");
+  document.getElementById("growth").classList.add("on");
+  await renderGrowth();
+}
+function growthSignOut(msg){
+  authClear();
+  document.getElementById("growth").classList.remove("on");
+  hideSite();
+  showAuth("signin");
+  if (msg) authErr(msg);
+}
+async function renderGrowth(){
+  const root = document.getElementById("growth");
+  const who = (authUser && authUser.email) || "your account";
+  root.innerHTML =
+    '<div class="gv-top">' +
+      '<div class="gv-brandmark">' + synMark(28,'gv-mark') + '<span class="gv-wordmark">SYN <b>Growth</b></span></div>' +
+      '<div class="gv-topright"><span class="gv-who">' + gvEsc(who) + '</span><button class="gv-btn ghost" id="gvSignout">Sign out</button></div>' +
+    '</div>' +
+    '<div class="gv-wrap"><div class="gv-body" id="gvBody"><div class="gv-loading">Loading your results…</div></div></div>';
+  document.getElementById("gvSignout").addEventListener("click", () => growthSignOut());
+  try{
+    const [summary, receiptCur, leadsR, booksR, receiptsR, installR, configR] = await Promise.all([
+      growthGet("/me/summary"), growthGet("/me/receipt"), growthGet("/me/leads?limit=8"), growthGet("/me/bookings?limit=8"),
+      growthGet("/me/receipts"), growthGet("/me/install"), growthGet("/me/config")
+    ]);
+    renderGrowthBody({ summary, receiptCur, leadsR, booksR, receiptsR, installR, configR });
+  }catch(e){ if (String(e && e.message) !== "gv401"){ const b = document.getElementById("gvBody"); if (b) b.innerHTML = '<div class="gv-err">Couldn’t load your dashboard right now. <button class="gv-btn" onclick="renderGrowth()">Retry</button></div>'; } }
+}
+function renderGrowthBody(d){
+  const h = (d.summary.headline) || {}, g = (d.summary.guarantee) || {}, period = (d.summary.period && d.summary.period.label) || "This month";
+  const val = (d.receiptCur && d.receiptCur.receipt && d.receiptCur.receipt.metrics && d.receiptCur.receipt.metrics.value) || {};
+  const captured = !!g.captured_value;
+  const stat = (label, v, sub) => '<div class="gv-stat"><div class="gv-stat-n">' + v + '</div><div class="gv-stat-l">' + gvEsc(label) + '</div>' + (sub ? '<div class="gv-stat-s">' + gvEsc(sub) + '</div>' : '') + '</div>';
+  const strip =
+    '<div class="gv-h"><h2>' + gvEsc(period) + '</h2><span class="gv-sub">Live from your captured events</span></div>' +
+    '<div class="gv-strip">' +
+      stat("Inquiries captured", h.inquiries_received||0) + stat("Leads", h.leads_captured||0) +
+      stat("Follow-ups sent", h.followups_sent||0) + stat("Bookings", h.appointments_booked||0) +
+      stat("Value recovered", h.value_configured ? gvUsd(h.value_recovered_cents) : "—", h.value_configured ? "" : "set a job value") +
+    '</div>';
+  const receipt =
+    '<div class="gv-card gv-receipt ' + (captured?'is-good':'is-warn') + '">' +
+      '<div><div class="gv-micro">This month’s Receipt · guarantee</div>' +
+        '<div class="gv-verdict">' + gvEsc(g.verdict||"") + '</div>' +
+        '<div class="gv-formula">' + gvEsc(val.formula||"") + '</div></div>' +
+      '<button class="gv-btn ghost" id="gvViewReceipt">View full Receipt</button>' +
+    '</div>';
+  const leadRows = (d.leadsR.contacts||[]).map(c => '<tr><td>' + gvEsc(c.name||"—") + '</td><td class="gv-dim">' + gvEsc(c.email||c.phone||"—") + '</td><td><span class="gv-tag">' + gvEsc(c.status||"new") + '</span></td><td class="gv-dim">' + gvEsc(c.source||"") + '</td><td class="gv-dim">' + gvWhen(c.first_seen) + '</td></tr>').join("");
+  const leads = '<div class="gv-card"><div class="gv-h"><h3>Recent leads</h3></div>' + ((d.leadsR.contacts||[]).length ? '<table class="gv-table"><thead><tr><th>Name</th><th>Contact</th><th>Status</th><th>Source</th><th>Seen</th></tr></thead><tbody>' + leadRows + '</tbody></table>' : '<div class="gv-empty">No leads captured yet.</div>') + '</div>';
+  const bookRows = (d.booksR.bookings||[]).map(b => '<tr><td>' + gvEsc(b.name||"—") + '</td><td class="gv-dim">' + gvEsc(b.email||b.phone||"—") + '</td><td class="gv-dim">' + gvEsc(b.when||"") + '</td><td class="gv-dim">' + gvWhen(b.booked_at) + '</td></tr>').join("");
+  const bookings = '<div class="gv-card"><div class="gv-h"><h3>Recent bookings</h3></div>' + ((d.booksR.bookings||[]).length ? '<table class="gv-table"><thead><tr><th>Name</th><th>Contact</th><th>When</th><th>Booked</th></tr></thead><tbody>' + bookRows + '</tbody></table>' : '<div class="gv-empty">No bookings yet.</div>') + '</div>';
+  const rcpRows = (d.receiptsR.receipts||[]).map(r => '<tr><td>' + gvEsc(r.label || (r.period_start||"").slice(0,7)) + '</td><td>' + (r.captured_value ? '<span class="gv-tag good">captured</span>' : '<span class="gv-tag warn">free month</span>') + '</td><td class="gv-dim">' + (r.value_recovered_cents!=null ? gvUsd(r.value_recovered_cents) : "—") + '</td><td><button class="gv-link" data-rcp="' + gvEsc(r.id) + '">view</button></td></tr>').join("");
+  const receipts = '<div class="gv-card"><div class="gv-h"><h3>Past Receipts</h3></div>' + ((d.receiptsR.receipts||[]).length ? '<table class="gv-table"><thead><tr><th>Period</th><th>Result</th><th>Value</th><th></th></tr></thead><tbody>' + rcpRows + '</tbody></table>' : '<div class="gv-empty">No Receipts generated yet — your first arrives at month end.</div>') + '</div>';
+  const snip = (d.installR && d.installR.snippet) || "";
+  const install = '<div class="gv-card"><div class="gv-h"><h3>Install</h3><span class="gv-sub">Paste before &lt;/body&gt; on your site</span></div><pre class="gv-code" id="gvSnippet">' + gvEsc(snip) + '</pre><button class="gv-btn" id="gvCopy">Copy snippet</button></div>';
+  const cfg = (d.configR && d.configR.config) || {};
+  const bh = cfg.business_hours || { days:[1,2,3,4,5], start:9, end:17 };
+  const faqText = Array.isArray(cfg.faq) ? cfg.faq.map(f => ((f.q||"") + " | " + (f.a||""))).join("\n") : "";
+  const jobDollars = (cfg.job_value_cents!=null) ? (cfg.job_value_cents/100) : "";
+  const config = '<div class="gv-card"><div class="gv-h"><h3>Your assistant</h3><span class="gv-sub">The brain your widget runs on — edits go live</span></div>' +
+    '<label class="gv-field"><span>Business name</span><input id="gvName" value="' + gvEsc(cfg.brand_name||"") + '"></label>' +
+    '<label class="gv-field"><span>Voice</span><textarea id="gvVoice" rows="2">' + gvEsc(cfg.voice||"") + '</textarea></label>' +
+    '<label class="gv-field"><span>Greeting</span><input id="gvGreeting" value="' + gvEsc(cfg.greeting||"") + '"></label>' +
+    '<label class="gv-field"><span>Scheduling link</span><input id="gvSched" value="' + gvEsc(cfg.scheduling_url||"") + '" placeholder="https://…"></label>' +
+    '<div class="gv-row"><label class="gv-field"><span>Avg job value ($)</span><input id="gvJob" type="number" min="0" value="' + jobDollars + '"></label>' +
+      '<label class="gv-field"><span>Open hour</span><input id="gvHStart" type="number" min="0" max="23" value="' + (bh.start==null?9:bh.start) + '"></label>' +
+      '<label class="gv-field"><span>Close hour</span><input id="gvHEnd" type="number" min="0" max="23" value="' + (bh.end==null?17:bh.end) + '"></label></div>' +
+    '<label class="gv-field"><span>FAQ (one per line: question | answer)</span><textarea id="gvFaq" rows="3">' + gvEsc(faqText) + '</textarea></label>' +
+    '<div class="gv-actions"><button class="gv-btn primary" id="gvSave">Save changes</button><span class="gv-saved" id="gvSaved"></span></div></div>';
+
+  document.getElementById("gvBody").innerHTML =
+    '<div class="gv-section">' + strip + '</div>' +
+    '<div class="gv-section">' + receipt + '</div>' +
+    '<div class="gv-section gv-grid2">' + leads + bookings + '</div>' +
+    '<div class="gv-section">' + receipts + '</div>' +
+    '<div class="gv-section gv-grid2">' + install + config + '</div>';
+
+  const vr = document.getElementById("gvViewReceipt"); if (vr) vr.addEventListener("click", () => gvOpenReceipt("/me/receipt?format=html"));
+  document.querySelectorAll("#gvBody [data-rcp]").forEach(b => b.addEventListener("click", () => gvOpenReceipt("/me/receipts/" + b.getAttribute("data-rcp") + "?format=html")));
+  const cp = document.getElementById("gvCopy"); if (cp) cp.addEventListener("click", async () => {
+    const text = snip; window.__gvCopied = text;
+    try{ if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text); else throw 0; }
+    catch(e){ try{ const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); }catch(_){} }
+    cp.textContent = "Copied ✓"; setTimeout(() => { cp.textContent = "Copy snippet"; }, 1600);
+  });
+  const sv = document.getElementById("gvSave"); if (sv) sv.addEventListener("click", async () => {
+    const v = id => { const el = document.getElementById(id); return el ? el.value : ""; };
+    const faq = v("gvFaq").split("\n").map(l => l.trim()).filter(Boolean).map(l => { const i = l.indexOf("|"); return i>=0 ? { q:l.slice(0,i).trim(), a:l.slice(i+1).trim() } : { q:l, a:"" }; });
+    const payload = { brand_name: v("gvName"), voice: v("gvVoice"), greeting: v("gvGreeting"), scheduling_url: v("gvSched"), faq,
+      business_hours: { days: (bh.days||[1,2,3,4,5]), start: parseInt(v("gvHStart"),10)||0, end: parseInt(v("gvHEnd"),10)||0 } };
+    const jv = v("gvJob"); if (jv !== "" && !isNaN(parseFloat(jv))) payload.job_value_cents = Math.round(parseFloat(jv)*100);
+    const saved = document.getElementById("gvSaved"); sv.disabled = true; if (saved) saved.textContent = "Saving…";
+    try{ await growthPut("/me/config", payload); if (saved){ saved.textContent = "Saved ✓"; setTimeout(() => { if (saved) saved.textContent = ""; }, 2000); } }
+    catch(e){ if (saved) saved.textContent = "Couldn’t save"; }
+    finally{ sv.disabled = false; }
+  });
+}
 
 /* ---------------- STORAGE ADAPTER (persistent, team-shared) ---------------- */
 const mem = {};                       // last-resort fallback
@@ -729,11 +888,19 @@ async function boot(){
     : persistMode === "device" ? "Saved to this browser only. SYN Core wasn't reachable, so cross-device team sync is off right now."
     : "Storage unavailable; this session is in-memory only.";
 
-  // ACCESS GATE (temporary — see the gate block up top): with real SYN Core, every /kv read
-  // needs a valid token. Without one, don't attempt token-gated reads (they'd 401) — the public
-  // marketing site stays open and Sign In routes to the gate. Registry + session load only after
-  // the gate passes (in authSubmit). Prompt 26 replaces this.
-  if (gateActive() && !gateValid()){
+  // Email deep links (#verify=/#reset= from the auth emails) take over the screen before any routing.
+  if (gateActive()){ try{ if (await handleAuthHashRoutes()) return; }catch(e){} }
+
+  // A signed-in Growth client restores straight to their dashboard (no workspace registry involved).
+  if (gateActive() && authValid() && authUser && authUser.product === "growth"){
+    document.getElementById("bootScreen").classList.remove("on");
+    await enterGrowth(authUser); return;
+  }
+
+  // With real SYN Core, token-gated reads need a valid token. A valid session token (authValid) OR the
+  // legacy gate token counts; without either, the public marketing site stays open and Sign In routes to
+  // real auth. Registry + workspace session load only after that.
+  if (gateActive() && !gateValid() && !authValid()){
     document.getElementById("bootScreen").classList.remove("on");
     showSite(); routeSite();
     return;
@@ -841,18 +1008,23 @@ async function authSubmit(){
   if (!em) return authErr("Enter your email.");
   if (!pass) return authErr("Enter your password.");
 
-  // ACCESS GATE (temporary): when on, the Worker validates the single admin credential FIRST and
-  // issues the token that unlocks every data request. Only signin exists while gated. On success we
-  // then locate the workspace by email — the gate already proved identity, so no second password.
-  // Prompt 26 replaces this with real per-user auth.
+  // REAL AUTH (Prompt 26): in cloud mode the Worker validates per-user credentials and issues a signed
+  // session token. We then route by the EXPLICIT `product` field: a Growth client lands on the Growth
+  // dashboard; a Workspace user is located by email (identity already proven) and enters the app. The
+  // legacy /gate remains as a fallback but is no longer the login path.
   if (gateActive()){
     const btn = document.getElementById("authBtn");
     const lbl = btn ? btn.textContent : "";
-    if (btn){ btn.disabled = true; btn.textContent = "Checking…"; }
-    const g = await gateSignIn(em, pass);
+    if (btn){ btn.disabled = true; btn.textContent = "Signing in…"; }
+    const r = await authLogin(em, pass);
     if (btn){ btn.disabled = false; btn.textContent = lbl; }
-    if (g.rateLimited) return authErr("Too many attempts. Wait a few minutes and try again.");
-    if (!g.ok) return authErr("Access is restricted. SYN is in private beta. Join the waitlist for access.");
+    if (r.rateLimited) return authErr("Too many attempts. Wait a few minutes and try again.");
+    if (r.error === "email_not_verified") return authErr("Please verify your email first — check your inbox for the confirmation link.");
+    if (!r.ok) return authErr("Wrong email or password.");
+    const user = r.user || {};
+    // §PART 2 — route by product. A Growth client never enters the full Workspace.
+    if (user.product === "growth"){ await enterGrowth(user); return; }
+    // Workspace / both: locate the workspace by email (real auth already proved identity).
     let orgs;
     try{ orgs = (await sGetStrict("syn5:orgs")) || []; }
     catch(e){ return authErr("Signed in, but couldn’t reach SYN Core to load your workspace. Try again."); }
@@ -864,7 +1036,7 @@ async function authSubmit(){
       const u = team.find(t => (t.email || "").trim().toLowerCase() === em);
       if (u){ await sSet("syn5:session", { orgId: org.id, userId: u.id }, false); await enterOrg(org, u); return; }
     }
-    return authErr("Access granted, but no workspace is set up for this account yet. Contact henry@syntrexio.com.");
+    return authErr("Signed in, but no workspace is set up for this account yet. Contact henry@syntrexio.com.");
   }
 
   // Always work from the latest workspace registry (cloud when live) so sign-in and join

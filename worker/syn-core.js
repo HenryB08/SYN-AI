@@ -181,6 +181,9 @@ async function ensureTables(env){
       status TEXT NOT NULL DEFAULT 'active',
       role TEXT NOT NULL DEFAULT 'member',
       tenant_id TEXT,
+      product TEXT NOT NULL DEFAULT 'workspace',   -- 'workspace' | 'growth' | 'both' — the EXPLICIT field the
+                                                   -- app routes on (Growth client → Growth dashboard; Workspace
+                                                   -- user → the full app). Set at provisioning (invite/Stripe).
       session_epoch INTEGER NOT NULL DEFAULT 1,
       verify_jti TEXT,
       reset_jti TEXT,
@@ -188,8 +191,9 @@ async function ensureTables(env){
       last_login_at TEXT)`),
     // Private-beta signup control: an email allowlist and/or single-use invite codes. Ignored when
     // SIGNUP_MODE="open". An email row is a reusable allowlist entry; a code row is single-use (used_by).
+    // An invite may carry tenant_id/role/product so a provisioned account lands correctly on first login.
     env[D1_BINDING].prepare(`CREATE TABLE IF NOT EXISTS auth_invites (
-      id TEXT PRIMARY KEY, email TEXT, code TEXT, tenant_id TEXT, role TEXT,
+      id TEXT PRIMARY KEY, email TEXT, code TEXT, tenant_id TEXT, role TEXT, product TEXT,
       used_by TEXT, used_at TEXT, created_at TEXT NOT NULL)`),
     env[D1_BINDING].prepare(`CREATE INDEX IF NOT EXISTS idx_invites_email ON auth_invites(email)`),
     env[D1_BINDING].prepare(`CREATE INDEX IF NOT EXISTS idx_invites_code ON auth_invites(code)`),
@@ -222,7 +226,7 @@ function tooMany(retry, origin){
 /* ---- user helpers ---- */
 function normEmail(e){ return String(e || "").trim().toLowerCase(); }
 function validEmail(e){ return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e); }
-function publicUser(u){ return u ? { id: u.id, email: u.email, email_verified: !!u.email_verified, status: u.status, role: u.role, tenant_id: u.tenant_id || null } : null; }
+function publicUser(u){ return u ? { id: u.id, email: u.email, email_verified: !!u.email_verified, status: u.status, role: u.role, tenant_id: u.tenant_id || null, product: u.product || "workspace" } : null; }
 async function getUserByEmail(env, email){ return env[D1_BINDING].prepare("SELECT * FROM users WHERE email=?").bind(normEmail(email)).first(); }
 async function getUserById(env, id){ return env[D1_BINDING].prepare("SELECT * FROM users WHERE id=?").bind(id).first(); }
 
@@ -257,12 +261,13 @@ async function seedAdminUser(env, email, password){
   const existing = await getUserByEmail(env, em);
   const tid = env.ADMIN_TENANT_ID || null;
   if (existing){
-    await env[D1_BINDING].prepare("UPDATE users SET email_verified=1, status='active', role='admin', tenant_id=COALESCE(tenant_id, ?) WHERE id=?").bind(tid, existing.id).run();
+    // Admin sees everything → product 'both'; back-fill without clobbering an existing tenant link.
+    await env[D1_BINDING].prepare("UPDATE users SET email_verified=1, status='active', role='admin', product='both', tenant_id=COALESCE(tenant_id, ?) WHERE id=?").bind(tid, existing.id).run();
     return existing.id;
   }
   const id = newId("usr");
-  await env[D1_BINDING].prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
-    .bind(id, em, await hashPassword(password), 1, "active", "admin", tid, 1, new Date().toISOString()).run();
+  await env[D1_BINDING].prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,product,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .bind(id, em, await hashPassword(password), 1, "active", "admin", tid, "both", 1, new Date().toISOString()).run();
   return id;
 }
 
@@ -352,8 +357,8 @@ export default {
       }
       const id = newId("usr");
       const invite = gate.invite;
-      await env[D1_BINDING].prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
-        .bind(id, email, await hashPassword(password), 0, "active", (invite && invite.role) || "member", (invite && invite.tenant_id) || null, 1, new Date().toISOString()).run();
+      await env[D1_BINDING].prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,product,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+        .bind(id, email, await hashPassword(password), 0, "active", (invite && invite.role) || "member", (invite && invite.tenant_id) || null, (invite && invite.product) || "workspace", 1, new Date().toISOString()).run();
       if (invite && invite.code){ await env[D1_BINDING].prepare("UPDATE auth_invites SET used_by=?, used_at=? WHERE id=?").bind(id, new Date().toISOString(), invite.id).run(); }
       const fresh = await getUserById(env, id);
       await issueVerify(env, fresh);
@@ -442,7 +447,7 @@ export default {
       await ensureTables(env);
       const principal = await authenticate(request, env);
       if (!principal) return json({ error: "unauthorized" }, 401, origin);
-      if (principal.kind === "gate") return json({ user: { email: principal.email, role: "admin", tenant_id: env.ADMIN_TENANT_ID || null, via: "gate" } }, 200, origin);
+      if (principal.kind === "gate") return json({ user: { email: principal.email, role: "admin", tenant_id: env.ADMIN_TENANT_ID || null, product: "both", via: "gate" } }, 200, origin);
       return json({ user: publicUser(principal.user) }, 200, origin);
     }
 
@@ -476,9 +481,10 @@ export default {
       const code = wantCode ? randToken(9) : (typeof body.code === "string" ? body.code : null);
       if (!em && !code) return json({ error: "invalid_input", hint: "pass {email} to allowlist, or {code:true} to mint an invite code" }, 400, origin);
       const id = newId("inv");
-      await env[D1_BINDING].prepare("INSERT INTO auth_invites (id,email,code,tenant_id,role,created_at) VALUES (?,?,?,?,?,?)")
-        .bind(id, em, code, body.tenant_id || null, body.role || null, new Date().toISOString()).run();
-      return json({ ok: true, invite: { id, email: em, code, tenant_id: body.tenant_id || null, role: body.role || null } }, 201, origin);
+      const product = (body.product === "growth" || body.product === "both" || body.product === "workspace") ? body.product : null;
+      await env[D1_BINDING].prepare("INSERT INTO auth_invites (id,email,code,tenant_id,role,product,created_at) VALUES (?,?,?,?,?,?,?)")
+        .bind(id, em, code, body.tenant_id || null, body.role || null, product, new Date().toISOString()).run();
+      return json({ ok: true, invite: { id, email: em, code, tenant_id: body.tenant_id || null, role: body.role || null, product } }, 201, origin);
     }
 
     /* ======================= LEGACY GATE LOGIN (still working during cutover) ======================= */

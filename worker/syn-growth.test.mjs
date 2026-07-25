@@ -1341,6 +1341,107 @@ const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30
   c("receipt cron: re-run is idempotent (all deduped, no duplicate rows)", run2.results.every(r => r.deduped) && e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM receipts WHERE tenant_id=?").get(A.tenant.id).n === 1);
 }
 
+/* ===================== client dashboard (/me/*) — session-scoped, tenant-isolated ===================== */
+// Sign a syn-core SESSION token the same way syn-core does, so verifyMeSession accepts it here.
+const AUTH_KEY = "shared-auth-signing-key";
+const _enc = new TextEncoder();
+function _b64url(bytes){ let s = ""; const b = new Uint8Array(bytes); for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+async function _hmac(payloadB64, key){ const k = await crypto.subtle.importKey("raw", _enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]); const sig = await crypto.subtle.sign("HMAC", k, _enc.encode(payloadB64)); return _b64url(sig); }
+async function sessionToken(claims, key = AUTH_KEY, ttl = 3600){ const now = Math.floor(Date.now() / 1000); const payload = { typ: "sess", iat: now, exp: now + ttl, ...claims }; const b = _b64url(_enc.encode(JSON.stringify(payload))); return b + "." + (await _hmac(b, key)); }
+function ensureUsersTable(e){ e.SYN_DB._db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT, email_verified INTEGER, status TEXT, role TEXT, tenant_id TEXT, product TEXT, session_epoch INTEGER, verify_jti TEXT, reset_jti TEXT, created_at TEXT, last_login_at TEXT)`); }
+function insUser(e, u){ e.SYN_DB._db.prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,product,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)").run(u.id, u.email, "x", 1, u.status || "active", u.role || "member", u.tenant_id || null, u.product || "growth", u.epoch == null ? 1 : u.epoch, new Date().toISOString()); }
+function insContact(e, o){ e.SYN_DB._db.prepare("INSERT INTO contacts (id,tenant_id,install_id,name,email,phone,first_seen,last_seen,source,status,consent_sms) VALUES (?,?,?,?,?,?,?,?,?,?,?)").run(o.id, o.tenant, o.install || null, o.name || null, o.email || null, o.phone || null, o.first_seen, o.first_seen, o.source || "chat", o.status || "new", 0); }
+const APP = "https://syn.syntrexio.com";
+const meReq = (e, method, path, tok, body) => call(e, method, path, { origin: APP, adminKey: tok, body });
+
+{
+  const e = env(); e.AUTH_SIGNING_KEY = AUTH_KEY; ensureUsersTable(e);
+  // Tenant A (growth) with a known June + install config + job value; Tenant B (another growth tenant).
+  const A = await seedTenant(e, "atlas", { tz: "UTC", config: { greeting: "Hi from Atlas", business_hours: { days: [1,2,3,4,5], start: 9, end: 17 }, faq: [{ q: "Hours?", a: "9-5" }], booking: { enabled: true, url: "https://cal.example/atlas" } } });
+  const B = await seedTenant(e, "brava", { tz: "UTC" });
+  const tidA = A.tenant.id, tidB = B.tenant.id, iidA = A.install.id;
+  await setJobValue(e, tidA, 20000, "2026-05-01T00:00:00.000Z");
+  // June events for A: 3 inquiries (2 answered), 1 after-hours (Sat), 1 booking; 2 distinct leads.
+  insEv(e, { id: "a_i1", tenant: tidA, install: iidA, contact: "acon1", type: "inquiry_received", payload: { conversation_id: "a1" }, created_at: "2026-06-03T10:00:00.000Z" });
+  insEv(e, { id: "a_i2", tenant: tidA, install: iidA, contact: "acon2", type: "inquiry_received", payload: { conversation_id: "a2" }, created_at: "2026-06-03T11:00:00.000Z" });
+  insEv(e, { id: "a_i3", tenant: tidA, install: iidA, contact: "acon1", type: "inquiry_received", payload: { conversation_id: "a3" }, created_at: "2026-06-06T12:00:00.000Z" }); // Saturday
+  insEv(e, { id: "a_r1", tenant: tidA, install: iidA, type: "first_response_sent", payload: { conversation_id: "a1" }, created_at: "2026-06-03T10:01:00.000Z" }); // 60s
+  insEv(e, { id: "a_r2", tenant: tidA, install: iidA, type: "first_response_sent", payload: { conversation_id: "a2" }, created_at: "2026-06-03T11:02:00.000Z" }); // 120s
+  insEv(e, { id: "a_b1", tenant: tidA, install: iidA, contact: "acon1", type: "appointment_booked", payload: { conversation_id: "a1" }, created_at: "2026-06-07T15:00:00.000Z" });
+  insContact(e, { id: "acon1", tenant: tidA, install: iidA, name: "Ada Lovelace", email: "ada@atlas.test", phone: "+15550001", first_seen: "2026-06-03T10:00:00.000Z", status: "booked" });
+  insContact(e, { id: "acon2", tenant: tidA, install: iidA, name: "Bo Peep", email: "bo@atlas.test", first_seen: "2026-06-03T11:00:00.000Z", status: "new" });
+  // B has one unrelated inquiry, so a B session sees only B.
+  insEv(e, { id: "b_i1", tenant: tidB, install: B.install.id, contact: "bcon1", type: "inquiry_received", payload: { conversation_id: "b1" }, created_at: "2026-06-04T10:00:00.000Z" });
+
+  // Users: a growth user for A, a growth user for B, a workspace-only user for A's tenant, a no-tenant user.
+  insUser(e, { id: "u_A", email: "owner@atlas.test", tenant_id: tidA, product: "growth" });
+  insUser(e, { id: "u_B", email: "owner@brava.test", tenant_id: tidB, product: "growth" });
+  insUser(e, { id: "u_WS", email: "ws@atlas.test", tenant_id: tidA, product: "workspace" });
+  insUser(e, { id: "u_NONE", email: "none@x.test", tenant_id: null, product: "growth" });
+  const tokA = await sessionToken({ uid: "u_A", epoch: 1 });
+  const tokB = await sessionToken({ uid: "u_B", epoch: 1 });
+  const tokWS = await sessionToken({ uid: "u_WS", epoch: 1 });
+  const tokNONE = await sessionToken({ uid: "u_NONE", epoch: 1 });
+
+  // --- auth gates ---
+  c("/me no token → 401", (await meReq(e, "GET", "/me/summary")).status === 401);
+  c("/me forged/garbage token → 401", (await meReq(e, "GET", "/me/summary", "not.a.token")).status === 401);
+  c("/me wrong origin → 403 (app-origin allowlist)", (await call(e, "GET", "/me/summary", { origin: "https://evil.test", adminKey: tokA })).status === 403);
+  c("/me workspace-product user → 403 (not a growth client)", (await meReq(e, "GET", "/me/summary", tokWS)).status === 403);
+  c("/me no-tenant user → 403 onboarding", (await meReq(e, "GET", "/me/summary", tokNONE)).status === 403);
+
+  // --- summary (headline) matches the Receipt exactly (PART 4) ---
+  const sj = await (await meReq(e, "GET", "/me/summary?month=2026-06", tokA)).json();
+  c("summary: inquiries=3, answered=2, after-hours=1, leads=2, booked=1, value=$200", sj.headline.inquiries_received === 3 && sj.headline.inquiries_answered === 2 && sj.headline.after_hours_inquiries === 1 && sj.headline.leads_captured === 2 && sj.headline.appointments_booked === 1 && sj.headline.value_recovered_cents === 20000);
+  const rj = await (await meReq(e, "GET", "/me/receipt?month=2026-06", tokA)).json();
+  const rf = rj.receipt.metrics.figures;
+  c("current receipt (live) matches the headline exactly (same source)", rf.inquiries_received.count === sj.headline.inquiries_received && rf.appointments_booked.count === sj.headline.appointments_booked && rj.receipt.metrics.leads_captured.count === sj.headline.leads_captured && rj.receipt.metrics.value.value_recovered_cents === sj.headline.value_recovered_cents);
+  // and the GENERATED (admin) receipt for the same month agrees too — dashboard and Receipt never diverge
+  const genR = await (await call(e, "POST", `/admin/tenants/${tidA}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json();
+  const gf = genR.receipt.metrics.figures;
+  c("generated Receipt agrees with the dashboard headline", gf.inquiries_received.count === sj.headline.inquiries_received && genR.receipt.metrics.leads_captured.count === sj.headline.leads_captured && genR.receipt.metrics.value.value_recovered_cents === sj.headline.value_recovered_cents);
+  c("receipt renders as HTML for the client", (await meReq(e, "GET", "/me/receipt?month=2026-06&format=html", tokA)).headers.get("Content-Type").includes("text/html"));
+
+  // --- leads + bookings render from real captured data ---
+  const leads = await (await meReq(e, "GET", "/me/leads", tokA)).json();
+  c("recent leads render (name/email/status)", leads.contacts.length === 2 && leads.contacts.some(x => x.email === "ada@atlas.test" && x.status === "booked"));
+  const books = await (await meReq(e, "GET", "/me/bookings", tokA)).json();
+  c("recent bookings render (with contact)", books.count === 1 && books.bookings[0].email === "ada@atlas.test");
+
+  // --- past receipts list ---
+  const list = await (await meReq(e, "GET", "/me/receipts", tokA)).json();
+  c("past Receipts list, newest first (the generated June one)", list.receipts.length === 1 && list.receipts[0].id === genR.receipt.id);
+  c("a specific past Receipt is fetchable", (await (await meReq(e, "GET", "/me/receipts/" + genR.receipt.id, tokA)).json()).receipt.id === genR.receipt.id);
+
+  // --- install snippet ---
+  const inst = await (await meReq(e, "GET", "/me/install", tokA)).json();
+  c("install snippet contains the public key + data-key attr", inst.install.install_key === A.install.install_key && inst.snippet.includes('data-key="' + A.install.install_key + '"') && inst.snippet.includes("/w/widget.js"));
+
+  // --- config get + edit write-back reflected in the LIVE widget config ---
+  const cfg0 = await (await meReq(e, "GET", "/me/config", tokA)).json();
+  c("config get exposes voice/faq/business hours/scheduling/job value", cfg0.config.scheduling_url === "https://cal.example/atlas" && cfg0.config.job_value_cents === 20000 && cfg0.config.brand_name === "atlas Co");
+  const put = await meReq(e, "PUT", "/me/config", tokA, { voice: "warm and precise", brand_name: "Atlas Plumbing", scheduling_url: "https://cal.example/new", greeting: "Hey!", job_value_cents: 35000, faq: [{ q: "Emergency?", a: "24/7" }] });
+  const cfg1 = await put.json();
+  c("config PUT writes back (voice, name, scheduling, job value)", put.status === 200 && cfg1.config.voice === "warm and precise" && cfg1.config.brand_name === "Atlas Plumbing" && cfg1.config.scheduling_url === "https://cal.example/new" && cfg1.config.job_value_cents === 35000);
+  // the LIVE widget config endpoint (what the client's site loads) now reflects the change
+  const wc = await (await call(e, "GET", "/w/config", { origin: "https://atlas.com", key: A.install.install_key })).json();
+  c("live widget config reflects the edit (booking url + greeting)", wc.config.booking.url === "https://cal.example/new" && wc.config.greeting === "Hey!" && wc.brand.name === "Atlas Plumbing");
+  // job value change appended a new row (append-only ledger), so the guarantee number is never moved in place
+  c("job value edit appended a NEW job_values row (append-only)", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM job_values WHERE tenant_id=?").get(tidA).n === 2);
+
+  // --- tenant isolation: B's session sees only B; cannot reach A ---
+  const sB = await (await meReq(e, "GET", "/me/summary?month=2026-06", tokB)).json();
+  c("tenant B session sees only B's data (1 inquiry, not A's 3)", sB.headline.inquiries_received === 1);
+  const leadsB = await (await meReq(e, "GET", "/me/leads", tokB)).json();
+  c("tenant B cannot see A's leads (none of A's contacts)", !leadsB.contacts.some(x => x.email && x.email.endsWith("@atlas.test")));
+  const instB = await (await meReq(e, "GET", "/me/install", tokB)).json();
+  c("tenant B install is B's, never A's key", instB.install ? instB.install.install_key !== A.install.install_key : true);
+
+  // --- revocation: bump epoch → old token stops verifying here too ---
+  e.SYN_DB._db.prepare("UPDATE users SET session_epoch=2 WHERE id=?").run("u_A");
+  c("stale-epoch session (post logout/password change) → 401", (await meReq(e, "GET", "/me/summary", tokA)).status === 401);
+}
+
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);
 console.log(fail ? "ERRORS: PRESENT" : "ERRORS: NONE");
 if (fail) process.exitCode = 1;

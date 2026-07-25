@@ -143,6 +143,50 @@ function randBytes(n){ const a = new Uint8Array(n); crypto.getRandomValues(a); r
 function newId(prefix){ return prefix + "_" + b64url(randBytes(12)); }
 function genInstallKey(){ return INSTALL_KEY_PREFIX + b64url(randBytes(24)); }   // public, revocable identifier
 function nowIso(){ return new Date().toISOString(); }
+function nowSec(){ return Math.floor(Date.now() / 1000); }
+function b64urlToStr(s){ s = String(s).replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return atob(s); }
+// HMAC-SHA256 → base64url. Byte-identical to syn-core's signing, so a session token minted by syn-core
+// verifies here (the two Workers share the AUTH_SIGNING_KEY secret and the same D1 `users` table).
+async function hmacB64(payloadB64, key){
+  const k = await crypto.subtle.importKey("raw", _enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", k, _enc.encode(payloadB64));
+  return b64url(sig);
+}
+// Verify a syn-core SESSION token and resolve the user from the shared D1. The DB row is authority:
+// active status + matching session_epoch (so a logged-out/epoch-bumped token stops verifying here too).
+// Read-only — this Worker never writes the users table. Returns the user row or null.
+async function verifyMeSession(request, env){
+  const tok = bearer(request);
+  if (!tok || tok.indexOf(".") < 0) return null;
+  const key = env.AUTH_SIGNING_KEY || env.GATE_SIGNING_KEY || "";
+  if (!key) return null;
+  const [b, sig] = tok.split(".");
+  if (!b || !sig) return null;
+  let expected; try { expected = await hmacB64(b, key); } catch (_){ return null; }
+  if (!ctEqualBytes(_enc.encode(sig), _enc.encode(expected))) return null;   // constant-time
+  let p; try { p = JSON.parse(b64urlToStr(b)); } catch (_){ return null; }
+  if (!p || p.typ !== "sess" || typeof p.exp !== "number" || p.exp < nowSec() || !p.uid) return null;
+  let user; try { user = await env.SYN_DB.prepare("SELECT * FROM users WHERE id=?").bind(p.uid).first(); } catch (_){ return null; }
+  if (!user || user.status !== "active" || Number(user.session_epoch) !== Number(p.epoch)) return null;
+  return user;
+}
+// CORS for the SYN app origins (the dashboard runs inside the app). Explicit allowlist, never "*".
+const APP_ORIGINS = ["https://henryb08.github.io", "https://syn.syntrexio.com"];
+function corsForApp(origin){
+  return (origin && APP_ORIGINS.includes(origin)) ? {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, PUT, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Vary": "Origin",
+  } : {};
+}
+// Re-emit a Response from an existing per-tenant handler (which sets no CORS) with the app CORS headers.
+async function addCors(resp, cors){
+  const body = await resp.text();
+  const h = new Headers(resp.headers);
+  for (const k of Object.keys(cors || {})) h.set(k, cors[k]);
+  return new Response(body, { status: resp.status, headers: h });
+}
 
 /* ============================ HTTP helpers ============================ */
 function corsFor(origin){                            // reflect ONE allowed origin, never "*"
@@ -443,6 +487,122 @@ async function listBookings(env, tenantId, url){
       contact_status: r.status || null, booked_at: r.created_at, when };
   });
   return json({ tenant_id: tenantId, from, to, count: countRow ? countRow.n : 0, bookings });
+}
+
+/* ============================ client dashboard (/me/*) — session-scoped, read-mostly ============================
+ * The Growth client's own view of their results. Authenticated by a syn-core SESSION token (verifyMeSession),
+ * scoped to the session user's tenant_id — NEVER a tenant id from the request. Read handlers reuse the SAME
+ * per-tenant functions the admin API + the Receipt use (listContacts/listBookings/receiptsList/receiptGet and
+ * computeReceiptMetrics), so the dashboard and the Receipt can never disagree (same events, same totals). */
+function meMonthPeriod(url){
+  const m = url.searchParams.get("month");
+  if (m){ const p = monthPeriodFromStr(m); if (p) return p; }
+  const d = new Date();   // default: the current calendar month (UTC)
+  return monthPeriodFromStr(d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0"));
+}
+// Live metrics for a month — the EXACT function the Receipt generates from, so headline == Receipt.
+async function meLiveMetrics(env, tenantId, period){
+  const tenant = await env.SYN_DB.prepare("SELECT * FROM tenants WHERE id=?").bind(tenantId).first();
+  const bh = await businessHoursFor(env, tenant);
+  const jobValue = await jobValueInEffect(env, tenantId, period.period_end);
+  return computeReceiptMetrics(env, tenantId, period.period_start, period.period_end, period.label, bh, jobValue);
+}
+async function meSummary(env, tenantId, url, cors){
+  const period = meMonthPeriod(url);
+  const m = await meLiveMetrics(env, tenantId, period);
+  const f = m.figures;
+  return json({ period: m.period, headline: {
+    inquiries_received: f.inquiries_received.count,
+    inquiries_answered: f.inquiries_answered.count,
+    after_hours_inquiries: f.after_hours_inquiries.count,
+    leads_captured: m.leads_captured.count,
+    followups_sent: f.followups_sent.count,
+    appointments_booked: f.appointments_booked.count,
+    value_recovered_cents: m.value.value_recovered_cents,
+    value_configured: m.value.configured,
+  }, guarantee: m.guarantee }, 200, cors);
+}
+// The current month's Receipt, rendered LIVE from the same metrics (the month isn't closed/snapshotted
+// yet). Past, immutable Receipts come from /me/receipts (generated snapshots). ?format=html renders it.
+async function meReceiptCurrent(env, tenantId, url, cors){
+  const period = meMonthPeriod(url);
+  const m = await meLiveMetrics(env, tenantId, period);
+  const synthetic = { id: "live", metrics: m, job_value_cents: (m.value && m.value.job_value_cents) || null, generated_at: nowIso(), status: "live" };
+  if ((url.searchParams.get("format") || "") === "html"){
+    const tenant = await env.SYN_DB.prepare("SELECT * FROM tenants WHERE id=?").bind(tenantId).first();
+    const ins = await env.SYN_DB.prepare("SELECT brand_id FROM installs WHERE tenant_id=? ORDER BY created_at ASC LIMIT 1").bind(tenantId).first();
+    const brand = ins ? await env.SYN_DB.prepare("SELECT name FROM brands WHERE id=?").bind(ins.brand_id).first() : null;
+    const html = receiptHtml(synthetic, tenant, brand ? brand.name : null);
+    return new Response(html, { status: 200, headers: { ...cors, "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" } });
+  }
+  return json({ receipt: synthetic, live: true }, 200, cors);
+}
+async function primaryInstall(env, tenantId){
+  return env.SYN_DB.prepare("SELECT * FROM installs WHERE tenant_id=? AND status='active' ORDER BY created_at ASC LIMIT 1").bind(tenantId).first();
+}
+function widgetSnippet(env, key){
+  const base = env.WIDGET_BASE_URL || ("https://" + SERVICE + ".henrybello.workers.dev");
+  return '<script async src="' + base + '/w/widget.js" data-key="' + key + '"></script>';
+}
+// The client's own embed snippet + public install key (safe to re-show to the tenant owner: it's a
+// publishable, origin-locked, revocable key that already lives in their site's HTML).
+async function meInstall(env, tenantId, cors){
+  const ins = await primaryInstall(env, tenantId);
+  if (!ins) return json({ error: "no_install" }, 404, cors);
+  let origins = []; try { origins = JSON.parse(ins.allowed_origins || "[]"); } catch (_){ origins = []; }
+  return json({ install: { id: ins.id, install_key: ins.install_key, allowed_origins: origins, status: ins.status, created_at: ins.created_at },
+    snippet: widgetSnippet(env, ins.install_key) }, 200, cors);
+}
+// The brand brain the widget runs on: brand voice/name (brands.profile), FAQ/business-hours/greeting/
+// scheduling link (install.config), and the current job value (job_values). Editable — see meConfigPut.
+async function meConfigGet(env, tenantId, cors){
+  const ins = await primaryInstall(env, tenantId);
+  if (!ins) return json({ error: "no_install" }, 404, cors);
+  const brand = await env.SYN_DB.prepare("SELECT id,name,profile FROM brands WHERE id=?").bind(ins.brand_id).first();
+  let config = {}; try { config = JSON.parse(ins.config || "{}"); } catch (_){ config = {}; }
+  let profile = {}; try { profile = brand && brand.profile ? JSON.parse(brand.profile) : {}; } catch (_){ profile = {}; }
+  const jv = await jobValueInEffect(env, tenantId, nowIso());
+  return json({ config: {
+    brand_name: brand ? brand.name : null,
+    voice: profile.voice || "",
+    faq: Array.isArray(config.faq) ? config.faq : [],
+    business_hours: config.business_hours || null,
+    scheduling_url: (config.booking && config.booking.url) || "",
+    greeting: config.greeting || "",
+    job_value_cents: jv ? jv.average_job_value_cents : null,
+  } }, 200, cors);
+}
+async function meConfigPut(env, tenantId, body, cors){
+  if (!body || typeof body !== "object") return json({ error: "bad_json" }, 400, cors);
+  const ins = await primaryInstall(env, tenantId);
+  if (!ins) return json({ error: "no_install" }, 404, cors);
+  const brand = await env.SYN_DB.prepare("SELECT * FROM brands WHERE id=?").bind(ins.brand_id).first();
+  // brand voice + name → brands.profile / brands.name (tenant-guarded: brand belongs to this install).
+  if (brand){
+    let profile = {}; try { profile = brand.profile ? JSON.parse(brand.profile) : {}; } catch (_){ profile = {}; }
+    if (typeof body.voice === "string") profile.voice = body.voice;
+    const newName = (typeof body.brand_name === "string" && body.brand_name.trim()) ? body.brand_name.trim() : brand.name;
+    await env.SYN_DB.prepare("UPDATE brands SET name=?, profile=?, updated_at=? WHERE id=?").bind(newName, JSON.stringify(profile), nowIso(), brand.id).run();
+  }
+  // FAQ / business hours / greeting / scheduling link → install.config (what the live widget reads).
+  let config = {}; try { config = JSON.parse(ins.config || "{}"); } catch (_){ config = {}; }
+  if (body.faq !== undefined) config.faq = Array.isArray(body.faq) ? body.faq : [];
+  if (body.business_hours !== undefined) config.business_hours = body.business_hours;
+  if (body.greeting !== undefined) config.greeting = String(body.greeting || "");
+  if (body.scheduling_url !== undefined){
+    const u = String(body.scheduling_url || "").trim();
+    config.booking = Object.assign({}, config.booking, { url: u, enabled: !!u });
+  }
+  await env.SYN_DB.prepare("UPDATE installs SET config=? WHERE id=?").bind(JSON.stringify(config), ins.id).run();
+  // Job value → an append-only job_values row IF it changed (the guarantee's number is never moved in place).
+  if (body.job_value_cents !== undefined && Number.isInteger(body.job_value_cents) && body.job_value_cents >= 0){
+    const cur = await jobValueInEffect(env, tenantId, nowIso());
+    if (!cur || cur.average_job_value_cents !== body.job_value_cents){
+      await env.SYN_DB.prepare("INSERT INTO job_values (id,tenant_id,average_job_value_cents,effective_from,created_at,set_by,note) VALUES (?,?,?,?,?,?,?)")
+        .bind(newId("jbv"), tenantId, body.job_value_cents, nowIso(), nowIso(), "client", "dashboard edit").run();
+    }
+  }
+  return meConfigGet(env, tenantId, cors);   // echo the fresh, merged config
 }
 
 /* ============================ public (install-key) handlers ============================ */
@@ -2438,6 +2598,33 @@ export default {
       return json({ error: "not_found" }, 404, cors);
     }
 
+    // ---- client dashboard routes (/me/*): a syn-core SESSION token; scoped to the user's own tenant ----
+    if (seg[0] === "me"){
+      const acors = corsForApp(origin);
+      if (method === "OPTIONS") return new Response(null, { status: (origin && APP_ORIGINS.includes(origin)) ? 204 : 403, headers: acors });
+      if (!(origin && APP_ORIGINS.includes(origin))) return json({ error: "forbidden_origin" }, 403);
+      await ensureTables(env);
+      const user = await verifyMeSession(request, env);
+      if (!user) return json({ error: "unauthorized" }, 401, acors);
+      const tid = user.tenant_id;                       // ALWAYS the session's tenant — never from the request
+      if (!tid) return json({ error: "no_tenant", onboarding: true }, 403, acors);
+      const tenant = await env.SYN_DB.prepare("SELECT id, status FROM tenants WHERE id=?").bind(tid).first();
+      const growthEntitled = user.product === "growth" || user.product === "both";
+      if (!tenant || !growthEntitled) return json({ error: "not_a_growth_client" }, 403, acors);
+      const body = (method === "PUT" || method === "POST") ? await readJson(request) : null;
+
+      if (seg[1] === "summary"  && seg.length === 2 && method === "GET") return meSummary(env, tid, url, acors);
+      if (seg[1] === "receipt"  && seg.length === 2 && method === "GET") return meReceiptCurrent(env, tid, url, acors);
+      if (seg[1] === "receipts" && seg.length === 2 && method === "GET") return addCors(await receiptsList(env, tid, url), acors);
+      if (seg[1] === "receipts" && seg.length === 3 && method === "GET") return addCors(await receiptGet(env, tid, seg[2], url), acors);
+      if (seg[1] === "leads"    && seg.length === 2 && method === "GET") return addCors(await listContacts(env, tid, url), acors);
+      if (seg[1] === "bookings" && seg.length === 2 && method === "GET") return addCors(await listBookings(env, tid, url), acors);
+      if (seg[1] === "install"  && seg.length === 2 && method === "GET") return meInstall(env, tid, acors);
+      if (seg[1] === "config"   && seg.length === 2 && method === "GET") return meConfigGet(env, tid, acors);
+      if (seg[1] === "config"   && seg.length === 2 && method === "PUT") return meConfigPut(env, tid, body, acors);
+      return json({ error: "not_found" }, 404, acors);
+    }
+
     // ---- admin routes (/admin/*): admin secret required; fail closed if unset ----
     if (seg[0] === "admin"){
       if (method === "OPTIONS") return new Response(null, { status: 204 });
@@ -2488,4 +2675,4 @@ export default {
 };
 
 // Exported for tests/seed (harmless in the Worker runtime).
-export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM, scheduleFollowups, cancelFollowups, sendFollowupEmail, runDueFollowups, followupIdentity, FOLLOWUP_DEFAULT_STEPS_HOURS, bookingConfig, wBook, generateReceipt, generateMonthlyReceipts, computeReceiptMetrics, jobValueInEffect, businessHoursFor, isAfterHours, prevMonthPeriod, monthPeriodFromStr, receiptHtml, RECEIPTS_CRON, RECEIPT_SCHEMA_VERSION };
+export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM, scheduleFollowups, cancelFollowups, sendFollowupEmail, runDueFollowups, followupIdentity, FOLLOWUP_DEFAULT_STEPS_HOURS, bookingConfig, wBook, generateReceipt, generateMonthlyReceipts, computeReceiptMetrics, jobValueInEffect, businessHoursFor, isAfterHours, prevMonthPeriod, monthPeriodFromStr, receiptHtml, RECEIPTS_CRON, RECEIPT_SCHEMA_VERSION, verifyMeSession, meSummary, meLiveMetrics, meConfigGet, meConfigPut, meInstall, widgetSnippet, corsForApp, APP_ORIGINS };

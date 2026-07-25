@@ -96,8 +96,19 @@ as-is.
   are all-access). A successful `/gate` login **seeds/repairs the real admin account**
   from `GATE_EMAIL`/`GATE_PASSWORD` so retiring the gate never locks the operator out.
   Private-beta signup is gated by `SIGNUP_MODE` (`invite` default | `open`). Covered by
-  `worker/syn-core.test.mjs`. **The client JS is NOT yet migrated** — the app still uses
-  the gate; the `gate*`→`auth*` wiring is documented in AUTH.md as the follow-up.
+  `worker/syn-core.test.mjs`. **The client login IS now wired to real auth** (cloud sign-in posts to
+  `/auth/login`, stores the session token, routes by `product`; the gate is a fallback) — see the
+  Growth-dashboard bullet below and `worker/DASHBOARD.md`.
+- **✅ GROWTH CLIENT DASHBOARD — the first surface on real auth (`worker/DASHBOARD.md`).** A Growth
+  client signs in at the app and lands on a self-contained **`#growth`** scene instead of the Workspace,
+  routed by the explicit **`users.product`** field (`workspace`|`growth`|`both`). It reads its own tenant
+  data from **syn-growth `/me/*`** (session-scoped, tenant-isolated: `summary`/`receipt`/`receipts`/
+  `leads`/`bookings`/`install`/`config`), authorized by the syn-core session token — syn-growth verifies
+  it with the **shared `AUTH_SIGNING_KEY`** against the shared `users` table. Headline numbers reuse
+  `computeReceiptMetrics`, so the dashboard and the Receipt never disagree. Config edits (voice/FAQ/hours/
+  scheduling/job value) write back and the live widget reflects them. Client: `SYN_GROWTH_URL` +
+  `growthGet/Put` + `renderGrowth` in `js/01-boot-auth.js`, scene markup in `index.html`, styles in
+  `css/03-app.css`. Covered by `worker/syn-growth.test.mjs` (`/me/*`) + `tests/growth-dashboard.mjs`.
 - **Secrets:** live **only** in each Worker's environment as Wrangler secrets
   (e.g. `ANTHROPIC_API_KEY` via `npx wrangler secret put`). **No secret value
   appears in this repo or in the browser.** Deploy steps are in
@@ -118,12 +129,13 @@ Every tracked file in the repo:
 | `worker/syn-core.js` | **Source of truth for the syn-core Worker** — D1-backed KV (`/kv/`), Anthropic proxy (`/v1/messages`), the legacy access gate (`/gate`), and **REAL AUTH** (`/auth/*`: accounts, sessions, tenant-scoped KV — see `worker/AUTH.md`). Deploy this file | changing the KV surface, the AI proxy, the gate, or the auth system |
 | `worker/syn-core.test.mjs` | Unit suite for syn-core auth + gate + KV tenant-scoping (node:sqlite D1 shim). Run `node worker/syn-core.test.mjs` | any change to syn-core auth/KV/gate |
 | `worker/AUTH.md` | The real-auth design: algorithm, flows, endpoints, tenant scoping, seeded admin, invite flag, security + weaknesses | changing any auth behavior or onboarding a deployer to auth |
+| `worker/DASHBOARD.md` | The Growth client dashboard: product routing, syn-growth `/me/*` (session-scoped), the `#growth` scene, config write-back, consistency with the Receipt | changing the dashboard, the `/me/*` API, or product routing |
 | `worker/syn-assistant.js` | Cloudflare Worker for the marketing assistant; system prompt baked in, proxies Anthropic | changing what the marketing assistant knows or how it's proxied |
 | `worker/wrangler.toml` | Wrangler config for syn-assistant | changing the Worker name / compat date |
 | `worker/README.md` | Deploy + wiring for syn-assistant, plus the origin-allowlist patch for syn-core | onboarding a deployer; changing an endpoint or the CORS allowlist |
 | `CNAME` | Custom-domain pointer for GitHub Pages (`syn.syntrexio.com`) — **not committed yet; add it only at the DNS cutover** (committing it flips Pages to the domain immediately) | the DNS cutover, or changing the custom domain |
 | `robots.txt` / `sitemap.xml` | Crawler directives + one-URL sitemap, both keyed to `https://syn.syntrexio.com` | changing the public domain or adding crawlable routes |
-| `tests/*.mjs` | 11 Playwright suites (see [§7](#7-testing)) | any behavior change — add/adjust a suite |
+| `tests/*.mjs` | Playwright suites (see [§7](#7-testing)) | any behavior change — add/adjust a suite |
 | `img/shot-tasks.webp` | One marketing screenshot asset (38 KB) | swapping that marketing image |
 | `docs/luminous-identity.md` | Historical identity/design note | design-history reference only |
 | `docs/syntrexio-identity-spec.md` | Syntrex brand/identity spec | brand-voice reference only |
@@ -350,6 +362,7 @@ prints `CHECKS: N passed, M failed` and `ERRORS: NONE/PRESENT`.
 | `chat-visibility.mjs` | Chat visibility is owner-only; re-keying never orphans a record |
 | `cost-control.mjs` | Manual actions cost 0 API calls; per-user daily caps trip & reset; capped user keeps all non-AI features; cost meter + overrides |
 | `cross-feature.mjs` | Cross-feature integration: task+due→calendar, complete→auto-activity, follow-ups→My Day, dependency→notify, AI items respect privacy |
+| `growth-dashboard.mjs` | Real-auth login (cloud, no gate) → a `product='growth'` user lands on the `#growth` scene (never the Workspace); headline/receipt/leads/bookings/past-Receipts render from mocked `/me/*`; snippet copy; config edit PUTs back; session token on every `/me` call |
 | `guide-access.mjs` | In-app Guide: signed-out inaccessible, signed-in renders, search, deep links, checklist linkage, admin gating |
 | `identity-persistence.mjs` | Identity + cloud persistence; a failed cloud read never silently falls back to empty localStorage |
 | `ops-layer.mjs` | Operations layer: escalation thresholds, cross-user dependency notifications |

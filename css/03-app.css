@@ -1166,3 +1166,77 @@ button,.chat-item,.md-row,.ops-row,.search-item,.team-row,.notif-item,.asset-row
 .si-ico svg{width:14px;height:14px;display:block;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .storage-pill,.guard-chip{white-space:nowrap;font-size:10px;letter-spacing:.08em}
 
+
+/* ===================== GROWTH CLIENT DASHBOARD (#growth scene) =====================
+   Self-contained top-level scene for a Growth client. Dark monochrome, hairlines over shadows,
+   dense + legible. Uses the shared tokens; no chromatic color (functional good/bad only). */
+.growthscene{display:none}
+.growthscene.on{display:block;min-height:100vh;background:var(--bg);color:var(--text);overflow-y:auto}
+.gv-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 24px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--hairline)}
+.gv-brandmark{display:flex;align-items:center;gap:10px}
+.gv-wordmark{font-size:14px;letter-spacing:.02em;color:var(--text-2)}
+.gv-wordmark b{color:var(--text);font-weight:600}
+.gv-topright{display:flex;align-items:center;gap:14px}
+.gv-who{font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.gv-wrap{max-width:1080px;margin:0 auto;padding:28px 24px 64px}
+.gv-body{display:flex;flex-direction:column;gap:26px}
+.gv-loading,.gv-empty{color:var(--text-3);font-size:13px;padding:14px 0}
+.gv-err{color:var(--text-2);font-size:13px;padding:20px 0}
+.gv-section{display:flex;flex-direction:column;gap:14px}
+.gv-grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.gv-h{display:flex;align-items:baseline;gap:12px}
+.gv-h h2{font-size:20px;font-weight:600;letter-spacing:-0.02em;margin:0}
+.gv-h h3{font-size:14px;font-weight:600;letter-spacing:.01em;margin:0}
+.gv-sub{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-4)}
+.gv-micro{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-4)}
+/* headline strip */
+.gv-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.gv-stat{border:1px solid var(--hairline);border-radius:var(--r-md);padding:16px 14px;background:var(--surface-1)}
+.gv-stat-n{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:var(--text)}
+.gv-stat-l{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-top:6px}
+.gv-stat-s{font-size:10px;color:var(--text-4);margin-top:2px}
+/* cards */
+.gv-card{border:1px solid var(--hairline);border-radius:var(--r-md);background:var(--surface-1);padding:18px}
+.gv-receipt{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.gv-receipt.is-good{border-left:2px solid var(--good)}
+.gv-receipt.is-warn{border-left:2px solid var(--amber)}
+.gv-verdict{font-size:15px;font-weight:600;margin-top:6px;color:var(--text)}
+.gv-formula{font-size:12px;color:var(--text-3);margin-top:4px;font-variant-numeric:tabular-nums}
+/* tables */
+.gv-table{width:100%;border-collapse:collapse;font-size:13px}
+.gv-table th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-4);font-weight:500;padding:0 8px 8px}
+.gv-table td{padding:9px 8px;border-top:1px solid var(--hairline);vertical-align:middle}
+.gv-dim{color:var(--text-3);font-variant-numeric:tabular-nums}
+.gv-tag{display:inline-block;font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:var(--r-full);border:1px solid var(--hairline-strong);color:var(--text-2)}
+.gv-tag.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+.gv-tag.warn{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 40%,transparent)}
+.gv-link{background:none;border:none;color:var(--text-2);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
+.gv-link:hover{color:var(--text)}
+/* code / snippet */
+.gv-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.5;color:var(--text-2);
+  background:var(--surface-0);border:1px solid var(--hairline);border-radius:var(--r-sm);padding:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:0 0 12px}
+/* config form */
+.gv-field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.gv-field>span{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3)}
+.gv-field input,.gv-field textarea{width:100%;background:var(--surface-0);border:1px solid var(--hairline-strong);border-radius:var(--r-input);
+  color:var(--text);font:inherit;font-size:13px;padding:8px 10px;resize:vertical}
+.gv-field input:focus,.gv-field textarea:focus{outline:none;border-color:var(--text-3)}
+.gv-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.gv-actions{display:flex;align-items:center;gap:12px;margin-top:2px}
+.gv-saved{font-size:12px;color:var(--good)}
+/* buttons */
+.gv-btn{font:inherit;font-size:12.5px;font-weight:500;padding:8px 14px;border-radius:var(--r-btn);cursor:pointer;
+  background:var(--btn);color:var(--btn-ink);border:1px solid var(--btn)}
+.gv-btn:hover{background:var(--btn-hover)}
+.gv-btn.ghost{background:transparent;color:var(--text-2);border:1px solid var(--hairline-strong)}
+.gv-btn.ghost:hover{color:var(--text);border-color:var(--text-3)}
+.gv-btn.primary{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+.gv-btn.primary:hover{background:var(--gold-hover)}
+@media (max-width:860px){
+  .gv-strip{grid-template-columns:repeat(2,1fr)}
+  .gv-grid2{grid-template-columns:1fr}
+  .gv-row{grid-template-columns:1fr}
+  .gv-wrap{padding:20px 16px 48px}
+}
