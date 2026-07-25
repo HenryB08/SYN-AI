@@ -84,7 +84,7 @@ A deployment of the widget for one brand. Holds the public key.
 | `brand_id` | TEXT FK→brands | |
 | `install_key` | TEXT | **UNIQUE, public** (`syn_pk_live_…`) — returned once at create |
 | `allowed_origins` | TEXT (JSON array) | CORS allowlist |
-| `config` | TEXT (JSON) | widget display config |
+| `config` | TEXT (JSON) | widget display config (greeting/accent/position, and `config.booking` = `{enabled?, url(https), mode:"link"\|"embed"}` — see BOOKING.md) |
 | `status` | TEXT | `active` \| `revoked` |
 | `created_at` / `revoked_at` | TEXT | |
 
@@ -264,6 +264,7 @@ POST   /admin/installs/:id/revoke
 POST   /admin/tenants/:id/job-value       → inserts a new job_values row
 GET    /admin/tenants/:id/events          → paginated (?limit=&cursor=)
 GET    /admin/tenants/:id/contacts        → paginated, newest first, with conversation_count
+GET    /admin/tenants/:id/bookings        → appointment_booked over a range (?from=&to=): contact + time; count (see BOOKING.md)
 GET    /admin/tenants/:id/contacts/:cid/export   → everything held about one contact (data-access)
 POST   /admin/tenants/:id/contacts/:cid/withdraw → manual consent withdrawal (source admin)
 POST   /admin/tenants/:id/contacts/:cid/delete   → erase contact/convos/messages; keep anonymized events + consent
@@ -294,6 +295,7 @@ POST   /w/events          → write an event, honors idempotency_key
 POST   /w/contacts        → upsert a contact, dedupes on email / phone per tenant
 POST   /w/messages        → brand-governed AI turn (see WIDGET.md § Brand-governed AI)
 POST   /w/capture         → explicit capture form: contact + (checkbox-gated) SMS consent
+POST   /w/book            → record a booking: capture/link contact, appointment_booked, cancel follow-ups
 ```
 
 **Public legal pages (no key/origin auth — opened from a link, expose only public info):**

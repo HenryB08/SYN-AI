@@ -78,6 +78,16 @@
     // Privacy policy link: the client's own URL if they set one, else the SYN-hosted per-brand notice.
     function safeUrl(u) { return (typeof u === "string" && /^https?:\/\//i.test(u.trim())) ? u.trim() : null; }
     var privacyUrl = safeUrl(conf.privacy_policy_url) || (base + "/w/privacy" + q);
+    // Booking: offered only when the client set a valid https scheduling URL (their own Cal.com,
+    // Calendly, etc.). mode "link" (default) opens it in a new tab; "embed" renders it inline. Read from
+    // the same public config blob as everything else.
+    var booking = (function () {
+      var b = conf && conf.booking;
+      if (!b || typeof b !== "object" || b.enabled === false) return null;
+      var u = safeUrl(b.url);
+      if (!u || !/^https:\/\//i.test(u)) return null;
+      return { url: u, mode: b.mode === "embed" ? "embed" : "link" };
+    })();
     // The exact consent + disclosure language shown to the visitor — sent to the server so the audit
     // records WHAT they agreed to, not just that they did.
     var consentSentence = "I agree to receive follow-up messages, including texts, from " + brandName + " about my inquiry. Message and data rates may apply.";
@@ -169,6 +179,28 @@
       ".capform .cf-err{ color: #c0392b; font-size: 12px; margin-bottom: 8px; }",
       ".capform .cf-disclosure{ font-size: 12px; color: #555; margin-bottom: 10px; }",
       ".capform .cf-disclosure a, .capform .cf-consent a{ color: #333; }",
+      // persistent booking affordance + inline booking card
+      ".bookbar{ flex: 0 0 auto; display: flex; padding: 8px 12px; border-top: 1px solid rgba(0,0,0,.06); background: #fff; }",
+      ".bookbar .book-open{ flex: 1 1 auto; border: 1px solid rgba(0,0,0,.15); background: transparent; border-radius: 8px;",
+      "  padding: 8px 12px; cursor: pointer; font: inherit; font-weight: 600; color: #1a1a1a; }",
+      ".bookbar .book-open:hover{ background: rgba(0,0,0,.04); }",
+      ".bookcard{ border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fff; }",
+      ".bookcard .bc-title{ font-weight: 600; font-size: 13px; margin-bottom: 6px; }",
+      ".bookcard .bc-copy{ font-size: 12px; color: #555; margin-bottom: 10px; }",
+      ".bookcard .bc-go{ display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box;",
+      "  border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer; font: inherit; font-weight: 600;",
+      "  text-decoration: none; background: " + accent + "; color: " + ink + "; margin-bottom: 10px; }",
+      ".bookcard .bc-embed{ width: 100%; height: 420px; border: 1px solid rgba(0,0,0,.1); border-radius: 8px;",
+      "  margin-bottom: 10px; background: #fff; }",
+      ".bookcard input{ width: 100%; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); border-radius: 8px;",
+      "  padding: 8px 10px; font: inherit; margin-bottom: 8px; color: #1a1a1a; background: #fff; }",
+      ".bookcard .bc-err{ color: #c0392b; font-size: 12px; margin-bottom: 8px; }",
+      ".bookcard .bc-actions{ display: flex; gap: 8px; }",
+      ".bookcard .bc-confirm{ flex: 1 1 auto; border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer;",
+      "  font: inherit; font-weight: 600; background: " + accent + "; color: " + ink + "; }",
+      ".bookcard .bc-confirm:disabled{ opacity: .5; cursor: default; }",
+      ".bookcard .bc-skip{ flex: 0 0 auto; border: 1px solid rgba(0,0,0,.15); background: transparent;",
+      "  border-radius: 8px; padding: 9px 12px; cursor: pointer; font: inherit; color: #555; }",
       ".privline{ flex: 0 0 auto; font-size: 11px; color: #8a8a8a; text-align: center; padding: 6px 12px 10px; background: #fff; }",
       ".privline a{ color: #6a6a6a; }",
       // mobile: full-screen panel below 480px
@@ -238,6 +270,20 @@
     panel.appendChild(msgs);
     panel.appendChild(composer);
 
+    // Persistent, low-key booking affordance — present whenever the client has a scheduling link, so a
+    // visitor who already knows they want to book doesn't have to negotiate a conversation first.
+    if (booking) {
+      var bookbar = document.createElement("div");
+      bookbar.className = "bookbar";
+      var bookOpen = document.createElement("button");
+      bookOpen.className = "book-open";
+      bookOpen.type = "button";
+      bookOpen.textContent = "Book a time";
+      bookbar.appendChild(bookOpen);
+      panel.appendChild(bookbar);
+      bookOpen.addEventListener("click", function () { startBooking(); });
+    }
+
     // Persistent, unintrusive privacy disclosure — visible while chatting, so it's present before any
     // detail is captured in normal conversation, with a link to the full policy.
     var privline = document.createElement("div");
@@ -270,6 +316,8 @@
     var sending = false;
     var captured = false;   // once we have this visitor's details, stop offering the form
     var formEl = null;      // the inline capture form, when shown (at most one)
+    var booked = false;     // once a booking is recorded, stop offering it
+    var bookEl = null;      // the inline booking card, when shown (at most one)
 
     function addBubble(kind, txt) {
       var b = document.createElement("div");
@@ -319,6 +367,7 @@
         else addBubble("bot", failCopy("error"));
         if (b.captured) captured = true;                 // detection already stored details this turn
         if (b.offer_form) renderCaptureForm();           // assistant offered to connect — show the form
+        if (b.offer_booking) renderBookingPrompt();      // assistant invited booking — surface the action
       }).catch(function () {
         if (typing.parentNode) typing.parentNode.removeChild(typing);
         addBubble("bot", failCopy("error"));
@@ -377,6 +426,72 @@
         }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
           if (okr) { captured = true; remove(); addBubble("bot", "Thanks! Someone from our team will be in touch soon."); }
           else { submit.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through. Please try again."; err.style.display = "block"; }
+        });
+      });
+    }
+
+    // ---- booking ----
+    // startBooking(): entry from the persistent "Book a time" button. Link mode opens the client's
+    // scheduler immediately (a visitor who tapped the button wants it) and shows the confirm card;
+    // embed mode renders the scheduler inline in the card, so they never leave the panel.
+    function startBooking() {
+      if (!booking) return;
+      if (booking.mode !== "embed") openScheduler();
+      renderBookingCard();
+    }
+    // renderBookingPrompt(): the conversational-moment card (the model invited booking). It does NOT
+    // auto-open the scheduler — the visitor chooses — but is otherwise the same card.
+    function renderBookingPrompt() { renderBookingCard(); }
+    function openScheduler() {
+      if (!booking) return;
+      try { window.open(booking.url, "_blank", "noopener,noreferrer"); } catch (e) {}
+    }
+    function renderBookingCard() {
+      if (booked || bookEl || !booking) return;   // one at a time; never after a booking is recorded
+      var f = document.createElement("div");
+      f.className = "bookcard";
+      var title = document.createElement("div"); title.className = "bc-title"; title.textContent = "Book a time";
+      var copy = document.createElement("div"); copy.className = "bc-copy";
+      copy.textContent = "Pick a time that works for you. Once you've booked, let us know so we can confirm your details.";
+      f.appendChild(title); f.appendChild(copy);
+      if (booking.mode === "embed") {
+        var frame = document.createElement("iframe");
+        frame.className = "bc-embed";
+        frame.setAttribute("src", booking.url);
+        frame.setAttribute("title", "Booking");
+        frame.setAttribute("loading", "lazy");
+        frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups");
+        f.appendChild(frame);
+      } else {
+        var go = document.createElement("a");
+        go.className = "bc-go";
+        go.href = booking.url; go.target = "_blank"; go.rel = "noopener noreferrer";
+        go.textContent = "Open the scheduler";
+        f.appendChild(go);
+      }
+      // Optional contact confirmation so we can link the booking to their record. Providing it here does
+      // NOT grant SMS consent — the server upserts with consent off and writes no consent record.
+      var email = document.createElement("input"); email.type = "email"; email.placeholder = "Email (so we can confirm)"; email.setAttribute("aria-label", "Email");
+      var phone = document.createElement("input"); phone.type = "tel"; phone.placeholder = "Phone (optional)"; phone.setAttribute("aria-label", "Phone");
+      var err = document.createElement("div"); err.className = "bc-err"; err.style.display = "none";
+      var actions = document.createElement("div"); actions.className = "bc-actions";
+      var confirm = document.createElement("button"); confirm.type = "button"; confirm.className = "bc-confirm"; confirm.textContent = "I booked a time";
+      var skip = document.createElement("button"); skip.type = "button"; skip.className = "bc-skip"; skip.textContent = "Not now";
+      actions.appendChild(confirm); actions.appendChild(skip);
+      f.appendChild(email); f.appendChild(phone); f.appendChild(err); f.appendChild(actions);
+      msgs.appendChild(f); msgs.scrollTop = msgs.scrollHeight;
+      bookEl = f;
+      function remove() { if (f.parentNode) f.parentNode.removeChild(f); if (bookEl === f) bookEl = null; }
+      skip.addEventListener("click", remove);
+      confirm.addEventListener("click", function () {
+        err.style.display = "none"; confirm.disabled = true; skip.disabled = true;
+        fetch(base + "/w/book" + q, {
+          method: "POST", mode: "cors", credentials: "omit",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: convId, email: email.value.trim() || null, phone: phone.value.trim() || null })
+        }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
+          if (okr) { booked = true; if (email.value.trim() || phone.value.trim()) captured = true; remove(); addBubble("bot", "You're all set — we've got your appointment. Talk soon!"); }
+          else { confirm.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through. Please try again."; err.style.display = "block"; }
         });
       });
     }

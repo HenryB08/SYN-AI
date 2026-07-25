@@ -1075,6 +1075,118 @@ const DEFCFG = { from_email: "hello@mail.acmeco.test", reply_to: "owner@acmeco.t
   c("guardrail: the block is logged", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM error_events WHERE source='followup' AND kind='banned_claim_blocked'").get().n === 1);
 }
 
+// ======================================================================================
+// ===== BOOKING (Prompt 21): link-mode booking, the booking moment, capture/consent, admin =====
+// ======================================================================================
+const book = (e, install, origin, body) => call(e, "POST", "/w/book", { origin, key: install.install_key, body });
+async function seedBooking(e, origin, bookingCfg, extra){
+  const slug = "bk" + (++seedN);
+  const t = (await (await call(e, "POST", "/admin/tenants", { adminKey: ADMIN, body: { name: "Bk " + slug, slug } })).json()).tenant;
+  const b = (await (await call(e, "POST", `/admin/tenants/${t.id}/brands`, { adminKey: ADMIN, body: { name: "Acme Co", profile: PROFILE } })).json()).brand;
+  const config = Object.assign({}, extra || {}, bookingCfg ? { booking: bookingCfg } : {});
+  const ins = (await (await call(e, "POST", `/admin/tenants/${t.id}/installs`, { adminKey: ADMIN, body: { brand_id: b.id, allowed_origins: [origin], config } })).json()).install;
+  return { tenant: t, install: ins };
+}
+
+// bookingConfig: only a valid https url arms booking; mode + disable flags respected
+{
+  const mk = (cfg) => ({ config: JSON.stringify(cfg) });
+  const link = worker0.bookingConfig(mk({ booking: { url: "https://cal.com/acme" } }));
+  c("bookingConfig: valid https url → link mode by default", !!link && link.mode === "link" && link.url === "https://cal.com/acme");
+  c("bookingConfig: embed mode honored", worker0.bookingConfig(mk({ booking: { url: "https://cal.com/acme", mode: "embed" } })).mode === "embed");
+  c("bookingConfig: non-https url refused", worker0.bookingConfig(mk({ booking: { url: "http://cal.com/acme" } })) === null);
+  c("bookingConfig: enabled:false disables booking", worker0.bookingConfig(mk({ booking: { url: "https://cal.com/acme", enabled: false } })) === null);
+  c("bookingConfig: no url / no booking → null", worker0.bookingConfig(mk({ booking: {} })) === null && worker0.bookingConfig(mk({})) === null);
+}
+
+// the booking moment: system prompt gains a BOOKING section + offer_booking fires; suppresses offer_form
+{
+  const e = aiEnv("Happy to help — you can pick a time that works for you.");
+  const { install } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" });
+  const r = await msg(e, install, "https://c.com", { text: "Can I book an appointment?" });
+  const j = await r.json();
+  const sys = e.calls[0].body.system[0].text;
+  c("booking moment: system prompt gains a BOOKING section when a scheduler is configured", sys.includes("BOOKING: We offer online scheduling") && sys.includes("Book a time"));
+  c("booking moment: offer_booking set on a booking-intent turn", j.offer_booking === true);
+  c("booking moment: offer_form suppressed while booking is offered", j.offer_form === false);
+}
+// without a scheduling link there is no BOOKING section and offer_booking stays false
+{
+  const e = aiEnv("Sure, I can help with that.");
+  const { install } = await seedProfiled(e, "https://c.com", PROFILE);
+  const r = await msg(e, install, "https://c.com", { text: "Can I book an appointment?" });
+  const j = await r.json();
+  const sys = e.calls[0].body.system[0].text;
+  c("booking moment: no BOOKING section without a scheduling link", !sys.includes("BOOKING: We offer online scheduling"));
+  c("booking moment: offer_booking false when booking isn't configured", j.offer_booking === false);
+}
+
+// direct booking without a conversation: the persistent affordance works with zero chat
+{
+  const e = env();
+  const { install, tenant } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" });
+  const r = await book(e, install, "https://c.com", { email: "direct@ex.com" });
+  const jb = await r.json();
+  c("booking direct: /w/book with no conversation creates + links a contact", r.status === 201 && jb.booked === true && /^con_/.test(jb.contact_id));
+  const ev = e.SYN_DB._db.prepare("SELECT tenant_id, contact_id FROM events WHERE type='appointment_booked'").all();
+  c("booking direct: exactly one appointment_booked, tenant-scoped + contact-linked", ev.length === 1 && ev[0].tenant_id === tenant.id && ev[0].contact_id === jb.contact_id);
+}
+
+// booking captures/links via dedupe AND cancels the contact's pending follow-ups (engagement)
+{
+  const e = fuEnv();
+  const { install, tenant } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" }, { followup: DEFCFG });
+  const cid = (await (await cap(e, install, "https://c.com", { email: "booker@ex.com" })).json()).contact_id;
+  c("booking cancel: follow-ups armed before the booking", fups(e, cid).filter(r => r.status === "pending").length === 3);
+  const jb = await (await book(e, install, "https://c.com", { email: "booker@ex.com" })).json();
+  c("booking cancel: /w/book dedupes to the SAME contact (no duplicate record)", jb.booked === true && jb.contact_id === cid && jb.deduped === true);
+  c("booking cancel: booking cancels every pending follow-up", fups(e, cid).every(r => r.status === "cancelled"));
+  c("booking cancel: appointment_booked written for the linked contact + tenant", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE type='appointment_booked' AND contact_id=? AND tenant_id=?").get(cid, tenant.id).n === 1);
+}
+
+// consent is UNCHANGED by booking: a booked contact keeps consent_sms=0 and gets no consent_events
+{
+  const e = env();
+  const { install } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" });
+  const jb = await (await book(e, install, "https://c.com", { email: "noconsent@ex.com", phone: "(555) 222-3333" })).json();
+  const contact = e.SYN_DB._db.prepare("SELECT consent_sms FROM contacts WHERE id=?").get(jb.contact_id);
+  c("booking consent: booked contact has consent_sms=0 (booking never grants SMS consent)", contact.consent_sms === 0);
+  c("booking consent: booking writes NO consent_events (Prompt 17 rules intact)", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM consent_events WHERE contact_id=?").get(jb.contact_id).n === 0);
+}
+
+// double-confirm in one conversation is idempotent (the Receipt must not double-count)
+{
+  const e = aiEnv("ok");
+  const { install } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" });
+  const convId = (await (await msg(e, install, "https://c.com", { text: "hi" })).json()).conversation_id;
+  await book(e, install, "https://c.com", { conversation_id: convId, email: "idem@ex.com" });
+  await book(e, install, "https://c.com", { conversation_id: convId, email: "idem@ex.com" });
+  c("booking idempotent: two confirms in one conversation write exactly one appointment_booked", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE install_id=? AND type='appointment_booked'").get(install.id).n === 1);
+}
+
+// admin: appointment_booked is queryable per tenant AND date range (the Receipt's source), tenant-scoped
+{
+  const e = env();
+  const A = await seedBooking(e, "https://a.com", { url: "https://cal.com/a" });
+  const B = await seedBooking(e, "https://b.com", { url: "https://cal.com/b" });
+  const jaB = await (await book(e, A.install, "https://a.com", { email: "a1@ex.com", when: "2026-08-01T15:00:00Z" })).json();
+  await book(e, B.install, "https://b.com", { email: "b1@ex.com" });
+  const list = await (await call(e, "GET", `/admin/tenants/${A.tenant.id}/bookings`, { adminKey: ADMIN })).json();
+  c("booking admin: lists tenant A's booking with linked contact + known time", list.count === 1 && list.bookings.length === 1 && list.bookings[0].email === "a1@ex.com" && list.bookings[0].contact_id === jaB.contact_id && list.bookings[0].when === "2026-08-01T15:00:00Z");
+  c("booking admin: strictly tenant-scoped (B's booking absent from A's list)", !JSON.stringify(list.bookings).includes("b1@ex.com"));
+  const past = await (await call(e, "GET", `/admin/tenants/${A.tenant.id}/bookings?from=2020-01-01&to=2020-12-31`, { adminKey: ADMIN })).json();
+  c("booking admin: date-range filter excludes out-of-window bookings", past.count === 0 && past.bookings.length === 0);
+  const unauth = await call(e, "GET", `/admin/tenants/${A.tenant.id}/bookings`, { adminKey: A.install.install_key });
+  c("booking admin: requires the admin secret (install key → 401)", unauth.status === 401);
+}
+
+// the embedded widget exposes the booking affordance + posts to /w/book
+{
+  c("booking widget: WIDGET_JS surfaces a 'Book a time' affordance", worker0.WIDGET_JS.includes("Book a time") && worker0.WIDGET_JS.includes("book-open"));
+  c("booking widget: WIDGET_JS confirms a booking via POST /w/book", worker0.WIDGET_JS.includes("/w/book"));
+  c("booking widget: WIDGET_JS reads booking from config + supports link and embed modes", worker0.WIDGET_JS.includes("conf.booking") && worker0.WIDGET_JS.includes('mode === "embed"'));
+}
+
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);
 console.log(fail ? "ERRORS: PRESENT" : "ERRORS: NONE");
 if (fail) process.exitCode = 1;

@@ -415,6 +415,32 @@ async function listContacts(env, tenantId, url){
   const next = hasMore ? (page[page.length - 1].first_seen + "|" + page[page.length - 1].id) : null;
   return json({ contacts: page, next_cursor: next });
 }
+// GET /admin/tenants/:id/bookings — appointment_booked events for ONE tenant, newest first, filterable
+// by ?from=/?to= (date range, inclusive; date-only bounds expand to the whole day). Each row carries the
+// linked contact (name/email/phone/status) and any known time. `count` is the true total over the range
+// (independent of the row limit). The Receipt counts appointment_booked; this is the per-tenant,
+// per-range query behind it. Strictly tenant-scoped (WHERE e.tenant_id=?).
+async function listBookings(env, tenantId, url){
+  const t = await env.SYN_DB.prepare("SELECT id FROM tenants WHERE id=?").bind(tenantId).first();
+  if (!t) return json({ error: "tenant_not_found" }, 404);
+  const from = normBound(url.searchParams.get("from"), false), to = normBound(url.searchParams.get("to"), true);
+  const limit = Math.min(EVENTS_PAGE_MAX, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
+  const where = ["e.tenant_id=?", "e.type='appointment_booked'"], args = [tenantId];
+  if (from){ where.push("e.created_at >= ?"); args.push(from); }
+  if (to){ where.push("e.created_at <= ?"); args.push(to); }
+  const w = where.join(" AND ");
+  const countRow = await env.SYN_DB.prepare("SELECT COUNT(*) AS n FROM events e WHERE " + w).bind(...args).first();
+  const rows = (await env.SYN_DB.prepare(
+    "SELECT e.id, e.contact_id, e.payload, e.created_at, c.name, c.email, c.phone, c.status FROM events e LEFT JOIN contacts c ON c.id = e.contact_id WHERE " + w + " ORDER BY e.created_at DESC, e.id DESC LIMIT ?")
+    .bind(...args, limit).all()).results || [];
+  const bookings = rows.map(r => {
+    let when = null;
+    try { const p = r.payload ? JSON.parse(r.payload) : null; when = p && p.when ? p.when : null; } catch (_){ when = null; }
+    return { id: r.id, contact_id: r.contact_id, name: r.name || null, email: r.email || null, phone: r.phone || null,
+      contact_status: r.status || null, booked_at: r.created_at, when };
+  });
+  return json({ tenant_id: tenantId, from, to, count: countRow ? countRow.n : 0, bookings });
+}
 
 /* ============================ public (install-key) handlers ============================ */
 async function wConfig(env, install){
@@ -510,7 +536,7 @@ function asList(v){ return Array.isArray(v) ? v.filter(x => typeof x === "string
 // Build the system prompt from the brand profile, in the Worker, at request time. This is where the
 // brand's voice / claims / guardrails stop being a schema and start being enforced as instruction.
 // Visitor text NEVER enters this string — it only ever rides in user-role message content.
-function buildSystemPrompt(brandName, profile){
+function buildSystemPrompt(brandName, profile, opts){
   profile = profile || {};
   const name = (brandName || "our business").trim() || "our business";
   const voice = typeof profile.voice === "string" ? profile.voice.trim() : "";
@@ -539,6 +565,7 @@ function buildSystemPrompt(brandName, profile){
   if (commitments.length) S.push("You may make these specific commitments on our behalf when appropriate: " + commitments.join("; ") + ". Make no other binding commitment.");
   else S.push("COMMITMENTS: Do not make commitments on our behalf — no confirming or scheduling appointments, no promising discounts, refunds, warranties, timelines, or availability. Offer to connect the visitor with our team to arrange anything concrete.");
   if (escalation.length) S.push("ESCALATE — offer to connect the visitor with a person and take their contact details when:\n" + escalation.map(c => "- " + c).join("\n"));
+  if (opts && opts.booking) S.push("BOOKING: We offer online scheduling. When the visitor wants an appointment, a quote, an estimate, a callback, or a specific time — or your escalation rules call for connecting them with us — invite them to book and let them know they can tap the \"Book a time\" button to choose a slot. Do NOT invent, promise, or confirm specific available times yourself; the scheduler owns the real availability.");
   S.push("WHEN YOU DON'T KNOW: If the answer is not in your approved answers or the information above, do NOT guess or invent details. Say plainly that you don't have that information, and offer to take the visitor's name and best contact (email or phone) so our team can follow up.");
   S.push("WHEN THE VISITOR SHARES CONTACT DETAILS (a name, email, or phone): thank them warmly, confirm that someone from our team will follow up, and continue naturally. Do NOT ask again for details they already gave, and do NOT go silent.");
   S.push("STYLE: Keep replies short and conversational — usually 1 to 3 sentences. Be warm and helpful.");
@@ -659,6 +686,20 @@ async function attachContact(env, install, conversationId, contactId){
     type: "inquiry_received", payload: { conversation_id: conversationId }, idempotency_key: "inq_" + conversationId });
 }
 
+// Booking availability for an install, read from its public config blob. Booking is offered only when
+// the client has set a valid https scheduling URL (their own Cal.com / Calendly / etc.). mode "link"
+// (default) opens that scheduler in a new tab; mode "embed" renders it inline in the panel. Returns
+// null (booking off) unless a usable https url is present, or when config.booking.enabled === false.
+function bookingConfig(install){
+  let cfg = {};
+  try { cfg = JSON.parse(install.config || "{}"); } catch (_){ cfg = {}; }
+  const b = (cfg && cfg.booking) || {};
+  if (b.enabled === false) return null;
+  const url = (typeof b.url === "string" && /^https:\/\/\S+$/i.test(b.url.trim())) ? b.url.trim() : null;
+  if (!url) return null;
+  return { url, mode: b.mode === "embed" ? "embed" : "link" };
+}
+
 async function wMessages(env, install, body, cors){
   let text = body && typeof body.text === "string" ? body.text.trim() : "";
   if (!text) return json({ error: "empty_message" }, 400, cors);
@@ -725,7 +766,8 @@ async function wMessages(env, install, body, cors){
   const brand = await env.SYN_DB.prepare("SELECT name, profile FROM brands WHERE id=?").bind(install.brand_id).first();
   let profile = {};
   try { profile = brand && brand.profile ? JSON.parse(brand.profile) : {}; } catch (_){ profile = {}; }
-  const system = buildSystemPrompt(brand ? brand.name : null, profile);
+  const booking = bookingConfig(install);
+  const system = buildSystemPrompt(brand ? brand.name : null, profile, { booking: !!booking });
 
   // History: last HISTORY_WINDOW turns, mapped to Anthropic roles. Visitor text stays in user content.
   const rows = (await env.SYN_DB.prepare("SELECT role, body FROM messages WHERE conversation_id=? ORDER BY created_at ASC, id ASC").bind(convId).all()).results || [];
@@ -776,9 +818,18 @@ async function wMessages(env, install, body, cors){
   // to connect the visitor (guardrail safe-offer always; otherwise a heuristic phrase match on the
   // reply). It's opt-in UI — a false positive just shows a form nobody has to fill in. Suppressed once
   // we already have contact details for this conversation.
-  const offerForm = !conv.contact_id && (blocked || /connect you with (?:our|the) team|leave your (?:name|details|contact)|share your (?:name|details|contact)|your (?:name and|name, ).{0,40}(?:email|phone)|best (?:email or phone|way to reach)/i.test(reply));
+  let offerForm = !conv.contact_id && (blocked || /connect you with (?:our|the) team|leave your (?:name|details|contact)|share your (?:name|details|contact)|your (?:name and|name, ).{0,40}(?:email|phone)|best (?:email or phone|way to reach)/i.test(reply));
 
-  return json({ conversation_id: convId, reply, blocked, captured, offer_form: offerForm }, 200, cors);
+  // Booking moment: surface the "Book a time" action when booking is configured AND either the visitor
+  // asked for one or the assistant's reply invited it. When booking is surfaced we suppress the capture
+  // form, so the visitor sees one clear action instead of two competing cards.
+  const offerBooking = !!booking && !blocked && (
+    /\b(book|appointment|schedul\w*|reschedul\w*|quote|estimate|callback|call back|call me|availab\w*|time slot|openings?)\b/i.test(text) ||
+    /book a time|schedule (?:a|an|your)|set up a time|pick a time|find a time|grab a time|book (?:an )?appointment/i.test(reply)
+  );
+  if (offerBooking) offerForm = false;
+
+  return json({ conversation_id: convId, reply, blocked, captured, offer_form: offerForm, offer_booking: offerBooking }, 200, cors);
 }
 
 // CAPTURE (path 3): the explicit form. A deliberate act, which is what makes consent clean. ONLY this
@@ -819,6 +870,43 @@ async function wCapture(env, install, body, cors, ctx){
     if (up.contact_id) await scheduleFollowups(env, install, up.contact_id, fcfg, fbrand ? fbrand.name : null);
   } catch (_){ /* scheduling is best-effort; never fail a capture on it */ }
   return json({ ok: true, contact_id: up.contact_id, deduped: up.deduped, consent_sms: !!consent }, up.deduped ? 200 : 201, cors);
+}
+
+// POST /w/book — a visitor booked (or is confirming a booking) through the client's scheduler. Booking
+// is a strong signal, so: capture/confirm the contact via the existing dedupe path, link it to the
+// conversation (+ backfill its events), write an append-only appointment_booked event (idempotent per
+// conversation, so a double-confirm counts once), and STOP any pending follow-up sequence (booking is
+// engagement, wired into the same cancellation path as a reply). Booking NEVER grants SMS consent — the
+// contact is upserted with consent_sms=0 and no consent_event is written, so Prompt 17's rules stand.
+async function wBook(env, install, body, cors, ctx){
+  const convId = body && body.conversation_id ? String(body.conversation_id) : null;
+  const when = (body && typeof body.when === "string" && body.when.trim()) ? body.when.trim().slice(0, 120) : null;
+  // 1. Capture/confirm the contact when details are supplied — dedupe path, no consent granted here.
+  let contactId = null, deduped = false;
+  if (body && (body.email || body.phone || body.name)){
+    const up = await upsertContact(env, install, {
+      name: body.name, email: body.email, phone: body.phone,
+      source: "chat", consent_sms: 0, meta: { via: "booking" },
+    });
+    if (up.error) return json({ error: up.error }, up.status || 400, cors);
+    contactId = up.contact_id; deduped = up.deduped;
+  }
+  // 2. Fall back to the conversation's existing contact (e.g. captured earlier this chat).
+  let conv = null;
+  if (convId){
+    conv = await env.SYN_DB.prepare("SELECT id, contact_id FROM conversations WHERE id=? AND install_id=?").bind(convId, install.id).first();
+    if (conv && !contactId && conv.contact_id) contactId = conv.contact_id;
+  }
+  // 3. Link the contact to the conversation (+ backfill its events) when we have both.
+  if (contactId && conv) await attachContact(env, install, convId, contactId);
+  // 4. Booking is engagement — stop any pending follow-up sequence for this contact.
+  if (contactId){ try { await cancelFollowups(env, contactId, "booked"); } catch (_){} }
+  // 5. Append-only appointment_booked (the Receipt counts these). Idempotent per conversation.
+  const booking = bookingConfig(install);
+  await insertEvent(env, { tenant_id: install.tenant_id, install_id: install.id, contact_id: contactId,
+    type: "appointment_booked", payload: { conversation_id: convId, when, mode: booking ? booking.mode : "link" },
+    idempotency_key: convId ? "apt_" + convId : null });
+  return json({ ok: true, contact_id: contactId, deduped, booked: true }, 201, cors);
 }
 
 /* ============================ compliance & consent ============================ */
@@ -1434,6 +1522,16 @@ const WIDGET_JS = String.raw`(function () {
     // Privacy policy link: the client's own URL if they set one, else the SYN-hosted per-brand notice.
     function safeUrl(u) { return (typeof u === "string" && /^https?:\/\//i.test(u.trim())) ? u.trim() : null; }
     var privacyUrl = safeUrl(conf.privacy_policy_url) || (base + "/w/privacy" + q);
+    // Booking: offered only when the client set a valid https scheduling URL (their own Cal.com,
+    // Calendly, etc.). mode "link" (default) opens it in a new tab; "embed" renders it inline. Read from
+    // the same public config blob as everything else.
+    var booking = (function () {
+      var b = conf && conf.booking;
+      if (!b || typeof b !== "object" || b.enabled === false) return null;
+      var u = safeUrl(b.url);
+      if (!u || !/^https:\/\//i.test(u)) return null;
+      return { url: u, mode: b.mode === "embed" ? "embed" : "link" };
+    })();
     // The exact consent + disclosure language shown to the visitor — sent to the server so the audit
     // records WHAT they agreed to, not just that they did.
     var consentSentence = "I agree to receive follow-up messages, including texts, from " + brandName + " about my inquiry. Message and data rates may apply.";
@@ -1525,6 +1623,28 @@ const WIDGET_JS = String.raw`(function () {
       ".capform .cf-err{ color: #c0392b; font-size: 12px; margin-bottom: 8px; }",
       ".capform .cf-disclosure{ font-size: 12px; color: #555; margin-bottom: 10px; }",
       ".capform .cf-disclosure a, .capform .cf-consent a{ color: #333; }",
+      // persistent booking affordance + inline booking card
+      ".bookbar{ flex: 0 0 auto; display: flex; padding: 8px 12px; border-top: 1px solid rgba(0,0,0,.06); background: #fff; }",
+      ".bookbar .book-open{ flex: 1 1 auto; border: 1px solid rgba(0,0,0,.15); background: transparent; border-radius: 8px;",
+      "  padding: 8px 12px; cursor: pointer; font: inherit; font-weight: 600; color: #1a1a1a; }",
+      ".bookbar .book-open:hover{ background: rgba(0,0,0,.04); }",
+      ".bookcard{ border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fff; }",
+      ".bookcard .bc-title{ font-weight: 600; font-size: 13px; margin-bottom: 6px; }",
+      ".bookcard .bc-copy{ font-size: 12px; color: #555; margin-bottom: 10px; }",
+      ".bookcard .bc-go{ display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box;",
+      "  border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer; font: inherit; font-weight: 600;",
+      "  text-decoration: none; background: " + accent + "; color: " + ink + "; margin-bottom: 10px; }",
+      ".bookcard .bc-embed{ width: 100%; height: 420px; border: 1px solid rgba(0,0,0,.1); border-radius: 8px;",
+      "  margin-bottom: 10px; background: #fff; }",
+      ".bookcard input{ width: 100%; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); border-radius: 8px;",
+      "  padding: 8px 10px; font: inherit; margin-bottom: 8px; color: #1a1a1a; background: #fff; }",
+      ".bookcard .bc-err{ color: #c0392b; font-size: 12px; margin-bottom: 8px; }",
+      ".bookcard .bc-actions{ display: flex; gap: 8px; }",
+      ".bookcard .bc-confirm{ flex: 1 1 auto; border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer;",
+      "  font: inherit; font-weight: 600; background: " + accent + "; color: " + ink + "; }",
+      ".bookcard .bc-confirm:disabled{ opacity: .5; cursor: default; }",
+      ".bookcard .bc-skip{ flex: 0 0 auto; border: 1px solid rgba(0,0,0,.15); background: transparent;",
+      "  border-radius: 8px; padding: 9px 12px; cursor: pointer; font: inherit; color: #555; }",
       ".privline{ flex: 0 0 auto; font-size: 11px; color: #8a8a8a; text-align: center; padding: 6px 12px 10px; background: #fff; }",
       ".privline a{ color: #6a6a6a; }",
       // mobile: full-screen panel below 480px
@@ -1594,6 +1714,20 @@ const WIDGET_JS = String.raw`(function () {
     panel.appendChild(msgs);
     panel.appendChild(composer);
 
+    // Persistent, low-key booking affordance — present whenever the client has a scheduling link, so a
+    // visitor who already knows they want to book doesn't have to negotiate a conversation first.
+    if (booking) {
+      var bookbar = document.createElement("div");
+      bookbar.className = "bookbar";
+      var bookOpen = document.createElement("button");
+      bookOpen.className = "book-open";
+      bookOpen.type = "button";
+      bookOpen.textContent = "Book a time";
+      bookbar.appendChild(bookOpen);
+      panel.appendChild(bookbar);
+      bookOpen.addEventListener("click", function () { startBooking(); });
+    }
+
     // Persistent, unintrusive privacy disclosure — visible while chatting, so it's present before any
     // detail is captured in normal conversation, with a link to the full policy.
     var privline = document.createElement("div");
@@ -1626,6 +1760,8 @@ const WIDGET_JS = String.raw`(function () {
     var sending = false;
     var captured = false;   // once we have this visitor's details, stop offering the form
     var formEl = null;      // the inline capture form, when shown (at most one)
+    var booked = false;     // once a booking is recorded, stop offering it
+    var bookEl = null;      // the inline booking card, when shown (at most one)
 
     function addBubble(kind, txt) {
       var b = document.createElement("div");
@@ -1675,6 +1811,7 @@ const WIDGET_JS = String.raw`(function () {
         else addBubble("bot", failCopy("error"));
         if (b.captured) captured = true;                 // detection already stored details this turn
         if (b.offer_form) renderCaptureForm();           // assistant offered to connect — show the form
+        if (b.offer_booking) renderBookingPrompt();      // assistant invited booking — surface the action
       }).catch(function () {
         if (typing.parentNode) typing.parentNode.removeChild(typing);
         addBubble("bot", failCopy("error"));
@@ -1733,6 +1870,72 @@ const WIDGET_JS = String.raw`(function () {
         }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
           if (okr) { captured = true; remove(); addBubble("bot", "Thanks! Someone from our team will be in touch soon."); }
           else { submit.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through. Please try again."; err.style.display = "block"; }
+        });
+      });
+    }
+
+    // ---- booking ----
+    // startBooking(): entry from the persistent "Book a time" button. Link mode opens the client's
+    // scheduler immediately (a visitor who tapped the button wants it) and shows the confirm card;
+    // embed mode renders the scheduler inline in the card, so they never leave the panel.
+    function startBooking() {
+      if (!booking) return;
+      if (booking.mode !== "embed") openScheduler();
+      renderBookingCard();
+    }
+    // renderBookingPrompt(): the conversational-moment card (the model invited booking). It does NOT
+    // auto-open the scheduler — the visitor chooses — but is otherwise the same card.
+    function renderBookingPrompt() { renderBookingCard(); }
+    function openScheduler() {
+      if (!booking) return;
+      try { window.open(booking.url, "_blank", "noopener,noreferrer"); } catch (e) {}
+    }
+    function renderBookingCard() {
+      if (booked || bookEl || !booking) return;   // one at a time; never after a booking is recorded
+      var f = document.createElement("div");
+      f.className = "bookcard";
+      var title = document.createElement("div"); title.className = "bc-title"; title.textContent = "Book a time";
+      var copy = document.createElement("div"); copy.className = "bc-copy";
+      copy.textContent = "Pick a time that works for you. Once you've booked, let us know so we can confirm your details.";
+      f.appendChild(title); f.appendChild(copy);
+      if (booking.mode === "embed") {
+        var frame = document.createElement("iframe");
+        frame.className = "bc-embed";
+        frame.setAttribute("src", booking.url);
+        frame.setAttribute("title", "Booking");
+        frame.setAttribute("loading", "lazy");
+        frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups");
+        f.appendChild(frame);
+      } else {
+        var go = document.createElement("a");
+        go.className = "bc-go";
+        go.href = booking.url; go.target = "_blank"; go.rel = "noopener noreferrer";
+        go.textContent = "Open the scheduler";
+        f.appendChild(go);
+      }
+      // Optional contact confirmation so we can link the booking to their record. Providing it here does
+      // NOT grant SMS consent — the server upserts with consent off and writes no consent record.
+      var email = document.createElement("input"); email.type = "email"; email.placeholder = "Email (so we can confirm)"; email.setAttribute("aria-label", "Email");
+      var phone = document.createElement("input"); phone.type = "tel"; phone.placeholder = "Phone (optional)"; phone.setAttribute("aria-label", "Phone");
+      var err = document.createElement("div"); err.className = "bc-err"; err.style.display = "none";
+      var actions = document.createElement("div"); actions.className = "bc-actions";
+      var confirm = document.createElement("button"); confirm.type = "button"; confirm.className = "bc-confirm"; confirm.textContent = "I booked a time";
+      var skip = document.createElement("button"); skip.type = "button"; skip.className = "bc-skip"; skip.textContent = "Not now";
+      actions.appendChild(confirm); actions.appendChild(skip);
+      f.appendChild(email); f.appendChild(phone); f.appendChild(err); f.appendChild(actions);
+      msgs.appendChild(f); msgs.scrollTop = msgs.scrollHeight;
+      bookEl = f;
+      function remove() { if (f.parentNode) f.parentNode.removeChild(f); if (bookEl === f) bookEl = null; }
+      skip.addEventListener("click", remove);
+      confirm.addEventListener("click", function () {
+        err.style.display = "none"; confirm.disabled = true; skip.disabled = true;
+        fetch(base + "/w/book" + q, {
+          method: "POST", mode: "cors", credentials: "omit",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: convId, email: email.value.trim() || null, phone: phone.value.trim() || null })
+        }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
+          if (okr) { booked = true; if (email.value.trim() || phone.value.trim()) captured = true; remove(); addBubble("bot", "You're all set — we've got your appointment. Talk soon!"); }
+          else { confirm.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through. Please try again."; err.style.display = "block"; }
         });
       });
     }
@@ -1864,6 +2067,8 @@ export default {
         return wMessages(env, install, b, cors); }
       if (seg[1] === "capture" && method === "POST"){ const b = await readJson(request); if (!b) return json({ error: "bad_json" }, 400, cors);
         return wCapture(env, install, b, cors, ctx); }
+      if (seg[1] === "book" && method === "POST"){ const b = await readJson(request); if (!b) return json({ error: "bad_json" }, 400, cors);
+        return wBook(env, install, b, cors, ctx); }
       return json({ error: "not_found" }, 404, cors);
     }
 
@@ -1883,6 +2088,7 @@ export default {
       if (seg[1] === "tenants" && seg[3] === "job-value" && method === "POST") return addJobValue(env, seg[2], body || {});
       if (seg[1] === "tenants" && seg[3] === "events" && method === "GET") return listEvents(env, seg[2], url);
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg.length === 4 && method === "GET") return listContacts(env, seg[2], url);
+      if (seg[1] === "tenants" && seg[3] === "bookings" && seg.length === 4 && method === "GET") return listBookings(env, seg[2], url);
       // consent + data rights (contact under a tenant): /admin/tenants/:id/contacts/:cid/(export|withdraw|delete)
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "export" && method === "GET") return exportContact(env, seg[2], seg[4]);
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg[5] === "withdraw" && method === "POST") return adminWithdraw(env, seg[2], seg[4], body || {}, ctx);
@@ -1910,4 +2116,4 @@ export default {
 };
 
 // Exported for tests/seed (harmless in the Worker runtime).
-export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM, scheduleFollowups, cancelFollowups, sendFollowupEmail, runDueFollowups, followupIdentity, FOLLOWUP_DEFAULT_STEPS_HOURS };
+export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM, scheduleFollowups, cancelFollowups, sendFollowupEmail, runDueFollowups, followupIdentity, FOLLOWUP_DEFAULT_STEPS_HOURS, bookingConfig, wBook };
