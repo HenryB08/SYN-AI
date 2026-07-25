@@ -267,9 +267,12 @@ GET    /admin/tenants/:id/usage           → one tenant's cost over a range (?f
 GET    /admin/usage                       → portfolio spend across all tenants (?from=&to=), per-tenant breakdown
 GET    /admin/errors                      → recent errors, newest first (?tenant=&kind=&limit=)
 GET    /admin/health-summary              → last 24h: messages, cost, error count by kind, noisy installs (?since=&threshold=)
+GET    /admin/backup                      → streamed, self-describing JSON snapshot of every growth table (disaster recovery)
+POST   /admin/restore                     → rebuild all tables from a snapshot; confirm-token + schema-version gated, atomic, per-table verified
 ```
 Observability details (cost model, error taxonomy, the morning-check endpoint, the Slack/email push
-path) are in **`worker/OBSERVABILITY.md`**.
+path) are in **`worker/OBSERVABILITY.md`**. Backup/restore (the snapshot format, the tested restore
+drill, Cloudflare Time-Travel assessment, and the incident runbook) are in **`worker/BACKUP.md`**.
 
 Compliance/consent details are in **`worker/COMPLIANCE.md`** (audit trail, opt-out, data rights, and
 the legal judgments flagged for review). The append-only `consent_events` table records every consent

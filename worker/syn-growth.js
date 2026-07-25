@@ -64,6 +64,25 @@ const PRICE_FALLBACK = { input: 1.00, output: 5.00 };
 // health-summary flags any install throwing MORE than this many errors in the window (overridable per call).
 const DEFAULT_NOISY_INSTALL_THRESHOLD = 10;
 
+// ---- backup / restore (disaster recovery) ----
+// Snapshot schema version. BUMP THIS whenever the growth schema changes (a new table/column), so a
+// restore of an old snapshot into new code is REFUSED rather than silently loading a mismatched shape.
+const SCHEMA_VERSION = 1;
+const BACKUP_FORMAT = "syn-growth-backup";
+// Every growth table, in parent → child order (used for restore inserts; reversed for deletes). This is
+// the WHOLE backup surface. It deliberately EXCLUDES `kv` (syn-core's workspace blobs, backed up
+// separately) and `growth_rl` (ephemeral rate-limit state, not data worth restoring).
+const BACKUP_TABLES = [
+  "tenants", "brands", "installs", "contacts", "conversations", "messages", "events",
+  "followups", "job_values", "receipts", "consent_events", "usage_events", "error_events",
+];
+const BACKUP_PAGE = 500;                 // rows read per page on export, so a big DB never buys the whole table into memory
+// The restore is destructive (wipe + reload), so it will not run without this exact confirmation token.
+const RESTORE_CONFIRM = "RESTORE-SYN-GROWTH";
+// Column-name guard: a snapshot is admin-supplied, so restore only ever interpolates column names that
+// match this (identifiers, never values — values are always bound). Anything else → refuse.
+const SAFE_IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 // Append-only event vocabulary the Receipt reads from. Define once, here.
 const EVENT_TYPES = [
   "inquiry_received", "first_response_sent", "followup_scheduled", "followup_sent",
@@ -1015,6 +1034,125 @@ async function healthSummary(env, url){
     errors_total: errorsTotal, errors_by_kind: byKind, noisy_installs: noisy });
 }
 
+/* ============================ backup / restore (disaster recovery) ============================ */
+// GET /admin/backup — a complete, portable, self-describing snapshot of every growth table as JSON,
+// STREAMED (paged per table) so a large database never has to be held in the Worker's memory at once.
+// Shape: { format, schema_version, created_at, counts:{table:n}, tables:{ table:[rows…] } }.
+// The header (format/version/created_at/counts) comes first so a restore can validate before loading.
+async function backupExport(env){
+  await ensureTables(env);
+  // Row counts up front — cheap, and they make the snapshot self-describing + restore-validatable.
+  const counts = {};
+  for (const t of BACKUP_TABLES){
+    const r = await env.SYN_DB.prepare("SELECT COUNT(*) AS n FROM " + t).first();
+    counts[t] = r ? r.n : 0;
+  }
+  const enc = new TextEncoder();
+  const DB = env.SYN_DB;
+  const stream = new ReadableStream({
+    async start(controller){
+      const push = (s) => controller.enqueue(enc.encode(s));
+      try {
+        push('{\n"format":' + JSON.stringify(BACKUP_FORMAT) +
+          ',\n"schema_version":' + SCHEMA_VERSION +
+          ',\n"created_at":' + JSON.stringify(nowIso()) +
+          ',\n"counts":' + JSON.stringify(counts) +
+          ',\n"tables":{');
+        for (let ti = 0; ti < BACKUP_TABLES.length; ti++){
+          const t = BACKUP_TABLES[ti];
+          push((ti ? ',' : '') + '\n' + JSON.stringify(t) + ':[');
+          // Keyset paging by rowid: stable INSERTION order (so append-only tables round-trip identically)
+          // and bounded memory (one page at a time). rowid is emitted only to page; never stored.
+          let lastRid = -1, first = true;
+          for (;;){
+            const rows = (await DB.prepare("SELECT rowid AS _rid, * FROM " + t + " WHERE rowid > ? ORDER BY rowid LIMIT ?").bind(lastRid, BACKUP_PAGE).all()).results || [];
+            if (!rows.length) break;
+            for (const row of rows){
+              lastRid = row._rid; delete row._rid;
+              push((first ? '' : ',') + '\n' + JSON.stringify(row));
+              first = false;
+            }
+            if (rows.length < BACKUP_PAGE) break;
+          }
+          push('\n]');
+        }
+        push('\n}\n}\n');
+        controller.close();
+      } catch (e){
+        try { await logError(env, { source: "backup", kind: "export_failed", detail: String((e && e.message) || e).slice(0, 200) }); } catch (_){}
+        controller.error(e);
+      }
+    },
+  });
+  return new Response(stream, { status: 200, headers: {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Content-Disposition": 'attachment; filename="syn-growth-backup.json"',
+  }});
+}
+
+// POST /admin/restore — rebuild every growth table from a snapshot. DESTRUCTIVE (wipe + reload), so it
+// is deliberately careful: it refuses without the confirm token, refuses on a schema-version mismatch,
+// refuses a snapshot whose own counts disagree with its rows, restores in ONE atomic D1 batch, and
+// reports rows-expected vs rows-written per table — failing loudly (500) if any disagree.
+// Body: { confirm: "<RESTORE_CONFIRM>", snapshot: { …backupExport output… } }.
+async function backupRestore(env, body){
+  // 1. confirmation token — cannot fire by accident.
+  if (!body || body.confirm !== RESTORE_CONFIRM){
+    return json({ error: "confirmation_required", hint: "pass confirm:\"" + RESTORE_CONFIRM + "\" to authorize a destructive restore" }, 400);
+  }
+  const snap = body.snapshot;
+  // 2. shape + version validation — refuse rather than corrupt.
+  if (!snap || typeof snap !== "object" || snap.format !== BACKUP_FORMAT) return json({ error: "not_a_syn_growth_backup" }, 400);
+  if (snap.schema_version !== SCHEMA_VERSION) return json({ error: "schema_version_mismatch", expected: SCHEMA_VERSION, got: snap.schema_version ?? null }, 409);
+  const tables = snap.tables, counts = snap.counts || {};
+  if (!tables || typeof tables !== "object") return json({ error: "missing_tables" }, 400);
+  for (const t of BACKUP_TABLES){
+    if (!Array.isArray(tables[t])) return json({ error: "missing_table", table: t }, 400);
+    // internal consistency: the snapshot's declared count must match the rows it actually carries.
+    if (counts[t] != null && counts[t] !== tables[t].length){
+      return json({ error: "corrupt_snapshot", table: t, declared: counts[t], actual: tables[t].length }, 400);
+    }
+    // identifier safety: only ever interpolate real column names (values are always bound).
+    for (const row of tables[t]){
+      if (!row || typeof row !== "object" || Array.isArray(row)) return json({ error: "bad_row", table: t }, 400);
+      for (const col of Object.keys(row)) if (!SAFE_IDENT.test(col)) return json({ error: "unsafe_column", table: t, column: col }, 400);
+    }
+  }
+  await ensureTables(env);
+  // 3. build ONE batch: wipe every table (children → parents), then reload (parents → children). D1 runs
+  // a batch as a single atomic transaction, so a mid-restore failure rolls back — no half-rebuilt DB.
+  const stmts = [];
+  for (const t of [...BACKUP_TABLES].reverse()) stmts.push(env.SYN_DB.prepare("DELETE FROM " + t));
+  for (const t of BACKUP_TABLES){
+    for (const row of tables[t]){
+      const cols = Object.keys(row);
+      if (!cols.length) continue;
+      const sql = "INSERT INTO " + t + " (" + cols.join(",") + ") VALUES (" + cols.map(() => "?").join(",") + ")";
+      stmts.push(env.SYN_DB.prepare(sql).bind(...cols.map(c => row[c])));
+    }
+  }
+  try {
+    await env.SYN_DB.batch(stmts);
+  } catch (e){
+    try { await logError(env, { source: "backup", kind: "restore_failed", detail: String((e && e.message) || e).slice(0, 200) }); } catch (_){}
+    return json({ error: "restore_failed", detail: String((e && e.message) || e).slice(0, 200) }, 500);
+  }
+  // 4. verify per table: rows written must equal rows expected. Fail loudly on any disagreement.
+  const report = [];
+  let allOk = true;
+  for (const t of BACKUP_TABLES){
+    const expected = tables[t].length;
+    const r = await env.SYN_DB.prepare("SELECT COUNT(*) AS n FROM " + t).first();
+    const written = r ? r.n : 0;
+    const ok = written === expected;
+    if (!ok) allOk = false;
+    report.push({ table: t, expected, written, ok });
+  }
+  return json({ ok: allOk, schema_version: SCHEMA_VERSION, restored_at: nowIso(), tables: report },
+    allOk ? 200 : 500);
+}
+
 /* ============================ widget shell (served at /w/widget.js) ============================ */
 // The client-side widget, embedded verbatim so this Worker stays a single self-contained module
 // (dashboard-paste friendly, no imports/bundler). It is byte-identical to worker/widget.js — that
@@ -1553,6 +1691,9 @@ export default {
       if (seg[1] === "errors" && seg.length === 2 && method === "GET") return listErrors(env, url);
       if (seg[1] === "health-summary" && seg.length === 2 && method === "GET") return healthSummary(env, url);
       if (seg[1] === "tenants" && seg[3] === "usage" && seg.length === 4 && method === "GET") return tenantUsage(env, seg[2], url);
+      // disaster recovery — full-database snapshot + tested restore (admin-only, whole-DB scope)
+      if (seg[1] === "backup" && seg.length === 2 && method === "GET") return backupExport(env);
+      if (seg[1] === "restore" && seg.length === 2 && method === "POST") return backupRestore(env, body || {});
       return json({ error: "not_found" }, 404);
     }
 
@@ -1567,4 +1708,4 @@ export default {
 };
 
 // Exported for tests/seed (harmless in the Worker runtime).
-export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken };
+export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM };

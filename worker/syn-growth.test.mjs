@@ -811,6 +811,116 @@ const PER_MSG = worker0.usageCostCents(worker0.MSG_MODEL, 20, 8);   // the mock 
   console.log("  [report] per-message cost in tests = " + PER_MSG.toFixed(4) + "c | worst-case per-call = " + perCall.toFixed(4) + "c | per-conversation ceiling = " + ceiling.toFixed(2) + "c ($" + (ceiling / 100).toFixed(4) + ")");
 }
 
+// ===================== BACKUP / RESTORE — the drill (real SQLite round trip) =====================
+// Seed a database across every table, export it, WIPE it, restore from the export, and prove the
+// restored database is byte-for-byte identical to the original (append-only content + job_values order
+// especially). If any table does not survive identically, that is a FAILED check, not a warning.
+{
+  const e = aiEnv((b) => {
+    const last = (b.messages && b.messages.length) ? String(b.messages[b.messages.length - 1].content || "") : "";
+    return /cheap/i.test(last) ? "We are the CHEAPEST in town!" : "Happy to help with that.";
+  });
+  // --- seed: two tenants, contacts, conversations, messages, events, consent, usage, job_values ---
+  const A = await seedProfiled(e, "https://a.com", PROFILE);
+  const B = await seedProfiled(e, "https://b.com", PROFILE);
+
+  // A: two normal turns (conversations, messages, events inquiry/first_response, usage_events)
+  const c1 = (await (await msg(e, A.install, "https://a.com", { text: "What are your hours?" })).json()).conversation_id;
+  await msg(e, A.install, "https://a.com", { text: "And where are you located?", conversation_id: c1 });
+  // A: a guardrail trip (guardrail_blocked event + banned_claim_blocked error + usage)
+  await msg(e, A.install, "https://a.com", { text: "are you cheap?" });
+  // A: explicit capture with SMS consent (contact + consent_events sms+email + unsub token)
+  await cap(e, A.install, "https://a.com", { name: "Ada", email: "ada@a.com", phone: "(555) 123-4567", consent_sms: true, conversation_id: c1 });
+  // A: an Anthropic failure (error_events call_failed) via a one-shot 500, then restore the mock
+  const goodFetch = e.ANTHROPIC_FETCH;
+  e.ANTHROPIC_FETCH = async () => new Response("upstream boom", { status: 500 });
+  await msg(e, A.install, "https://a.com", { text: "trigger a failure please" });
+  e.ANTHROPIC_FETCH = goodFetch;
+  // A: an install-key rejection (error_events install_key) — wrong origin
+  await call(e, "POST", "/w/messages", { origin: "https://evil.com", key: A.install.install_key, body: { text: "x" } });
+  // A: job_values history — several rows whose ORDER must survive (the guarantee depends on it)
+  await adminPost(e, `/admin/tenants/${A.tenant.id}/job-value`, { average_job_value_cents: 25000, effective_from: "2026-01-01T00:00:00.000Z", note: "v1" });
+  await adminPost(e, `/admin/tenants/${A.tenant.id}/job-value`, { average_job_value_cents: 30000, effective_from: "2026-04-01T00:00:00.000Z", note: "v2" });
+  await adminPost(e, `/admin/tenants/${A.tenant.id}/job-value`, { average_job_value_cents: 28000, effective_from: "2026-07-01T00:00:00.000Z", note: "v3" });
+  // B: one conversation + one job value (multi-tenant coverage)
+  await msg(e, B.install, "https://b.com", { text: "Hello there" });
+  await adminPost(e, `/admin/tenants/${B.tenant.id}/job-value`, { average_job_value_cents: 9900, effective_from: "2026-02-01T00:00:00.000Z", note: "b1" });
+  // Directly seed followups + receipts (no public route creates these yet) so ALL 13 tables round-trip.
+  const db = e.SYN_DB._db;
+  db.prepare("INSERT INTO followups (id,tenant_id,contact_id,channel,sequence_step,due_at,status,attempts,template_key) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run("fu_1", A.tenant.id, "con_seed", "email", 1, "2026-08-01T00:00:00.000Z", "pending", 0, "t1");
+  db.prepare("INSERT INTO receipts (id,tenant_id,period_start,period_end,metrics,job_value_cents,generated_at,status) VALUES (?,?,?,?,?,?,?,?)")
+    .run("rc_1", A.tenant.id, "2026-06-01", "2026-06-30", JSON.stringify({ booked: 3 }), 30000, "2026-07-01T00:00:00.000Z", "draft");
+
+  const countAll = () => Object.fromEntries(worker0.BACKUP_TABLES.map(t => [t, db.prepare("SELECT COUNT(*) n FROM " + t).get().n]));
+  const before = countAll();
+
+  // --- export #1 ---
+  const exp1res = await adminGet(e, "/admin/backup");
+  c("backup: export is 200 + JSON content-type", exp1res.status === 200 && /application\/json/.test(exp1res.headers.get("Content-Type") || ""));
+  const exp1 = await exp1res.json();
+  c("backup: snapshot is self-describing (format, schema_version, created_at, counts, tables)",
+    exp1.format === worker0.BACKUP_FORMAT && exp1.schema_version === worker0.SCHEMA_VERSION &&
+    typeof exp1.created_at === "string" && !!exp1.counts && !!exp1.tables);
+  c("backup: every growth table is present; kv + growth_rl are NOT",
+    worker0.BACKUP_TABLES.every(t => Array.isArray(exp1.tables[t])) && !("kv" in exp1.tables) && !("growth_rl" in exp1.tables));
+  c("backup: per-table counts match the rows carried", worker0.BACKUP_TABLES.every(t => exp1.counts[t] === exp1.tables[t].length && exp1.counts[t] === before[t]));
+  c("backup: append-only tables actually captured data (events/consent/job_values/usage non-empty)",
+    exp1.counts.events > 0 && exp1.counts.consent_events > 0 && exp1.counts.job_values === 4 && exp1.counts.usage_events > 0 && exp1.counts.error_events > 0);
+
+  // --- wipe ---
+  for (const t of [...worker0.BACKUP_TABLES].reverse()) db.prepare("DELETE FROM " + t).run();
+  c("backup: database wiped before restore", worker0.BACKUP_TABLES.every(t => db.prepare("SELECT COUNT(*) n FROM " + t).get().n === 0));
+
+  // --- restore refuses without the confirm token ---
+  const noConfirm = await adminPost(e, "/admin/restore", { snapshot: exp1 });
+  c("restore: refuses without the confirmation token (400)", noConfirm.status === 400 && (await noConfirm.json()).error === "confirmation_required");
+  c("restore: nothing was written on the refusal", db.prepare("SELECT COUNT(*) n FROM tenants").get().n === 0);
+
+  // --- restore refuses on a schema-version mismatch ---
+  const badVer = await adminPost(e, "/admin/restore", { confirm: worker0.RESTORE_CONFIRM, snapshot: { ...exp1, schema_version: 999 } });
+  c("restore: refuses on schema-version mismatch (409)", badVer.status === 409 && (await badVer.json()).error === "schema_version_mismatch");
+
+  // --- restore refuses a snapshot whose own counts lie (fails loudly, does not corrupt) ---
+  const corrupt = JSON.parse(JSON.stringify(exp1)); corrupt.counts.events = corrupt.counts.events + 1;
+  const badCount = await adminPost(e, "/admin/restore", { confirm: worker0.RESTORE_CONFIRM, snapshot: corrupt });
+  c("restore: refuses a snapshot whose declared counts disagree with its rows (400)", badCount.status === 400 && (await badCount.json()).error === "corrupt_snapshot");
+
+  // --- the real restore ---
+  const restRes = await adminPost(e, "/admin/restore", { confirm: worker0.RESTORE_CONFIRM, snapshot: exp1 });
+  const rest = await restRes.json();
+  c("restore: succeeds (200, ok:true)", restRes.status === 200 && rest.ok === true);
+  c("restore: reports rows expected == written for every table", Array.isArray(rest.tables) && rest.tables.length === worker0.BACKUP_TABLES.length && rest.tables.every(r => r.ok && r.expected === r.written));
+  c("restore: restored row counts match the original exactly", worker0.BACKUP_TABLES.every(t => db.prepare("SELECT COUNT(*) n FROM " + t).get().n === before[t]));
+
+  // --- export #2 and prove byte-for-byte identity ---
+  const exp2 = await (await adminGet(e, "/admin/backup")).json();
+  c("DRILL: every table round-trips byte-for-byte identical", JSON.stringify(exp2.tables) === JSON.stringify(exp1.tables));
+  c("DRILL: counts identical after round trip", JSON.stringify(exp2.counts) === JSON.stringify(exp1.counts));
+  // append-only tables, called out individually (their integrity is what the Receipt/guarantee depend on)
+  for (const t of ["events", "consent_events", "job_values", "usage_events"]) {
+    c(`DRILL: append-only '${t}' identical (content + order)`, JSON.stringify(exp2.tables[t]) === JSON.stringify(exp1.tables[t]));
+  }
+  // job_values ORDER preserved, explicitly (same ids in the same sequence)
+  const jvIds = (x) => x.tables.job_values.map(r => r.id).join(",");
+  const jvNotes = (x) => x.tables.job_values.map(r => r.note).join(",");
+  c("DRILL: job_values history is in the same order", jvIds(exp2) === jvIds(exp1) && jvNotes(exp1) === "v1,v2,v3,b1");
+  // relationships intact: a message still points at a real conversation; a consent row at a real contact
+  const convIds = new Set(exp2.tables.conversations.map(r => r.id));
+  const contactIds = new Set(exp2.tables.contacts.map(r => r.id));
+  c("DRILL: relationships intact (messages→conversations)", exp2.tables.messages.length > 0 && exp2.tables.messages.every(m => convIds.has(m.conversation_id)));
+  c("DRILL: relationships intact (consent_events→contacts)", exp2.tables.consent_events.length > 0 && exp2.tables.consent_events.every(cv => contactIds.has(cv.contact_id)));
+
+  // --- both routes are admin-only; neither is reachable with an install key ---
+  c("backup: admin-only (401 without key)", (await call(e, "GET", "/admin/backup")).status === 401);
+  c("backup: not reachable with an install key", (await call(e, "GET", "/admin/backup", { key: A.install.install_key })).status === 401);
+  c("restore: admin-only (401 without key)", (await call(e, "POST", "/admin/restore", { body: { confirm: worker0.RESTORE_CONFIRM, snapshot: exp1 } })).status === 401);
+  c("restore: not reachable with an install key", (await call(e, "POST", "/admin/restore", { key: A.install.install_key, body: { confirm: worker0.RESTORE_CONFIRM, snapshot: exp1 } })).status === 401);
+
+  console.log("  [drill] " + worker0.BACKUP_TABLES.length + " tables round-tripped; rows: " +
+    worker0.BACKUP_TABLES.map(t => t + "=" + before[t]).join(" "));
+}
+
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);
 console.log(fail ? "ERRORS: PRESENT" : "ERRORS: NONE");
 if (fail) process.exitCode = 1;
