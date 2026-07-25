@@ -1,3 +1,4 @@
+// Deploy trigger: syn-assistant Git auto-deploy (worker/wrangler.syn-assistant.toml).
 /**
  * SYN marketing assistant — Cloudflare Worker proxy to the Anthropic API.
  *
