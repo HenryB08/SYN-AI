@@ -15,8 +15,8 @@ compatibility_date = "2025-11-01"
 #   npx wrangler d1 list
 [[d1_databases]]
 binding       = "SYN_DB"
-database_name = "REPLACE_WITH_YOUR_SYN_CORE_D1_NAME"
-database_id   = "REPLACE_WITH_YOUR_SYN_CORE_D1_ID"
+database_name = "syn-core"
+database_id   = "d37969f2-ef28-45ab-ba3b-b9320c1e3701"
 
 # Secrets are NEVER committed here — set each on the syn-core Worker with `npx wrangler secret put <NAME>`:
 #   ANTHROPIC_API_KEY  — Anthropic proxy (/v1/messages)
