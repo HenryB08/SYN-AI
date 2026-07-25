@@ -86,6 +86,18 @@ as-is.
   against real SYN Core (`persistMode==="cloud"`); the mock-cloud test suites set the
   client-only `window.__GATE_BYPASS__` seam (the Worker still enforces the token, so
   it is not a security bypass). **Delete this whole gate when Prompt 26 lands.**
+- **✅ REAL AUTH (Prompt 26, server side) now lives in `worker/syn-core.js` alongside
+  the gate — see `worker/AUTH.md`.** Per-user accounts in a `users` table in syn-core's
+  D1: `POST /auth/{signup,verify,login,forgot,reset,logout,me,invite}`, PBKDF2-HMAC-SHA256
+  (210k iters) password hashing, 7-day signed session tokens, 24h/1h single-use
+  verify/reset links, per-`ip|bucket` rate limiting, no account enumeration. Protected
+  routes (`/kv/`, `/v1/messages`) now accept **a session token OR the legacy gate token**;
+  regular sessions are **tenant-scoped** to `syn5:<tenant_id>:*` (gate + admin sessions
+  are all-access). A successful `/gate` login **seeds/repairs the real admin account**
+  from `GATE_EMAIL`/`GATE_PASSWORD` so retiring the gate never locks the operator out.
+  Private-beta signup is gated by `SIGNUP_MODE` (`invite` default | `open`). Covered by
+  `worker/syn-core.test.mjs`. **The client JS is NOT yet migrated** — the app still uses
+  the gate; the `gate*`→`auth*` wiring is documented in AUTH.md as the follow-up.
 - **Secrets:** live **only** in each Worker's environment as Wrangler secrets
   (e.g. `ANTHROPIC_API_KEY` via `npx wrangler secret put`). **No secret value
   appears in this repo or in the browser.** Deploy steps are in
@@ -103,7 +115,9 @@ Every tracked file in the repo:
 | `js/01-boot-auth.js … 08-wiring.js` | The entire application JS, split into 8 order-dependent **classic scripts** (one shared global scope, not modules), loaded at end of body | any app-logic change — edit the file the function lives in; **never reorder, never add `type="module"`/`defer`/`async`** (see JS file map) |
 | `css/01-tokens.css … 06-motion.css` | The entire stylesheet, split into 6 order-dependent files linked in `<head>` | any CSS change — edit the file the rule lives in; **never reorder the links** (see CSS file map) |
 | `img/guide/*.webp` | The 12 in-app Guide screenshots (extracted from the old `GUIDE_IMGS` base64) | swapping a guide screenshot |
-| `worker/syn-core.js` | **Source of truth for the syn-core Worker** — D1-backed KV (`/kv/`), Anthropic proxy (`/v1/messages`), and the temporary access gate (`/gate`). Deploy this file | changing the KV surface, the AI proxy, or the temporary gate (until Prompt 26) |
+| `worker/syn-core.js` | **Source of truth for the syn-core Worker** — D1-backed KV (`/kv/`), Anthropic proxy (`/v1/messages`), the legacy access gate (`/gate`), and **REAL AUTH** (`/auth/*`: accounts, sessions, tenant-scoped KV — see `worker/AUTH.md`). Deploy this file | changing the KV surface, the AI proxy, the gate, or the auth system |
+| `worker/syn-core.test.mjs` | Unit suite for syn-core auth + gate + KV tenant-scoping (node:sqlite D1 shim). Run `node worker/syn-core.test.mjs` | any change to syn-core auth/KV/gate |
+| `worker/AUTH.md` | The real-auth design: algorithm, flows, endpoints, tenant scoping, seeded admin, invite flag, security + weaknesses | changing any auth behavior or onboarding a deployer to auth |
 | `worker/syn-assistant.js` | Cloudflare Worker for the marketing assistant; system prompt baked in, proxies Anthropic | changing what the marketing assistant knows or how it's proxied |
 | `worker/wrangler.toml` | Wrangler config for syn-assistant | changing the Worker name / compat date |
 | `worker/README.md` | Deploy + wiring for syn-assistant, plus the origin-allowlist patch for syn-core | onboarding a deployer; changing an endpoint or the CORS allowlist |
