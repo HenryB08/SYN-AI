@@ -158,9 +158,14 @@ Indexes: `(install_id, created_at)` and `(tenant_id, type, created_at)`.
 | `channel` | TEXT | `email` \| `sms` |
 | `sequence_step` | INTEGER | |
 | `due_at` | TEXT | index `(status, due_at)` |
-| `status` | TEXT | `pending` \| `sent` \| `cancelled` \| `failed` |
+| `status` | TEXT | `pending` \| `sending` \| `sent` \| `cancelled` \| `failed` (`sending` = an in-flight cron claim) |
 | `attempts` | INTEGER | |
 | `template_key` / `sent_at` / `error` | TEXT | |
+
+Driven by the **follow-up email sequencer**: capture schedules the sequence, a **Cloudflare Cron
+Trigger** (`scheduled()` handler) sends what's due through Resend in the client's brand voice, and any
+engagement cancels the rest. Setup — DNS (SPF/DKIM/DMARC), the cron interval, `RESEND_API_KEY` /
+`PUBLIC_BASE_URL`, and the per-install `config.followup` — is in **`worker/EMAIL-FOLLOWUP.md`**.
 
 ### `job_values` — the guarantee depends on this being trustworthy
 **Append-only ledger. NEVER updated in place, NEVER deleted.** Changing the value inserts a

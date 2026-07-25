@@ -921,6 +921,160 @@ const PER_MSG = worker0.usageCostCents(worker0.MSG_MODEL, 20, 8);   // the mock 
     worker0.BACKUP_TABLES.map(t => t + "=" + before[t]).join(" "));
 }
 
+// ===================== FOLLOW-UP EMAIL SEQUENCER =====================
+// env with the Anthropic seam (brand-voice body), the Resend seam (captures sends), a self URL for the
+// unsubscribe link, and a Resend key. FROM identity comes from per-install config in seedFU.
+function fuEnv(reply){
+  const e = aiEnv(reply || "Just checking in from Acme Co — happy to help whenever you're ready.");
+  e.PUBLIC_BASE_URL = "https://syn-growth.example.workers.dev";
+  e.RESEND_API_KEY = "re_test_key";
+  e.sends = [];
+  e.RESEND_FETCH = async (url, opts) => { e.sends.push({ url, headers: opts.headers, body: JSON.parse(opts.body) }); return new Response(JSON.stringify({ id: "email_" + (e.sends.length) }), { status: 200, headers: { "content-type": "application/json" } }); };
+  return e;
+}
+async function seedFU(e, origin, followupCfg){
+  const slug = "fu" + (++seedN);
+  const t = (await (await call(e, "POST", "/admin/tenants", { adminKey: ADMIN, body: { name: "FU " + slug, slug } })).json()).tenant;
+  const b = (await (await call(e, "POST", `/admin/tenants/${t.id}/brands`, { adminKey: ADMIN, body: { name: "Acme Co", profile: PROFILE } })).json()).brand;
+  const ins = (await (await call(e, "POST", `/admin/tenants/${t.id}/installs`, { adminKey: ADMIN, body: { brand_id: b.id, allowed_origins: [origin], config: { followup: followupCfg || {} } } })).json()).install;
+  return { tenant: t, install: ins };
+}
+const fups = (e, contactId) => e.SYN_DB._db.prepare("SELECT * FROM followups WHERE contact_id=? ORDER BY sequence_step").all(contactId);
+const setDue = (e, id, iso) => e.SYN_DB._db.prepare("UPDATE followups SET due_at=? WHERE id=?").run(iso, id);
+const PAST = "2020-01-01T00:00:00.000Z";
+const DEFCFG = { from_email: "hello@mail.acmeco.test", reply_to: "owner@acmeco.test", steps_hours: [3, 24, 72] };
+
+// scheduling: a captured, consented lead gets the sequence with correct due times, + a followup_scheduled event
+{
+  const e = fuEnv();
+  const { tenant, install } = await seedFU(e, "https://c.com", DEFCFG);
+  const t0 = Date.now();
+  const cid = (await (await cap(e, install, "https://c.com", { email: "lead@ex.com", name: "Lee", consent_sms: false })).json()).contact_id;
+  const rows = fups(e, cid);
+  c("followup: 3 pending email steps scheduled", rows.length === 3 && rows.every(r => r.channel === "email" && r.status === "pending"));
+  c("followup: steps numbered + template keyed 1..3", rows.map(r => r.sequence_step).join() === "1,2,3" && rows.map(r => r.template_key).join() === "followup_1,followup_2,followup_3");
+  const hrs = rows.map(r => Math.round((Date.parse(r.due_at) - t0) / 3600000));
+  c("followup: due times are +3h / +24h / +72h", hrs.join() === "3,24,72");
+  c("followup: rows are tenant-scoped", rows.every(r => r.tenant_id === tenant.id));
+  c("followup: a followup_scheduled event was written", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE type='followup_scheduled' AND contact_id=?").get(cid).n === 1);
+}
+
+// scheduling gates: no email → nothing; unverified/syntrexio sender → nothing; second capture never re-arms
+{
+  const e = fuEnv();
+  const { install } = await seedFU(e, "https://c.com", DEFCFG);
+  const cidPhone = (await (await cap(e, install, "https://c.com", { phone: "(555) 123-4567" })).json()).contact_id;
+  c("followup: phone-only capture schedules nothing (no email)", fups(e, cidPhone).length === 0);
+  // an install whose sender is on the primary domain must not schedule
+  const e2 = fuEnv();
+  const bad = await seedFU(e2, "https://d.com", { from_email: "x@syntrexio.com" });
+  const cidBad = (await (await cap(e2, bad.install, "https://d.com", { email: "l2@ex.com" })).json()).contact_id;
+  c("followup: syntrexio.com sender is refused (no schedule)", fups(e2, cidBad).length === 0);
+  // an install with no sender configured at all schedules nothing
+  const e3 = fuEnv();
+  const none = await seedFU(e3, "https://n.com", {});
+  const cidNone = (await (await cap(e3, none.install, "https://n.com", { email: "l3@ex.com" })).json()).contact_id;
+  c("followup: no verified sender → no schedule", fups(e3, cidNone).length === 0);
+  // capturing the same lead again does not double-schedule
+  const e4 = fuEnv();
+  const s4 = await seedFU(e4, "https://e.com", DEFCFG);
+  const cid4 = (await (await cap(e4, s4.install, "https://e.com", { email: "dup@ex.com" })).json()).contact_id;
+  await cap(e4, s4.install, "https://e.com", { email: "dup@ex.com", name: "Dup Again" });
+  c("followup: re-capture does not re-arm the sequence", fups(e4, cid4).length === 3);
+}
+
+// the cron sends only what is DUE, in brand voice, from the client identity, with a working unsubscribe link
+{
+  const e = fuEnv("We'd still love to help you out — just reply and we'll get you sorted. — Acme Co");
+  const { tenant, install } = await seedFU(e, "https://c.com", DEFCFG);
+  const cid = (await (await cap(e, install, "https://c.com", { email: "buyer@ex.com" })).json()).contact_id;
+  // nothing due yet (earliest is +3h)
+  const r0 = await worker0.runDueFollowups(e);
+  c("cron: nothing sent when nothing is due", r0.sent === 0 && e.sends.length === 0);
+  // make step 1 past-due, run cron
+  const rows = fups(e, cid);
+  setDue(e, rows[0].id, PAST);
+  const r1 = await worker0.runDueFollowups(e);
+  c("cron: sends exactly the one due step", r1.sent === 1 && e.sends.length === 1);
+  const s = e.sends[0].body;
+  c("cron: FROM is the client's business + verified domain (never Syntrex/syntrexio.com)", /^Acme Co <hello@mail\.acmeco\.test>$/.test(s.from) && !/syntrex/i.test(s.from));
+  c("cron: reply-to is the client's inbox", s.reply_to === "owner@acmeco.test");
+  c("cron: to the captured lead", Array.isArray(s.to) && s.to[0] === "buyer@ex.com");
+  c("cron: body is the brand-voiced draft", /reply and we'll get you sorted/.test(s.text) && !/syntrex/i.test(s.text));
+  c("cron: a working tokenized unsubscribe link is present (link + header)", /\/w\/unsubscribe\?t=/.test(s.text) && /\/w\/unsubscribe\?t=/.test(e.sends[0].body.headers["List-Unsubscribe"]));
+  // the unsubscribe link actually works against this worker
+  const tok = decodeURIComponent(s.text.match(/\/w\/unsubscribe\?t=([^\s]+)/)[1]);
+  c("cron: the unsubscribe link resolves + unsubscribes", (await call(e, "GET", "/w/unsubscribe?t=" + encodeURIComponent(tok))).status === 200);
+  // step 1 sent; a followup_sent event written; steps 2 & 3 still pending
+  const after = fups(e, cid);
+  c("cron: step 1 marked sent with sent_at", after[0].status === "sent" && !!after[0].sent_at);
+  c("cron: remaining steps stay pending (unsubscribe just cancelled them though)", after.slice(1).every(r => r.status === "cancelled"));   // the unsub above cancelled 2 & 3
+  c("cron: followup_sent event written (tenant-scoped)", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE type='followup_sent' AND contact_id=? AND tenant_id=?").get(cid, tenant.id).n === 1);
+}
+
+// idempotency: overlapping runs never double-send the same row
+{
+  const e = fuEnv();
+  const { install } = await seedFU(e, "https://c.com", DEFCFG);
+  const cid = (await (await cap(e, install, "https://c.com", { email: "once@ex.com" })).json()).contact_id;
+  const row = fups(e, cid)[0];
+  setDue(e, row.id, PAST);
+  const fresh = e.SYN_DB._db.prepare("SELECT * FROM followups WHERE id=?").get(row.id);
+  // two overlapping runs both see the row as pending; only one may actually send
+  const [a, b] = await Promise.all([worker0.sendFollowupEmail(e, fresh), worker0.sendFollowupEmail(e, fresh)]);
+  const sentCount = [a, b].filter(x => x.status === "sent").length;
+  c("idempotency: the atomic claim lets only ONE run send", sentCount === 1 && e.sends.length === 1);
+  c("idempotency: the loser skips ('not_pending')", [a, b].some(x => x.skipped === "not_pending"));
+  // a row already 'sending' (an in-flight claim from another run) is never re-sent
+  const e2 = fuEnv();
+  const s2 = await seedFU(e2, "https://d.com", DEFCFG);
+  const cid2 = (await (await cap(e2, s2.install, "https://d.com", { email: "flight@ex.com" })).json()).contact_id;
+  const row2 = fups(e2, cid2)[0];
+  e2.SYN_DB._db.prepare("UPDATE followups SET status='sending' WHERE id=?").run(row2.id);
+  const res2 = await worker0.sendFollowupEmail(e2, e2.SYN_DB._db.prepare("SELECT * FROM followups WHERE id=?").get(row2.id));
+  c("idempotency: an in-flight ('sending') row is skipped, not re-sent", res2.skipped === "not_pending" && e2.sends.length === 0);
+}
+
+// a lead who REPLIES (sends a widget message) has all pending follow-ups cancelled
+{
+  const e = fuEnv();
+  const { install } = await seedFU(e, "https://c.com", DEFCFG);
+  const conv = (await (await msg(e, install, "https://c.com", { text: "Hi, do you do estimates?" })).json()).conversation_id;
+  const cid = (await (await cap(e, install, "https://c.com", { email: "replier@ex.com", conversation_id: conv })).json()).contact_id;
+  c("reply-cancel: sequence scheduled after capture", fups(e, cid).filter(r => r.status === "pending").length === 3);
+  await msg(e, install, "https://c.com", { text: "Actually, I'm ready to book!", conversation_id: conv });
+  c("reply-cancel: a later message cancels every pending step", fups(e, cid).every(r => r.status === "cancelled"));
+  const rDue = await worker0.runDueFollowups(e);   // even with due dates forced, nothing sends
+  c("reply-cancel: cron sends nothing after cancellation", rDue.sent === 0 && e.sends.length === 0);
+}
+
+// a lead who UNSUBSCRIBED is never sent to, even if a pending step is due (authoritative send-time gate)
+{
+  const e = fuEnv();
+  const { install, tenant } = await seedFU(e, "https://c.com", DEFCFG);
+  const cid = (await (await cap(e, install, "https://c.com", { email: "gone@ex.com" })).json()).contact_id;
+  // Simulate a withdrawn-email consent row WITHOUT going through the cancel path, to prove the send-time
+  // gate (not just the cancellation) refuses the send.
+  e.SYN_DB._db.prepare("INSERT INTO consent_events (id,tenant_id,contact_id,channel,action,source,text_shown,ip,user_agent,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .run("cev_stop", tenant.id, cid, "email", "withdrawn", "unsubscribe_link", "x", null, null, "2027-01-01T00:00:00.000Z");
+  const row = fups(e, cid)[0];
+  setDue(e, row.id, PAST);
+  const r = await worker0.runDueFollowups(e);
+  c("unsub-gate: a withdrawn contact is never sent to", r.sent === 0 && e.sends.length === 0);
+  c("unsub-gate: the due row is cancelled with a consent reason", e.SYN_DB._db.prepare("SELECT status,error FROM followups WHERE id=?").get(row.id).status === "cancelled");
+}
+
+// guardrail: a banned-claim draft is replaced by a safe body, still sends, and is logged
+{
+  const e = fuEnv("Absolutely — we are the CHEAPEST in town, guaranteed!");   // trips PROFILE.banned_claims
+  const { install } = await seedFU(e, "https://c.com", DEFCFG);
+  const cid = (await (await cap(e, install, "https://c.com", { email: "safe@ex.com" })).json()).contact_id;
+  setDue(e, fups(e, cid)[0].id, PAST);
+  await worker0.runDueFollowups(e);
+  c("guardrail: banned draft is swapped for a safe body (no banned claim shipped)", e.sends.length === 1 && !/cheapest/i.test(e.sends[0].body.text));
+  c("guardrail: the block is logged", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM error_events WHERE source='followup' AND kind='banned_claim_blocked'").get().n === 1);
+}
+
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);
 console.log(fail ? "ERRORS: PRESENT" : "ERRORS: NONE");
 if (fail) process.exitCode = 1;

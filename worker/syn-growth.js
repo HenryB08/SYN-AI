@@ -83,6 +83,22 @@ const RESTORE_CONFIRM = "RESTORE-SYN-GROWTH";
 // match this (identifiers, never values — values are always bound). Anything else → refuse.
 const SAFE_IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+// ---- follow-up email sequencer ----
+// Sends automated, brand-voiced follow-up emails to a captured lead that goes quiet, until they reply,
+// book, unsubscribe, or are closed/lost. Sends through Resend (RESEND_API_KEY secret; env.RESEND_FETCH
+// is a TEST SEAM). See worker/EMAIL-FOLLOWUP.md for the DNS + cron setup.
+const RESEND_BASE = "https://api.resend.com";
+// Default cadence in HOURS after capture: a few hours, the next day, a few days later, then stop.
+// Overridable per install via config.followup.steps_hours.
+const FOLLOWUP_DEFAULT_STEPS_HOURS = [3, 24, 72];
+const FOLLOWUP_BATCH = 25;                 // max sends per cron run (rate-limit + wall-time budget)
+const FOLLOWUP_SEND_SPACING_MS = 120;      // ~8/sec — under Resend's default rate limit; doesn't look like a burst
+const FOLLOWUP_MAX_ATTEMPTS = 5;           // after this many transient failures, give up (status=failed)
+// Engagement events that stop a sequence (posted by the widget via /w/events).
+const FOLLOWUP_STOP_EVENTS = new Set(["appointment_booked", "appointment_completed", "conversation_ended"]);
+// Per-step subject lines (low-risk, templated); the BODY is brand-voiced by the model.
+const FOLLOWUP_SUBJECTS = ["Following up on your inquiry", "Still happy to help", "One last note from us"];
+
 // Append-only event vocabulary the Receipt reads from. Define once, here.
 const EVENT_TYPES = [
   "inquiry_received", "first_response_sent", "followup_scheduled", "followup_sent",
@@ -417,6 +433,8 @@ async function wEvents(env, install, body, cors){
     const c = await env.SYN_DB.prepare("SELECT tenant_id FROM contacts WHERE id=?").bind(contactId).first();
     if (!c || c.tenant_id !== install.tenant_id) return json({ error: "contact_not_in_tenant" }, 400, cors);
   }
+  // Booking / engagement stops the follow-up sequence.
+  if (contactId && FOLLOWUP_STOP_EVENTS.has(type)){ try { await cancelFollowups(env, contactId, "engaged:" + type); } catch (_){} }
   const payload = body.payload != null ? JSON.stringify(body.payload) : null;
   const idk = body.idempotency_key ? String(body.idempotency_key) : null;
   const id = newId("evt");
@@ -700,6 +718,9 @@ async function wMessages(env, install, body, cors){
     }
   }
 
+  // Engagement: a visitor message means they're active — stop any pending follow-up sequence for them.
+  if (conv.contact_id){ try { await cancelFollowups(env, conv.contact_id, "replied"); } catch (_){} }
+
   // Build the brand system prompt.
   const brand = await env.SYN_DB.prepare("SELECT name, profile FROM brands WHERE id=?").bind(install.brand_id).first();
   let profile = {};
@@ -790,6 +811,13 @@ async function wCapture(env, install, body, cors, ctx){
     const conv = await env.SYN_DB.prepare("SELECT id FROM conversations WHERE id=? AND install_id=?").bind(convId, install.id).first();
     if (conv) await attachContact(env, install, convId, up.contact_id);
   }
+  // Schedule the follow-up sequence for this freshly captured lead. Idempotent + consent/identity-gated,
+  // so it is a cheap no-op when follow-up isn't configured. It must never break the capture response.
+  try {
+    const fbrand = await env.SYN_DB.prepare("SELECT name FROM brands WHERE id=?").bind(install.brand_id).first();
+    let fcfg = {}; try { fcfg = JSON.parse(install.config || "{}"); } catch (_){ fcfg = {}; }
+    if (up.contact_id) await scheduleFollowups(env, install, up.contact_id, fcfg, fbrand ? fbrand.name : null);
+  } catch (_){ /* scheduling is best-effort; never fail a capture on it */ }
   return json({ ok: true, contact_id: up.contact_id, deduped: up.deduped, consent_sms: !!consent }, up.deduped ? 200 : 201, cors);
 }
 
@@ -837,6 +865,7 @@ async function wUnsubscribe(env, url, ctx){
   const contact = tok ? await env.SYN_DB.prepare("SELECT id, tenant_id FROM contacts WHERE unsub_token=?").bind(tok).first() : null;
   if (!contact) return htmlPage("Unsubscribe", "<h1>Link not recognized</h1><p>This unsubscribe link is invalid or has expired. If you keep receiving messages you didn't ask for, reply STOP to any text, or contact the business directly.</p>", 200);
   await writeConsentEvent(env, { tenantId: contact.tenant_id, contactId: contact.id, channel: "email", action: "withdrawn", source: "unsubscribe_link", textShown: "Email unsubscribe link", ip: ctx && ctx.ip, ua: ctx && ctx.ua });
+  try { await cancelFollowups(env, contact.id, "unsubscribed"); } catch (_){}   // stop any pending sequence immediately
   return htmlPage("Unsubscribed", "<h1>You're unsubscribed</h1><p>You won't receive any more follow-up emails about your inquiry. This preference is recorded. If you asked by mistake, just reply to a previous email or contact the business.</p>", 200);
 }
 function esc(s){ return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -890,6 +919,7 @@ async function adminWithdraw(env, tenantId, contactId, body, ctx){
   if (!channel) return json({ error: "channel_required (sms|email)" }, 400);
   if (channel === "sms") await env.SYN_DB.prepare("UPDATE contacts SET consent_sms=0 WHERE id=?").bind(contactId).run();
   await writeConsentEvent(env, { tenantId, contactId, channel, action: "withdrawn", source: "admin", textShown: (body && body.reason) ? String(body.reason).slice(0, 500) : "Withdrawn by admin", ip: ctx && ctx.ip, ua: ctx && ctx.ua });
+  if (channel === "email") await cancelFollowups(env, contactId, "unsubscribed_admin");   // stop pending email sequence
   return json({ ok: true, contact_id: contactId, channel, action: "withdrawn", source: "admin" });
 }
 async function adminSmsInbound(env, tenantId, body, ctx){
@@ -1151,6 +1181,171 @@ async function backupRestore(env, body){
   }
   return json({ ok: allOk, schema_version: SCHEMA_VERSION, restored_at: nowIso(), tables: report },
     allOk ? 200 : 500);
+}
+
+/* ============================ follow-up email sequencer ============================ */
+function changesOf(r){ return (r && (r.changes ?? (r.meta && r.meta.changes))) || 0; }   // works for the D1 shim and real D1
+function sleep(ms){ return new Promise((res) => setTimeout(res, ms)); }
+
+// Resolve the SENDING IDENTITY for an install. The FROM email must be on a VERIFIED domain (per-install
+// config, or a Syntrex-operated sending-domain env fallback) and is HARD-BLOCKED from syntrexio.com so
+// one client's cold list can never damage the primary domain's deliverability. The FROM name is the
+// client's business, never Syntrex. Returns null when it cannot send safely (caller then skips).
+function followupIdentity(env, brandName, config){
+  const fu = (config && config.followup) || {};
+  const fromEmail = (typeof fu.from_email === "string" && fu.from_email.trim()) ? fu.from_email.trim()
+    : (typeof env.FOLLOWUP_FROM_EMAIL === "string" && env.FOLLOWUP_FROM_EMAIL.trim() ? env.FOLLOWUP_FROM_EMAIL.trim() : null);
+  if (!fromEmail || fromEmail.indexOf("@") === -1) return null;
+  const domain = fromEmail.split("@")[1].toLowerCase();
+  if (domain === "syntrexio.com" || domain.endsWith(".syntrexio.com")) return null;   // never the primary domain
+  const fromName = (typeof fu.from_name === "string" && fu.from_name.trim()) ? fu.from_name.trim() : (brandName || "").trim();
+  if (!fromName) return null;
+  const replyTo = (typeof fu.reply_to === "string" && fu.reply_to.trim()) ? fu.reply_to.trim()
+    : (config && typeof config.reply_to === "string" && config.reply_to.trim() ? config.reply_to.trim() : null);
+  return { fromEmail, fromName, replyTo, domain };
+}
+function followupSteps(config){
+  const fu = (config && config.followup) || {};
+  const raw = Array.isArray(fu.steps_hours) ? fu.steps_hours.filter(n => Number.isFinite(n) && n > 0) : null;
+  return (raw && raw.length) ? raw.slice(0, 10) : FOLLOWUP_DEFAULT_STEPS_HOURS;
+}
+
+// Schedule the sequence for a freshly-captured contact. IDEMPOTENT: only schedules when the contact has
+// NO existing email follow-up rows, so a second capture (or a re-capture after engagement) never re-arms.
+// Consent- and identity-gated: no email / no email consent / no verified sender / closed-lost → no schedule.
+async function scheduleFollowups(env, install, contactId, config, brandName){
+  if (config && config.followup && config.followup.enabled === false) return { scheduled: 0, reason: "disabled" };
+  if (!followupIdentity(env, brandName, config)) return { scheduled: 0, reason: "no_verified_sender" };
+  const contact = await env.SYN_DB.prepare("SELECT id,email,status FROM contacts WHERE id=? AND tenant_id=?").bind(contactId, install.tenant_id).first();
+  if (!contact || !contact.email) return { scheduled: 0, reason: "no_email" };
+  if (contact.status === "closed" || contact.status === "lost") return { scheduled: 0, reason: "closed_or_lost" };
+  if (!(await canQueueChannel(env, contactId, "email"))) return { scheduled: 0, reason: "no_consent" };
+  const existing = await env.SYN_DB.prepare("SELECT COUNT(*) AS n FROM followups WHERE contact_id=? AND channel='email'").bind(contactId).first();
+  if (existing && existing.n > 0) return { scheduled: 0, reason: "already_scheduled" };
+  const steps = followupSteps(config);
+  const now = Date.now();
+  let n = 0;
+  for (let i = 0; i < steps.length; i++){
+    const dueAt = new Date(now + steps[i] * 3600 * 1000).toISOString();
+    await env.SYN_DB.prepare("INSERT INTO followups (id,tenant_id,contact_id,channel,sequence_step,due_at,status,attempts,template_key) VALUES (?,?,?,?,?,?,?,?,?)")
+      .bind(newId("fup"), install.tenant_id, contactId, "email", i + 1, dueAt, "pending", 0, "followup_" + (i + 1)).run();
+    n++;
+  }
+  await insertEvent(env, { tenant_id: install.tenant_id, install_id: install.id, contact_id: contactId,
+    type: "followup_scheduled", payload: { channel: "email", steps: n } });
+  return { scheduled: n };
+}
+
+// Cancel every PENDING follow-up for a contact (engagement / opt-out / closed). Never touches sent or
+// in-flight ('sending') rows. Safe to call on every engagement — a no-op when nothing is pending.
+async function cancelFollowups(env, contactId, reason){
+  if (!contactId) return 0;
+  const r = await env.SYN_DB.prepare("UPDATE followups SET status='cancelled', error=? WHERE contact_id=? AND status='pending'")
+    .bind(String(reason || "cancelled").slice(0, 120), contactId).run();
+  return changesOf(r);
+}
+
+// Build the follow-up body in the brand's voice, from the brand profile — same governance as the widget.
+// Recipient text never enters the system string.
+function buildFollowupPrompt(brandName, profile, step){
+  return buildSystemPrompt(brandName, profile) +
+    "\n\nFOLLOW-UP EMAIL TASK: Write follow-up email number " + step + " to a person who contacted us and then went quiet. " +
+    "It must be short (2 to 4 sentences), warm, and unmistakably from us in our voice. Gently re-open the conversation and give ONE clear next step (reply to this email, or book/visit). " +
+    "Do NOT invent offers, prices, discounts, or claims beyond what is approved above. Do NOT add a subject line, a name placeholder, or a signature block — body text only, plain text, no markdown. A brief friendly check-in is fine if there is nothing new to add.";
+}
+// Claim-free fallback body used when the model output trips the banned-claim guardrail.
+function safeFollowupBody(brandName){
+  return "Hi, this is " + (brandName || "our team") + " following up on your recent inquiry. We'd still be glad to help — just reply to this email and we'll take it from there.";
+}
+
+// Send ONE follow-up row. IDEMPOTENT via an atomic pending→sending claim: overlapping cron runs can each
+// SELECT the row, but only the first UPDATE matches (changes===1); the rest skip. Re-checks contact
+// status + email consent at SEND time (the authoritative last gate). Returns a small status object.
+async function sendFollowupEmail(env, row){
+  // 1. Claim atomically. Losing the claim means another run already has this row.
+  const claim = await env.SYN_DB.prepare("UPDATE followups SET status='sending', attempts=attempts+1 WHERE id=? AND status='pending'").bind(row.id).run();
+  if (changesOf(claim) !== 1) return { id: row.id, skipped: "not_pending" };
+  const attempts = (row.attempts || 0) + 1;
+  const fail = async (status, error, kind) => {
+    await env.SYN_DB.prepare("UPDATE followups SET status=?, error=? WHERE id=?").bind(status, String(error || "").slice(0, 200), row.id).run();
+    if (kind) await logError(env, { source: "followup", kind, tenant_id: row.tenant_id, detail: String(error || "").slice(0, 200) });
+    return { id: row.id, status, error };
+  };
+  const retry = async (error) => {   // transient: back to pending for the next run, unless we've exhausted attempts
+    if (attempts >= FOLLOWUP_MAX_ATTEMPTS) return fail("failed", error, "followup_send");
+    await env.SYN_DB.prepare("UPDATE followups SET status='pending', error=? WHERE id=?").bind(String(error || "").slice(0, 200), row.id).run();
+    return { id: row.id, status: "pending", retry: true };
+  };
+  // 2. Load the contact (tenant-scoped) and gate on status + consent — the authoritative send-time checks.
+  const contact = await env.SYN_DB.prepare("SELECT * FROM contacts WHERE id=? AND tenant_id=?").bind(row.contact_id, row.tenant_id).first();
+  if (!contact || !contact.email) return fail("cancelled", "no_contact_or_email");
+  if (contact.status === "closed" || contact.status === "lost") return fail("cancelled", "closed_or_lost");
+  if (!(await canQueueChannel(env, contact.id, "email"))) return fail("cancelled", "consent_withdrawn");
+  // 3. Brand + verified sending identity + the self URL for the unsubscribe link.
+  const install = await env.SYN_DB.prepare("SELECT * FROM installs WHERE id=?").bind(contact.install_id).first();
+  if (!install) return fail("failed", "install_missing", "followup_config");
+  const brand = await env.SYN_DB.prepare("SELECT name, profile FROM brands WHERE id=?").bind(install.brand_id).first();
+  let profile = {}; try { profile = brand && brand.profile ? JSON.parse(brand.profile) : {}; } catch (_){ profile = {}; }
+  let config = {}; try { config = JSON.parse(install.config || "{}"); } catch (_){ config = {}; }
+  const brandName = brand ? brand.name : null;
+  const ident = followupIdentity(env, brandName, config);
+  if (!ident) return fail("failed", "no_verified_sender", "followup_config");
+  const baseUrl = (typeof env.PUBLIC_BASE_URL === "string" && env.PUBLIC_BASE_URL.trim()) ? env.PUBLIC_BASE_URL.trim().replace(/\/+$/, "") : null;
+  if (!baseUrl) return fail("failed", "public_base_url_unset", "followup_config");   // a WORKING unsubscribe link is mandatory
+  if (!env.RESEND_API_KEY && !env.RESEND_FETCH) return fail("failed", "resend_key_missing", "followup_config");
+  // 4. Draft the body in brand voice; guardrail it exactly like the widget does.
+  const step = row.sequence_step || 1;
+  let out = null, body = "";
+  try {
+    out = await callAnthropic(env, buildFollowupPrompt(brandName, profile, step), [{ role: "user", content: "Write follow-up email number " + step + "." }]);
+    body = (out.text || "").trim();
+  } catch (e){ return retry("draft_failed:" + ((e && e.message) || e)); }
+  if (out && out.usage) await writeUsage(env, { tenant_id: row.tenant_id, install_id: install.id, conversation_id: null, model: MSG_MODEL,
+    input_tokens: out.usage.input_tokens, output_tokens: out.usage.output_tokens, cost_cents: usageCostCents(MSG_MODEL, out.usage.input_tokens, out.usage.output_tokens) });
+  const hit = screenBanned(body, profile.banned_claims);
+  if (!body || hit){
+    if (hit) await logError(env, { source: "followup", kind: "banned_claim_blocked", tenant_id: row.tenant_id, install_id: install.id, detail: "banned_claim: " + hit });
+    body = safeFollowupBody(brandName);
+  }
+  // 5. Working, tokenized unsubscribe link (Prompt 17) + plain-text footer + List-Unsubscribe header.
+  const token = await ensureUnsubToken(env, contact.id);
+  const unsubUrl = baseUrl + "/w/unsubscribe?t=" + encodeURIComponent(token);
+  const text = body + "\n\n---\nDon't want these emails? Unsubscribe: " + unsubUrl;
+  const subject = FOLLOWUP_SUBJECTS[Math.min(step - 1, FOLLOWUP_SUBJECTS.length - 1)] || FOLLOWUP_SUBJECTS[0];
+  // 6. Send via Resend. The key lives only in the Worker; RESEND_FETCH is the test seam. FROM = the client.
+  const payload = {
+    from: ident.fromName + " <" + ident.fromEmail + ">",
+    to: [contact.email], subject, text,
+    headers: { "List-Unsubscribe": "<" + unsubUrl + ">", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+  };
+  if (ident.replyTo) payload.reply_to = ident.replyTo;
+  let providerId = null;
+  try {
+    const doFetch = env.RESEND_FETCH || fetch;
+    const resp = await doFetch(RESEND_BASE + "/emails", { method: "POST",
+      headers: { "Authorization": "Bearer " + (env.RESEND_API_KEY || ""), "Content-Type": "application/json" },
+      body: JSON.stringify(payload) });
+    if (!resp.ok){ let t = ""; try { t = await resp.text(); } catch (_){} throw new Error("resend_" + resp.status + ":" + t.slice(0, 120)); }
+    try { const j = await resp.json(); providerId = j && j.id ? j.id : null; } catch (_){ providerId = null; }
+  } catch (e){ return retry(String((e && e.message) || e)); }
+  // 7. Mark sent + write the followup_sent event (append-only; idempotent on the row id).
+  await env.SYN_DB.prepare("UPDATE followups SET status='sent', sent_at=?, error=NULL WHERE id=?").bind(nowIso(), row.id).run();
+  await insertEvent(env, { tenant_id: row.tenant_id, install_id: install.id, contact_id: contact.id,
+    type: "followup_sent", payload: { step, channel: "email", provider_id: providerId }, idempotency_key: "fsent_" + row.id });
+  return { id: row.id, status: "sent", step, provider_id: providerId };
+}
+
+// The cron entry point: send everything DUE and past due, oldest first, rate-limited, in bounded batches.
+async function runDueFollowups(env){
+  await ensureTables(env);
+  const now = nowIso();
+  const due = (await env.SYN_DB.prepare("SELECT * FROM followups WHERE channel='email' AND status='pending' AND due_at <= ? ORDER BY due_at ASC, id ASC LIMIT ?").bind(now, FOLLOWUP_BATCH).all()).results || [];
+  const results = [];
+  for (let i = 0; i < due.length; i++){
+    results.push(await sendFollowupEmail(env, due[i]));
+    if (i < due.length - 1) await sleep(FOLLOWUP_SEND_SPACING_MS);   // stay under Resend's rate limit; don't look like a spam burst
+  }
+  return { considered: due.length, sent: results.filter(r => r.status === "sent").length, results };
 }
 
 /* ============================ widget shell (served at /w/widget.js) ============================ */
@@ -1601,6 +1796,13 @@ function serveWidget(){
 
 /* ============================ router ============================ */
 export default {
+  // Cloudflare Cron Trigger → send due follow-up emails. Set the schedule in the dashboard (see
+  // worker/EMAIL-FOLLOWUP.md). ctx.waitUntil keeps the run alive until every due send finishes.
+  async scheduled(event, env, ctx){
+    ctx.waitUntil(runDueFollowups(env).catch(async (e) => {
+      try { await logError(env, { source: "cron", kind: "followup_run_failed", detail: String((e && e.message) || e).slice(0, 200) }); } catch (_){}
+    }));
+  },
   async fetch(request, env){
    try {
     const url = new URL(request.url);
@@ -1708,4 +1910,4 @@ export default {
 };
 
 // Exported for tests/seed (harmless in the Worker runtime).
-export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM };
+export { EVENT_TYPES, INSTALL_KEY_PREFIX, ensureTables, WIDGET_JS, buildSystemPrompt, screenBanned, SAFE_OFFER, MSG_MODEL, MSG_MAX_TOKENS, MAX_MESSAGES_PER_CONVERSATION, PRICE_PER_MTOK, usageCostCents, detectContact, extractEmail, extractPhone, normPhone, canQueueChannel, processInboundSms, ensureUnsubToken, SCHEMA_VERSION, BACKUP_TABLES, BACKUP_FORMAT, RESTORE_CONFIRM, scheduleFollowups, cancelFollowups, sendFollowupEmail, runDueFollowups, followupIdentity, FOLLOWUP_DEFAULT_STEPS_HOURS };
