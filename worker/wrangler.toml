@@ -1,7 +1,26 @@
-name = "syn-assistant"
-main = "syn-assistant.js"
-compatibility_date = "2024-11-01"
+# Wrangler config for the syn-core Worker (D1-backed KV + Anthropic proxy + real auth + gate).
+#
+# This is the config the Cloudflare Git-connected AUTO-DEPLOY uses: the syn-core project is connected
+# with root directory "worker", so Workers Builds reads THIS file (worker/wrangler.toml) on every push.
+# (syn-assistant moved to worker/wrangler.syn-assistant.toml; syn-growth is worker/wrangler.syn-growth.toml.)
 
-# The Anthropic API key is a SECRET, never committed here. Set it with:
-#   npx wrangler secret put ANTHROPIC_API_KEY
-# (see README.md)
+name = "syn-core"
+main = "syn-core.js"
+compatibility_date = "2025-11-01"
+
+# D1 — the live database that holds the KV surface (`kv`), auth (`users`, `auth_invites`), and the
+# rate-limit table (`gate_rl`). The binding name MUST be SYN_DB (the Worker references env.SYN_DB), and
+# this MUST point at the EXISTING syn-core database (the same one syn-growth binds) — do NOT let a deploy
+# create a new, empty D1, or existing accounts/workspaces disappear. Find the values with:
+#   npx wrangler d1 list
+[[d1_databases]]
+binding       = "SYN_DB"
+database_name = "REPLACE_WITH_YOUR_SYN_CORE_D1_NAME"
+database_id   = "REPLACE_WITH_YOUR_SYN_CORE_D1_ID"
+
+# Secrets are NEVER committed here — set each on the syn-core Worker with `npx wrangler secret put <NAME>`:
+#   ANTHROPIC_API_KEY  — Anthropic proxy (/v1/messages)
+#   GATE_EMAIL, GATE_PASSWORD, GATE_SIGNING_KEY  — legacy gate + seeded-admin + break-glass reset
+#   AUTH_SIGNING_KEY   — session-token signing (syn-growth must share the SAME value)
+#   RESEND_API_KEY, AUTH_EMAIL_FROM  — transactional auth email (verify/reset)
+#   APP_BASE_URL, SIGNUP_MODE, ADMIN_TENANT_ID  — link base, invite/open signup, admin tenant link
