@@ -14,8 +14,7 @@
 > public-facing copy (hero, pricing section, marketing assistant, meta/JSON-LD).
 > The `SEAT_PRICE`/`priceFor` seat math survives only for the **in-app admin
 > Billing meter** (signed-in, not public). If pricing/positioning ever conflicts
-> with this file, `SYNTREX_PRICING_CANONICAL.md` wins. *(That canonical file is
-> not yet committed to the repo — add it so this note points at a real source.)*
+> with this file, `SYNTREX_PRICING_CANONICAL.md` wins. It lives at the repo root.
 
 ---
 
