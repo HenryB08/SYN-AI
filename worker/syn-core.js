@@ -23,8 +23,9 @@
  *   • D1 binding:  SYN_DB — KV surface (`kv`), auth (`users`, `auth_invites`), rate limit (`gate_rl`).
  *   • Secrets:     ANTHROPIC_API_KEY, GATE_EMAIL, GATE_PASSWORD, GATE_SIGNING_KEY
  *   • Auth config: AUTH_SIGNING_KEY (falls back to GATE_SIGNING_KEY), RESEND_API_KEY (transactional
- *                  email), AUTH_EMAIL_FROM (a Resend-VERIFIED first-party sender, e.g.
- *                  "SYN <no-reply@syntrexio.com>"), APP_BASE_URL (link base, default the custom
+ *                  email — REQUIRED for verify/reset emails; set it on syn-core, NOT only syn-growth),
+ *                  AUTH_EMAIL_FROM (a Resend-VERIFIED first-party sender; default
+ *                  "SYN <no-reply@mail.syntrexio.com>"), APP_BASE_URL (link base, default the custom
  *                  domain), SIGNUP_MODE ("invite" default | "open"), ADMIN_TENANT_ID (optional — the
  *                  workspace/org id to link the seeded admin to).
  *   Set secrets with `npx wrangler secret put <NAME>` — never commit them, never log them.
@@ -253,7 +254,9 @@ async function getUserById(env, id){ return env[D1_BINDING].prepare("SELECT * FR
 // Syntrex-VERIFIED sender (AUTH_EMAIL_FROM) — distinct from the follow-up rule that forbids
 // syntrexio.com for a CLIENT's cold outreach. A missing sender/key is a soft failure (see AUTH.md).
 async function sendAuthEmail(env, to, subject, html){
-  const from = env.AUTH_EMAIL_FROM || "SYN <no-reply@syntrexio.com>";
+  // Default sender is on the Resend-VERIFIED domain (mail.syntrexio.com). Override with AUTH_EMAIL_FROM,
+  // but it MUST be an address on a domain verified in Resend or the send is rejected.
+  const from = env.AUTH_EMAIL_FROM || "SYN <no-reply@mail.syntrexio.com>";
   if (!env.RESEND_API_KEY && !env.RESEND_FETCH) return { ok: false, error: "resend_not_configured" };
   try {
     const doFetch = env.RESEND_FETCH || fetch;
@@ -369,6 +372,23 @@ async function adminSetPassword(request, env){
   return plain({ ok: true, email, note: "password set; email verified; existing sessions revoked" }, 200);
 }
 
+// DIAGNOSTIC (break-glass, Bearer GATE_SIGNING_KEY): actually attempt a Resend send and report the REAL
+// result — so "is syn-core wired to send email?" is answerable without the anti-enumeration silence of
+// /auth/forgot. Returns whether RESEND_API_KEY is configured, the resolved `from`, and Resend's status.
+async function adminTestEmail(request, env){
+  const plain = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "Content-Type": "application/json" } });
+  await ensureTables(env);
+  const key = env.GATE_SIGNING_KEY || "";
+  if (!key || !(await ctEqualStr(bearer(request), key))) return plain({ error: "unauthorized" }, 401);
+  let body; try { body = await request.json(); } catch (_){ body = {}; }
+  const to = normEmail(body.to || env.GATE_EMAIL);
+  if (!to) return plain({ error: "invalid_input", hint: "{ to: \"you@example.com\" }" }, 400);
+  const configured = !!(env.RESEND_API_KEY || env.RESEND_FETCH);
+  const from = env.AUTH_EMAIL_FROM || "SYN <no-reply@mail.syntrexio.com>";
+  const r = await sendAuthEmail(env, to, "SYN email test", '<p>This is a SYN email deliverability test. If you received it, verify/reset emails will send.</p>');
+  return plain({ ok: !!r.ok, resend_configured: configured, from, to, resend_status: r.status || null, error: r.error || null }, r.ok ? 200 : 502);
+}
+
 /* ---- Google OAuth 2.0 (Authorization Code) ---- */
 function appBaseUrl(env){ return (env.APP_BASE_URL && String(env.APP_BASE_URL).replace(/\/+$/, "")) || "https://syn.syntrexio.com"; }
 function googleRedirectUri(env, request){
@@ -447,6 +467,8 @@ export default {
   async fetch(request, env){
     // BREAK-GLASS admin password reset — before the browser Origin gate (curl carries no Origin).
     if (new URL(request.url).pathname === "/auth/admin/set-password" && request.method === "POST") return adminSetPassword(request, env);
+    // DIAGNOSTIC: attempt a real Resend send and report the result (Bearer GATE_SIGNING_KEY; no Origin).
+    if (new URL(request.url).pathname === "/auth/admin/test-email" && request.method === "POST") return adminTestEmail(request, env);
     // Google OAuth — top-level navigations (no Origin header), so they run before the Origin gate.
     {
       const p0 = new URL(request.url).pathname;

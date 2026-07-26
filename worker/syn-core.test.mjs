@@ -338,6 +338,35 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   c("admin logs in on the migrated DB", li.status === 200 && (await li.json()).user.role === "admin");
 }
 
+/* =================== email deliverability: the reset flow reaches Resend + diagnostic =================== */
+{
+  // Without RESEND config, /auth/forgot stays generic BUT no send is attempted (the live-site bug).
+  const eNo = mkEnv({ SIGNUP_MODE: "open" }); delete eNo.RESEND_FETCH; delete eNo.AUTH_EMAIL_FROM; await mod.ensureTables(eNo);
+  let sends = 0; // no seam → sendAuthEmail short-circuits before any fetch
+  eNo.SYN_DB._db.prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,product,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .run("usr_em", "op@syn.test", await mod.hashPassword("passwordEM1"), 1, "active", "admin", null, "workspace", 1, new Date().toISOString());
+  const t1 = await worker.fetch(new Request("https://x.dev/auth/admin/test-email", { method: "POST", headers: { "Authorization": "Bearer gsk-secret", "Content-Type": "application/json" }, body: JSON.stringify({ to: "op@syn.test" }) }), eNo);
+  const j1 = await t1.json();
+  c("diagnostic reports resend NOT configured (the live-site cause)", t1.status === 502 && j1.resend_configured === false && j1.error === "resend_not_configured");
+  c("default sender is on the VERIFIED domain (mail.syntrexio.com)", /mail\.syntrexio\.com/.test(j1.from));
+
+  // WITH RESEND (seam), the reset flow actually POSTs to Resend from the verified domain.
+  const outbox = [];
+  const e = mkEnv({ SIGNUP_MODE: "open" });
+  e.RESEND_API_KEY = "re_live_x"; e.AUTH_EMAIL_FROM = "SYN <no-reply@mail.syntrexio.com>";
+  e.RESEND_FETCH = async (url, o) => { outbox.push({ url, body: JSON.parse(o.body) }); return new Response(JSON.stringify({ id: "email_1" }), { status: 200 }); };
+  await mod.ensureTables(e);
+  e.SYN_DB._db.prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,product,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .run("usr_r", "reset@syn.test", await mod.hashPassword("passwordR1"), 1, "active", "member", null, "workspace", 1, new Date().toISOString());
+  const fg = await call(e, "POST", "/auth/forgot", { ip: "141.0.0.1", body: { email: "reset@syn.test" } });
+  c("forgot with RESEND configured actually reaches Resend", fg.status === 200 && outbox.length === 1 && /api\.resend\.com\/emails/.test(outbox[0].url));
+  c("reset email sent from the verified domain, to the user, with a #reset= link", /mail\.syntrexio\.com/.test(outbox[0].body.from) && outbox[0].body.to[0] === "reset@syn.test" && /#reset=/.test(outbox[0].body.html));
+  const t2 = await worker.fetch(new Request("https://x.dev/auth/admin/test-email", { method: "POST", headers: { "Authorization": "Bearer gsk-secret", "Content-Type": "application/json" }, body: JSON.stringify({ to: "reset@syn.test" }) }), e);
+  c("diagnostic confirms a working send (resend_configured + ok)", t2.status === 200 && (await t2.json()).ok === true && outbox.length === 2);
+  const t3 = await worker.fetch(new Request("https://x.dev/auth/admin/test-email", { method: "POST", headers: { "Authorization": "Bearer wrong", "Content-Type": "application/json" }, body: JSON.stringify({ to: "x@x.com" }) }), e);
+  c("diagnostic requires the signing key (401 without it)", t3.status === 401);
+}
+
 /* =================== Google OAuth 2.0 (find-or-create / link by verified email) =================== */
 {
   const e = mkEnv({ SIGNUP_MODE: "invite" });   // Google sign-in bypasses the invite gate by design

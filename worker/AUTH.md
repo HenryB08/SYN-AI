@@ -206,10 +206,15 @@ legacy gate remains only as an emergency fallback.
 3. **Rate-limit state is best-effort** (a D1 row per `ip|bucket`); it isn't atomic under high
    concurrency and an attacker on a huge IP pool sidesteps it. Cloudflare WAF/Turnstile in front is the
    real defense.
-4. **Deliverability of auth email is unproven in-sandbox** (no network here) — verify the `AUTH_EMAIL_FROM`
-   domain in Resend and send a live test before relying on it. If email isn't configured, `sendAuthEmail`
-   fails soft (signup/forgot still return their generic response); wire an admin "resend verification"
-   path for support.
+4. **Auth email requires `RESEND_API_KEY` ON syn-core** — it is a SEPARATE Worker from syn-growth, so a key
+   set only on syn-growth does nothing here. Without it, `sendAuthEmail` fails soft and **never reaches
+   Resend** (signup/forgot still return their generic response, so the misconfig is silent — this is what
+   caused "zero emails" on the live site). Set `RESEND_API_KEY` (the same Resend key is fine) and, if you
+   don't use the default, `AUTH_EMAIL_FROM` — the sender MUST be on a Resend-**verified** domain
+   (`mail.syntrexio.com`; the default is `SYN <no-reply@mail.syntrexio.com>`).
+   **Confirm it works:** `POST /auth/admin/test-email` (Bearer `GATE_SIGNING_KEY`, `{ "to": "you@…" }`)
+   attempts a real send and reports `{ resend_configured, from, resend_status, error }` — the way to prove
+   syn-core can send without tripping the anti-enumeration silence of `/auth/forgot`.
 5. **Email verification does not block a stale unverified account from being re-claimed** — a second
    signup for an unverified email silently re-sends the verify link (no enumeration), which is intended,
    but there's no account-takeover concern only because nothing is granted before verification.
