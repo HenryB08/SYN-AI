@@ -1623,6 +1623,81 @@ const meReq = (e, method, path, tok, body) => call(e, method, path, { origin: AP
   c("dashboard (no job value): booking count shows, dollar figure is null (not guessed)", sN.headline.appointments_booked === 1 && sN.headline.value_configured === false && sN.headline.value_recovered_cents === null);
 }
 
+// ===================== stripe billing: widget subscription gate =====================
+// A tenant WITH a Stripe subscription that is not active/trialing stops serving new value; a tenant with NO
+// subscription is exempt and always serves. (Subscription state is written by syn-core's webhook; here we
+// set the columns directly to simulate what Stripe reconciled.)
+{
+  const e = aiEnv("Sure, happy to help.");
+  const { tenant, install } = await seedProfiled(e, "https://sub.com", PROFILE);
+  // EXEMPT (no subscription) → serves
+  const r1 = await msg(e, install, "https://sub.com", { text: "hi" });
+  c("gate: exempt tenant (no subscription) serves the widget", r1.status === 200);
+  const cfg1 = await (await call(e, "GET", "/w/config", { origin: "https://sub.com", key: install.install_key })).json();
+  c("gate: exempt tenant /w/config serving:true", cfg1.serving === true);
+  // give it a PAST_DUE subscription → the widget stops serving new value
+  e.SYN_DB._db.prepare("UPDATE tenants SET stripe_subscription_id='sub_x', subscription_status='past_due' WHERE id=?").run(tenant.id);
+  const callsBefore = e.calls.length;
+  const r2 = await msg(e, install, "https://sub.com", { text: "hi again" });
+  c("gate: past_due stops /w/messages (402 serving:false)", r2.status === 402 && (await r2.json()).serving === false);
+  c("gate: a blocked message never reaches the AI (no cost)", e.calls.length === callsBefore);
+  const bk = await book(e, install, "https://sub.com", { when: futureSlot(), email: "a@b.com" });
+  c("gate: past_due stops /w/book (402)", bk.status === 402);
+  const cap = await call(e, "POST", "/w/capture", { origin: "https://sub.com", key: install.install_key, body: { email: "x@y.com", conversation_id: "c1" } });
+  c("gate: past_due stops /w/capture (402)", cap.status === 402);
+  const cfg2 = await (await call(e, "GET", "/w/config", { origin: "https://sub.com", key: install.install_key })).json();
+  c("gate: past_due /w/config serving:false (widget can render 'unavailable')", cfg2.serving === false);
+  // canceled also stops
+  e.SYN_DB._db.prepare("UPDATE tenants SET subscription_status='canceled' WHERE id=?").run(tenant.id);
+  c("gate: canceled also stops /w/messages", (await msg(e, install, "https://sub.com", { text: "x" })).status === 402);
+  // reactivate → serves again (dashboard was never gated; the widget resumes)
+  e.SYN_DB._db.prepare("UPDATE tenants SET subscription_status='active' WHERE id=?").run(tenant.id);
+  c("gate: active subscription serves again", (await msg(e, install, "https://sub.com", { text: "back" })).status === 200);
+  // trialing serves too
+  e.SYN_DB._db.prepare("UPDATE tenants SET subscription_status='trialing' WHERE id=?").run(tenant.id);
+  c("gate: trialing serves", (await msg(e, install, "https://sub.com", { text: "trial" })).status === 200);
+}
+
+// ===================== stripe billing: free-month guarantee credit queue =====================
+// A billable tenant (has a Stripe customer) whose Receipt closes free_month_owed gets ONE pending credit —
+// never auto-applied. An exempt tenant (no Stripe customer) gets none. A met Receipt gets none.
+{
+  const e = env();
+  const S = await seedTenant(e, "billedcredit", { tz: "UTC" });
+  const tid = S.tenant.id;
+  e.SYN_DB._db.prepare("UPDATE tenants SET stripe_customer_id='cus_b', stripe_subscription_id='sub_b', subscription_status='active' WHERE id=?").run(tid);
+  // a June with NO captured value → free_month_owed
+  const R = (await (await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("credit: Receipt closed free_month_owed", R.metrics.guarantee.outcome === "free_month_owed");
+  const credits = e.SYN_DB._db.prepare("SELECT * FROM guarantee_credits WHERE tenant_id=?").all(tid);
+  c("credit: ONE pending credit queued for the free month's fee ($349)", credits.length === 1 && credits[0].status === "pending" && credits[0].amount_cents === 34900 && credits[0].receipt_id === R.id);
+  c("credit: it is NOT applied (no approver, no applied_at)", credits[0].applied_at == null && credits[0].approved_by == null && credits[0].approved_at == null);
+  // re-generating the same period queues no duplicate (idempotent per receipt)
+  await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } });
+  c("credit: re-gen queues no duplicate (receipt_id UNIQUE)", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM guarantee_credits WHERE tenant_id=?").get(tid).n === 1);
+  // admin can see the queue
+  const list = await (await call(e, "GET", `/admin/tenants/${tid}/credits?status=pending`, { adminKey: ADMIN })).json();
+  c("credit: admin list shows the pending credit", list.credits.length === 1 && list.credits[0].id === credits[0].id);
+}
+// exempt tenant (no Stripe customer) → free month, but NO credit (nothing to invoice)
+{
+  const e = env();
+  const X = await seedTenant(e, "exemptcredit", { tz: "UTC" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${X.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("credit (exempt): still free_month_owed", R.metrics.guarantee.outcome === "free_month_owed");
+  c("credit (exempt): NO credit queued (no Stripe customer to credit)", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM guarantee_credits WHERE tenant_id=?").get(X.tenant.id).n === 0);
+}
+// met Receipt (subscribed) → no credit
+{
+  const e = env();
+  const M = await seedTenant(e, "metcredit", { tz: "UTC" });
+  const tid = M.tenant.id, iid = M.install.id;
+  e.SYN_DB._db.prepare("UPDATE tenants SET stripe_customer_id='cus_m', stripe_subscription_id='sub_m', subscription_status='active' WHERE id=?").run(tid);
+  insEv(e, { id: "mc_b1", tenant: tid, install: iid, contact: "mc1", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-07T15:00:00.000Z" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("credit (met): a met Receipt queues NO credit", R.metrics.guarantee.outcome === "met" && e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM guarantee_credits WHERE tenant_id=?").get(tid).n === 0);
+}
+
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);
 console.log(fail ? "ERRORS: PRESENT" : "ERRORS: NONE");
 if (fail) process.exitCode = 1;

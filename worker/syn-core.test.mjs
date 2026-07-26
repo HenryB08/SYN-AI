@@ -447,6 +447,162 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   c("invalid token → 401 on /kv", badTok.status === 401);
 }
 
+/* =================== STRIPE BILLING (checkout · webhooks · credits) =================== */
+// A Stripe env with the price ids + a recording STRIPE_FETCH seam (no network). Canned responses per path.
+function stripeEnv(overrides = {}){
+  const calls = [];
+  const jsonRes = (obj, status = 200) => ({ ok: status < 400, status, json: async () => obj });
+  const env = mkEnv({ env: {
+    STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: "whsec_test_secret",
+    STRIPE_PRICE_CORE: "price_core", STRIPE_PRICE_PRO: "price_pro", STRIPE_PRICE_INSTALL: "price_install",
+    ADMIN_TENANT_ID: "ten_1",
+    STRIPE_FETCH: async (url, opts) => {
+      calls.push({ path: url.replace("https://api.stripe.com", ""), method: opts.method, body: opts.body || "", headers: opts.headers || {} });
+      const p = url.replace("https://api.stripe.com", "");
+      if (p === "/v1/checkout/sessions") return jsonRes({ id: "cs_test_1", url: "https://checkout.stripe.com/c/pay/cs_test_1" });
+      if (/^\/v1\/subscriptions\/[^/]+$/.test(p) && opts.method === "GET") return jsonRes({ id: "sub_1", status: "active", items: { data: [{ id: "si_1", price: { id: env.STRIPE_PRICE_CORE } }] } });
+      if (/^\/v1\/subscriptions\/[^/]+$/.test(p) && opts.method === "POST") return jsonRes({ id: "sub_1", status: "active" });
+      if (/^\/v1\/customers\/[^/]+\/balance_transactions$/.test(p)) return jsonRes({ id: "cbtxn_1", amount: -34900, currency: "usd" });
+      return jsonRes({ error: { message: "unmocked " + p } }, 400);
+    },
+  } });
+  Object.assign(env, overrides);
+  env._stripeCalls = calls;
+  return env;
+}
+function seedTenant(e, id, plan){
+  // Include the Stripe columns up front so tests can UPDATE them directly (mirrors what ensureBillingTables
+  // ALTERs onto a real tenants table; its ALTERs then no-op as "duplicate column").
+  e.SYN_DB._db.exec(`CREATE TABLE IF NOT EXISTS tenants (id TEXT PRIMARY KEY, name TEXT, slug TEXT, status TEXT DEFAULT 'active', timezone TEXT, created_at TEXT, plan TEXT DEFAULT 'core', notes TEXT, guarantee_mode TEXT, monthly_fee_cents INTEGER, stripe_customer_id TEXT, stripe_subscription_id TEXT, subscription_status TEXT, stripe_price_id TEXT, current_period_end INTEGER, install_fee_charged INTEGER NOT NULL DEFAULT 0, billing_updated_at TEXT)`);
+  e.SYN_DB._db.prepare("INSERT OR IGNORE INTO tenants (id,name,slug,status,created_at,plan) VALUES (?,?,?,?,?,?)").run(id, id, id, "active", new Date().toISOString(), plan || "core");
+}
+const gateTok = (e) => mod.makeToken(e.GATE_EMAIL, e.GATE_SIGNING_KEY);
+async function webhookReq(e, event, opts = {}){
+  const raw = JSON.stringify(event);
+  const ts = Math.floor(Date.now() / 1000) + (opts.skew || 0);
+  const secret = opts.secret || e.STRIPE_WEBHOOK_SECRET;
+  const sig = opts.unsigned ? "" : (opts.bad ? ("t=" + ts + ",v1=deadbeef") : ("t=" + ts + ",v1=" + await mod.hmacHex(ts + "." + raw, secret)));
+  const h = { "Content-Type": "application/json" };
+  if (!opts.unsigned) h["Stripe-Signature"] = sig;
+  return new Request("https://syn-core.workers.dev/billing/webhook", { method: "POST", headers: h, body: raw });
+}
+const tRow = (e, id) => e.SYN_DB._db.prepare("SELECT * FROM tenants WHERE id=?").get(id);
+
+// ---- webhook signature verification ----
+{
+  const e = stripeEnv(); seedTenant(e, "ten_1");
+  const evt = { id: "evt_sig1", type: "invoice.payment_failed", data: { object: { subscription: "sub_1", customer: "cus_1" } } };
+  const unsigned = await worker.fetch(await webhookReq(e, evt, { unsigned: true }), e);
+  c("webhook: unsigned → 400 rejected", unsigned.status === 400);
+  const bad = await worker.fetch(await webhookReq(e, evt, { bad: true }), e);
+  c("webhook: bad signature → 400 rejected", bad.status === 400);
+  const stale = await worker.fetch(await webhookReq(e, evt, { skew: -1000 }), e);
+  c("webhook: valid HMAC but stale timestamp → 400 rejected", stale.status === 400);
+  const wrongSecret = await worker.fetch(await webhookReq(e, evt, { secret: "whsec_wrong" }), e);
+  c("webhook: signed with the wrong secret → 400 rejected", wrongSecret.status === 400);
+  const good = await worker.fetch(await webhookReq(e, evt), e);
+  c("webhook: correctly signed → 200 received", good.status === 200 && (await good.json()).received === true);
+}
+
+// ---- new client checkout → active, install fee charged ONCE ----
+{
+  const e = stripeEnv(); seedTenant(e, "ten_1", "core");
+  const co = await call(e, "POST", "/billing/checkout", { token: await gateTok(e), body: { plan: "core", tenant_id: "ten_1" } });
+  const coj = await co.json();
+  c("checkout: 200 with a Stripe Checkout URL", co.status === 200 && /checkout\.stripe\.com/.test(coj.url));
+  const body1 = e._stripeCalls.find(x => x.path === "/v1/checkout/sessions").body;
+  c("checkout: subscription mode + core price", /mode=subscription/.test(body1) && /line_items%5B0%5D%5Bprice%5D=price_core/.test(body1));
+  c("checkout: install fee on the FIRST invoice (add_invoice_items)", /add_invoice_items%5D%5B0%5D%5Bprice%5D=price_install/.test(body1) && coj.install_fee_included === true);
+  c("checkout: tenant_id threaded for the webhook to reconcile", /client_reference_id=ten_1/.test(body1) && /subscription_data%5Bmetadata%5D%5Btenant_id%5D=ten_1/.test(body1));
+
+  // Stripe → us: checkout completed, then subscription.created (active). State is DERIVED FROM STRIPE.
+  await worker.fetch(await webhookReq(e, { id: "evt_cs", type: "checkout.session.completed", data: { object: { metadata: { tenant_id: "ten_1" }, customer: "cus_1", subscription: "sub_1" } } }), e);
+  await worker.fetch(await webhookReq(e, { id: "evt_created", type: "customer.subscription.created", data: { object: { id: "sub_1", customer: "cus_1", status: "active", current_period_end: 1900000000, items: { data: [{ price: { id: "price_core" } }] } } } }), e);
+  const t = tRow(e, "ten_1");
+  c("checkout→webhook: tenant is active, customer+sub linked, plan=core", t.subscription_status === "active" && t.stripe_customer_id === "cus_1" && t.stripe_subscription_id === "sub_1" && t.plan === "core");
+  c("checkout→webhook: install_fee_charged set once", t.install_fee_charged === 1);
+  const st = await call(e, "GET", "/billing/status?tenant_id=ten_1", { token: await gateTok(e) });
+  const stj = await st.json();
+  c("status: active + serving true + not exempt", stj.subscription_status === "active" && stj.serving === true && stj.exempt === false);
+
+  // A SECOND checkout (e.g. re-subscribe) must NOT include the install fee again.
+  const co2 = await call(e, "POST", "/billing/checkout", { token: await gateTok(e), body: { plan: "core", tenant_id: "ten_1" } });
+  const body2 = e._stripeCalls.filter(x => x.path === "/v1/checkout/sessions").slice(-1)[0].body;
+  c("checkout again: install fee NOT re-included (charged once, ever)", !/add_invoice_items/.test(body2) && (await co2.json()).install_fee_included === false);
+}
+
+// ---- plan change prorates, never re-charges install ----
+{
+  const e = stripeEnv(); seedTenant(e, "ten_1", "core");
+  e.SYN_DB._db.prepare("UPDATE tenants SET stripe_customer_id='cus_1', stripe_subscription_id='sub_1', subscription_status='active' WHERE id='ten_1'").run();
+  const ch = await call(e, "POST", "/billing/change-plan", { token: await gateTok(e), body: { plan: "pro", tenant_id: "ten_1" } });
+  const chj = await ch.json();
+  c("change-plan: 200 prorated, install not recharged", ch.status === 200 && chj.prorated === true && chj.install_recharged === false);
+  const subPost = e._stripeCalls.find(x => /^\/v1\/subscriptions\/sub_1$/.test(x.path) && x.method === "POST");
+  c("change-plan: swaps the item to the new price with create_prorations", /items%5B0%5D%5Bprice%5D=price_pro/.test(subPost.body) && /proration_behavior=create_prorations/.test(subPost.body));
+  c("change-plan: never calls checkout / never adds an install line", !e._stripeCalls.some(x => x.path === "/v1/checkout/sessions") && !e._stripeCalls.some(x => /add_invoice_items/.test(x.body)));
+  // Stripe confirms via subscription.updated → tenants.plan becomes pro (fee derives from plan; no duplicate fee).
+  await worker.fetch(await webhookReq(e, { id: "evt_upd_pro", type: "customer.subscription.updated", data: { object: { id: "sub_1", customer: "cus_1", status: "active", items: { data: [{ price: { id: "price_pro" } }] } } } }), e);
+  c("change-plan→webhook: tenant plan reconciled to pro from Stripe", tRow(e, "ten_1").plan === "pro");
+}
+
+// ---- replayed webhook changes nothing (idempotent) ----
+{
+  const e = stripeEnv(); seedTenant(e, "ten_1", "core");
+  e.SYN_DB._db.prepare("UPDATE tenants SET stripe_customer_id='cus_1', stripe_subscription_id='sub_1', subscription_status='active' WHERE id='ten_1'").run();
+  const pastDue = { id: "evt_pd", type: "customer.subscription.updated", data: { object: { id: "sub_1", customer: "cus_1", status: "past_due", items: { data: [{ price: { id: "price_core" } }] } } } };
+  await worker.fetch(await webhookReq(e, pastDue), e);
+  c("webhook: subscription.updated(past_due) → tenant past_due", tRow(e, "ten_1").subscription_status === "past_due");
+  // recover to active with a DIFFERENT event…
+  await worker.fetch(await webhookReq(e, { id: "evt_active", type: "customer.subscription.updated", data: { object: { id: "sub_1", customer: "cus_1", status: "active", items: { data: [{ price: { id: "price_core" } }] } } } }), e);
+  c("webhook: recovered to active", tRow(e, "ten_1").subscription_status === "active");
+  // …then REPLAY the old past_due event. It must be a no-op (duplicate), NOT revert to past_due.
+  const replay = await worker.fetch(await webhookReq(e, pastDue), e);
+  const replayj = await replay.json();
+  c("webhook replay: 200 duplicate, no re-apply", replay.status === 200 && replayj.duplicate === true);
+  c("webhook replay: tenant STILL active (replay changed nothing)", tRow(e, "ten_1").subscription_status === "active");
+  c("webhook: exactly one stripe_events row per id (idempotency ledger)", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM stripe_events WHERE id='evt_pd'").get().n === 1);
+}
+
+// ---- payment failed → past_due; payment succeeded → active; deleted → canceled ----
+{
+  const e = stripeEnv(); seedTenant(e, "ten_1", "core");
+  e.SYN_DB._db.prepare("UPDATE tenants SET stripe_customer_id='cus_1', stripe_subscription_id='sub_1', subscription_status='active' WHERE id='ten_1'").run();
+  await worker.fetch(await webhookReq(e, { id: "evt_fail", type: "invoice.payment_failed", data: { object: { subscription: "sub_1", customer: "cus_1" } } }), e);
+  c("webhook: invoice.payment_failed → past_due", tRow(e, "ten_1").subscription_status === "past_due");
+  await worker.fetch(await webhookReq(e, { id: "evt_ok", type: "invoice.payment_succeeded", data: { object: { subscription: "sub_1", customer: "cus_1" } } }), e);
+  c("webhook: invoice.payment_succeeded → active", tRow(e, "ten_1").subscription_status === "active");
+  await worker.fetch(await webhookReq(e, { id: "evt_del", type: "customer.subscription.deleted", data: { object: { id: "sub_1", customer: "cus_1" } } }), e);
+  c("webhook: customer.subscription.deleted → canceled", tRow(e, "ten_1").subscription_status === "canceled");
+}
+
+// ---- guarantee credit: released once by an admin, never auto-applied ----
+{
+  const e = stripeEnv(); seedTenant(e, "ten_1", "core");
+  e.SYN_DB._db.prepare("UPDATE tenants SET stripe_customer_id='cus_1', stripe_subscription_id='sub_1', subscription_status='active' WHERE id='ten_1'").run();
+  await mod.ensureBillingTables(e);
+  e.SYN_DB._db.prepare("INSERT INTO guarantee_credits (id,tenant_id,receipt_id,period_start,period_end,amount_cents,status,created_at) VALUES (?,?,?,?,?,?,?,?)")
+    .run("gcr_1", "ten_1", "rcp_1", "2026-06-01", "2026-06-30", 34900, "pending", new Date().toISOString());
+  // it is NOT applied until an admin releases it
+  const list = await call(e, "GET", "/billing/credits?status=pending", { token: await gateTok(e) });
+  c("credits: pending credit is listed, unapplied", (await list.json()).credits.some(x => x.id === "gcr_1" && x.status === "pending"));
+  c("credits: nothing hit Stripe before approval", !e._stripeCalls.some(x => /balance_transactions/.test(x.path)));
+  const ap = await call(e, "POST", "/billing/credits/gcr_1/approve", { token: await gateTok(e) });
+  const apj = await ap.json();
+  c("credits: approve applies a NEGATIVE balance transaction (credit toward next invoice)", ap.status === 200 && apj.applied === true);
+  const bt = e._stripeCalls.find(x => /balance_transactions/.test(x.path));
+  c("credits: Stripe credit is -amount, usd, idempotency-keyed", /amount=-34900/.test(bt.body) && /currency=usd/.test(bt.body) && bt.headers["Idempotency-Key"] === "gcredit_gcr_1");
+  const cr = e.SYN_DB._db.prepare("SELECT * FROM guarantee_credits WHERE id='gcr_1'").get();
+  c("credits: row marked applied, logs who + when", cr.status === "applied" && cr.approved_by === mod.normEmail(e.GATE_EMAIL) && !!cr.approved_at && cr.stripe_txn_id === "cbtxn_1");
+  // approving again is a no-op (does not double-credit)
+  const before = e._stripeCalls.filter(x => /balance_transactions/.test(x.path)).length;
+  const ap2 = await call(e, "POST", "/billing/credits/gcr_1/approve", { token: await gateTok(e) });
+  c("credits: re-approve is a no-op (already applied, no second Stripe credit)", (await ap2.json()).already_applied === true && e._stripeCalls.filter(x => /balance_transactions/.test(x.path)).length === before);
+  // a non-admin session cannot release credits
+  const noAdmin = await call(e, "GET", "/billing/credits", {});
+  c("credits: list requires auth (401 without a token)", noAdmin.status === 401);
+}
+
 console.log("\nCHECKS: " + ok + " passed, " + fail + " failed");
 console.log("ERRORS: " + (fail ? "PRESENT" : "NONE"));
 process.exit(fail ? 1 : 0);

@@ -323,6 +323,29 @@ async function ensureTables(env){
   // monthly_fee_cents per-client override (nullable → plan-derived via PLAN_FEE_CENTS). The number recovered
   // value is measured against for the free-month rule (GUARANTEE.md).
   try { await DB.prepare("ALTER TABLE tenants ADD COLUMN monthly_fee_cents INTEGER").run(); } catch (_){ /* column already present */ }
+  // Stripe billing columns (written by syn-core's webhook — the shared D1; see worker/STRIPE.md). syn-growth
+  // only READS these: to gate the widget on an active subscription, and to know whether a tenant is billable
+  // (has a Stripe customer) when queuing a free-month guarantee credit. A tenant with NO subscription is
+  // EXEMPT (internal/HALT) and serves normally. Idempotent ALTERs, mirroring syn-core's ensureBillingTables.
+  for (const sql of [
+    "ALTER TABLE tenants ADD COLUMN stripe_customer_id TEXT",
+    "ALTER TABLE tenants ADD COLUMN stripe_subscription_id TEXT",
+    "ALTER TABLE tenants ADD COLUMN subscription_status TEXT",
+    "ALTER TABLE tenants ADD COLUMN stripe_price_id TEXT",
+    "ALTER TABLE tenants ADD COLUMN current_period_end INTEGER",
+    "ALTER TABLE tenants ADD COLUMN install_fee_charged INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tenants ADD COLUMN billing_updated_at TEXT",
+  ]){ try { await DB.prepare(sql).run(); } catch (_){ /* column already present */ } }
+  // The free-month guarantee-credit queue (shared with syn-core, which releases them). syn-growth WRITES a
+  // 'pending' row when a Receipt closes free_month_owed; only an admin release (on syn-core, which holds the
+  // Stripe key) ever applies it. CREATE IF NOT EXISTS is shared-safe.
+  try {
+    await DB.prepare(`CREATE TABLE IF NOT EXISTS guarantee_credits (
+      id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, receipt_id TEXT UNIQUE,
+      period_start TEXT, period_end TEXT, amount_cents INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL,
+      approved_by TEXT, approved_at TEXT, applied_at TEXT, stripe_txn_id TEXT, note TEXT)`).run();
+  } catch (_){ /* already present */ }
 }
 
 /* ============================ auth ============================ */
@@ -349,6 +372,18 @@ async function resolveInstall(env, key, origin){
   try { origins = JSON.parse(install.allowed_origins || "[]"); } catch (_){ origins = []; }
   if (!origin || !origins.includes(origin)) return { error: "origin_not_allowed", status: 403, install };
   return { install };
+}
+// Subscription serving gate (see worker/STRIPE.md). Returns null when the widget may serve, or a short reason
+// string when it must stop. RULE: a tenant with NO Stripe subscription is EXEMPT (internal/HALT + every
+// pre-Stripe tenant) and always serves. A tenant WITH a subscription serves only while it is active/trialing;
+// past_due / canceled / unpaid / incomplete stop new conversations, bookings, and lead capture. The
+// subscription state is whatever syn-core wrote from Stripe — never guessed here.
+async function widgetServingBlock(env, install){
+  const t = await env.SYN_DB.prepare("SELECT stripe_subscription_id, subscription_status FROM tenants WHERE id=?").bind(install.tenant_id).first();
+  if (!t || !t.stripe_subscription_id) return null;   // exempt: no subscription → serve
+  const s = t.subscription_status;
+  if (s === "active" || s === "trialing") return null;
+  return "subscription_" + (s || "inactive");
 }
 async function rateHit(env, bucket, limit){
   const cap = limit || RATE_LIMIT_PER_MIN;
@@ -463,6 +498,17 @@ async function setTenantGuarantee(env, tenantId, body){
   await env.SYN_DB.prepare("UPDATE tenants SET " + sets.join(", ") + " WHERE id=?").bind(...args, tenantId).run();
   const row = await env.SYN_DB.prepare("SELECT id, plan, monthly_fee_cents, guarantee_mode FROM tenants WHERE id=?").bind(tenantId).first();
   return json({ tenant: { ...row, effective_monthly_fee_cents: monthlyFeeFor(row) } });
+}
+// GET /admin/tenants/:id/credits[?status=] — the tenant's guarantee-credit queue (read-only here; release
+// happens on syn-core, which holds the Stripe key). Lets the operator see what is pending before releasing.
+async function listCredits(env, tenantId, url){
+  const t = await env.SYN_DB.prepare("SELECT id FROM tenants WHERE id=?").bind(tenantId).first();
+  if (!t) return json({ error: "tenant_not_found" }, 404);
+  const status = url.searchParams.get("status");
+  const where = ["tenant_id=?"], args = [tenantId];
+  if (status){ where.push("status=?"); args.push(status); }
+  const rows = (await env.SYN_DB.prepare("SELECT * FROM guarantee_credits WHERE " + where.join(" AND ") + " ORDER BY created_at DESC LIMIT 200").bind(...args).all()).results || [];
+  return json({ tenant_id: tenantId, credits: rows });
 }
 async function listEvents(env, tenantId, url){
   const t = await env.SYN_DB.prepare("SELECT id FROM tenants WHERE id=?").bind(tenantId).first();
@@ -660,7 +706,10 @@ async function wConfig(env, install){
   const brand = await env.SYN_DB.prepare("SELECT name FROM brands WHERE id=?").bind(install.brand_id).first();
   let config = {};
   try { config = JSON.parse(install.config || "{}"); } catch (_){ config = {}; }
-  return { install_id: install.id, brand: { name: brand ? brand.name : null }, config };
+  // `serving` lets the widget render a graceful "temporarily unavailable" state when the tenant's
+  // subscription has lapsed (past_due/canceled) — messages/capture/book will 402 while this is false.
+  const block = await widgetServingBlock(env, install);
+  return { install_id: install.id, brand: { name: brand ? brand.name : null }, config, serving: !block };
 }
 async function wEvents(env, install, body, cors){
   const type = body && body.type;
@@ -1911,8 +1960,27 @@ async function generateReceipt(env, tenantId, periodStart, periodEnd, periodLabe
     if (ins) await insertEvent(env, { tenant_id: tenantId, install_id: ins.id, contact_id: null, type: "receipt_generated",
       payload: { receipt_id: id, period_start: periodStart, period_end: periodEnd }, idempotency_key: "receipt_" + tenantId + "_" + periodStart + "_" + periodEnd });
   } catch (_){ /* audit event is best-effort */ }
+  // GUARANTEE CREDIT (see worker/STRIPE.md + GUARANTEE.md §free-month): if this immutable Receipt closed
+  // free_month_owed, queue a PENDING credit for the free month's fee. It is NEVER auto-applied — an admin
+  // releases it on syn-core (which holds the Stripe key). Only for billable tenants (a Stripe customer);
+  // exempt/internal tenants have no invoice to credit. Runs only on FIRST generation (idempotent Receipt).
+  try { await queueGuaranteeCredit(env, tenant, id, metrics); } catch (_){ /* credit queue is best-effort */ }
   const row = await env.SYN_DB.prepare("SELECT * FROM receipts WHERE id=?").bind(id).first();
   return { receipt: normalizeReceipt(row), deduped: false };
+}
+// Write a single PENDING guarantee credit for a free-month Receipt. Idempotent per receipt (receipt_id is
+// UNIQUE). Amount = the snapshotted monthly fee owed. Skipped for exempt tenants (no Stripe customer).
+async function queueGuaranteeCredit(env, tenant, receiptId, metrics){
+  const g = metrics && metrics.guarantee;
+  if (!g || g.outcome !== "free_month_owed") return;
+  if (!tenant || !tenant.stripe_customer_id) return;   // exempt (internal/HALT): no invoice to credit
+  const amount = (Number.isInteger(g.monthly_fee_cents) && g.monthly_fee_cents > 0) ? g.monthly_fee_cents : monthlyFeeFor(tenant);
+  if (!(amount > 0)) return;
+  const start = (metrics.period && metrics.period.start) || null, end = (metrics.period && metrics.period.end) || null;
+  try {
+    await env.SYN_DB.prepare("INSERT OR IGNORE INTO guarantee_credits (id,tenant_id,receipt_id,period_start,period_end,amount_cents,status,created_at,note) VALUES (?,?,?,?,?,?, 'pending', ?, ?)")
+      .bind(newId("gcr"), tenant.id, receiptId, start, end, amount, nowIso(), "free_month_owed").run();
+  } catch (_){ /* unique receipt_id → already queued */ }
 }
 
 // The monthly cron entry point: generate the PRIOR month's Receipt for every ACTIVE tenant. Idempotent
@@ -2728,6 +2796,15 @@ export default {
       const rl = await rateHit(env, "req:" + install.id);
       if (rl.limited) return json({ error: "rate_limited" }, 429, { ...cors, "Retry-After": String(rl.retryAfter) });
 
+      // SUBSCRIPTION GATE (see worker/STRIPE.md): a tenant WITH a Stripe subscription that is not active/
+      // trialing (past_due, canceled, …) stops serving NEW value — messages, lead capture, bookings. A tenant
+      // with NO subscription is EXEMPT (internal/HALT) and always serves. /w/config still loads so the widget
+      // can render a graceful "temporarily unavailable" state (it carries `serving:false`) instead of erroring.
+      if (seg[1] === "messages" || seg[1] === "capture" || seg[1] === "contacts" || seg[1] === "book"){
+        const block = await widgetServingBlock(env, install);
+        if (block) return json({ error: "unavailable", serving: false, reason: block }, 402, cors);
+      }
+
       if (seg[1] === "config" && method === "GET") return json(await wConfig(env, install), 200, cors);
       if (seg[1] === "events" && method === "POST"){ const b = await readJson(request); if (!b) return json({ error: "bad_json" }, 400, cors);
         return wEvents(env, install, b, cors); }
@@ -2784,6 +2861,7 @@ export default {
       if (seg[1] === "installs" && seg[3] === "revoke" && method === "POST") return revokeInstall(env, seg[2]);
       if (seg[1] === "tenants" && seg[3] === "job-value" && method === "POST") return addJobValue(env, seg[2], body || {});
       if (seg[1] === "tenants" && seg[3] === "guarantee" && method === "POST") return setTenantGuarantee(env, seg[2], body || {});
+      if (seg[1] === "tenants" && seg[3] === "credits" && method === "GET") return listCredits(env, seg[2], url);
       if (seg[1] === "tenants" && seg[3] === "events" && method === "GET") return listEvents(env, seg[2], url);
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg.length === 4 && method === "GET") return listContacts(env, seg[2], url);
       if (seg[1] === "tenants" && seg[3] === "bookings" && seg.length === 4 && method === "GET") return listBookings(env, seg[2], url);

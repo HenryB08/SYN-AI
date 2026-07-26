@@ -146,6 +146,7 @@ Every tracked file in the repo:
 | `worker/syn-core.test.mjs` | Unit suite for syn-core auth + gate + KV tenant-scoping (node:sqlite D1 shim). Run `node worker/syn-core.test.mjs` | any change to syn-core auth/KV/gate |
 | `worker/AUTH.md` | The real-auth design: algorithm, flows, endpoints, tenant scoping, seeded admin, invite flag, security + weaknesses | changing any auth behavior or onboarding a deployer to auth |
 | `worker/DASHBOARD.md` | The Growth client dashboard: product routing, syn-growth `/me/*` (session-scoped), the `#growth` scene, config write-back, consistency with the Receipt | changing the dashboard, the `/me/*` API, or product routing |
+| `worker/STRIPE.md` | **Stripe billing (Growth only)** — checkout (Core/Pro + one-time install), the signature-verified idempotent webhook, subscription state on `tenants` (derived from Stripe), widget access gating, the free-month guarantee credit; Stripe dashboard setup + exact secret names | changing anything about subscriptions, the webhook, billing gating, or the guarantee credit |
 | `worker/syn-assistant.js` | Cloudflare Worker for the marketing assistant; system prompt baked in, proxies Anthropic | changing what the marketing assistant knows or how it's proxied |
 | `worker/wrangler.toml` | Wrangler config for syn-assistant | changing the Worker name / compat date |
 | `worker/README.md` | Deploy + wiring for syn-assistant, plus the origin-allowlist patch for syn-core | onboarding a deployer; changing an endpoint or the CORS allowlist |

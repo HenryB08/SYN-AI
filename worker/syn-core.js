@@ -474,6 +474,8 @@ export default {
       const p0 = new URL(request.url).pathname;
       if (p0 === "/auth/google/start" && request.method === "GET") return googleStart(request, env);
       if (p0 === "/auth/google/callback" && request.method === "GET") return googleCallback(request, env);
+      // Stripe webhook — Stripe sends NO Origin and its own signature, so it must bypass the Origin gate.
+      if (p0 === "/billing/webhook" && request.method === "POST") return billingWebhook(request, env);
     }
 
     const origin = request.headers.get("Origin");
@@ -680,6 +682,13 @@ export default {
     const principal = await authenticate(request, env);
     if (!principal) return json({ error: "unauthorized" }, 401, origin);
 
+    /* ======================= STRIPE BILLING (authenticated; see worker/STRIPE.md) ======================= */
+    if (path === "/billing/checkout" && request.method === "POST") return billingCheckout(request, env, origin, principal);
+    if (path === "/billing/change-plan" && request.method === "POST") return billingChangePlan(request, env, origin, principal);
+    if (path === "/billing/status" && request.method === "GET") return billingStatus(request, env, origin, principal);
+    if (path === "/billing/credits" && request.method === "GET") return billingCreditsList(request, env, origin, principal);
+    { const m = /^\/billing\/credits\/([^/]+)\/approve$/.exec(path); if (m && request.method === "POST") return billingCreditApprove(request, env, origin, principal, decodeURIComponent(m[1])); }
+
     // KV surface (D1-backed): GET/PUT /kv/<key> — tenant-scoped for regular sessions.
     if (path.startsWith("/kv/")){
       await ensureTables(env);
@@ -731,10 +740,312 @@ async function issueVerify(env, user){
   return token;
 }
 
+/* ============================================================================
+   STRIPE BILLING — the gate to taking money (Growth only; see worker/STRIPE.md)
+   ----------------------------------------------------------------------------
+   syn-core owns ALL Stripe: checkout, the signature-verified webhook, and the
+   guarantee-credit release. The Stripe secret never leaves this Worker. Every
+   subscription fact on a tenant is DERIVED FROM STRIPE via the webhook — we never
+   guess it locally. Subscription state lands on the SHARED `tenants` table (the
+   same D1 syn-growth binds), which is what syn-growth reads to gate the widget.
+   Canonical pricing: Growth Core $349/mo, Growth Pro $549/mo, $497 one-time
+   install fee (charged on the FIRST invoice only, via Checkout add_invoice_items).
+   ========================================================================== */
+const STRIPE_API = "https://api.stripe.com";
+
+// plan ⇄ Stripe price id (recurring). The install fee is a separate one-time price.
+function priceIdForPlan(env, plan){ return plan === "pro" ? env.STRIPE_PRICE_PRO : plan === "core" ? env.STRIPE_PRICE_CORE : null; }
+function planFromPriceId(env, priceId){
+  if (priceId && env.STRIPE_PRICE_PRO && priceId === env.STRIPE_PRICE_PRO) return "pro";
+  if (priceId && env.STRIPE_PRICE_CORE && priceId === env.STRIPE_PRICE_CORE) return "core";
+  return null;
+}
+
+// Stripe wants form-encoded, deeply-bracketed params (line_items[0][price], etc.).
+function stripeForm(obj, prefix, out){
+  out = out || [];
+  for (const k of Object.keys(obj)){
+    const key = prefix ? prefix + "[" + k + "]" : k;
+    const v = obj[k];
+    if (v === undefined || v === null) continue;
+    if (Array.isArray(v)){
+      v.forEach((item, i) => {
+        if (item && typeof item === "object") stripeForm(item, key + "[" + i + "]", out);
+        else out.push([key + "[" + i + "]", String(item)]);
+      });
+    } else if (typeof v === "object"){ stripeForm(v, key, out); }
+    else out.push([key, String(v)]);
+  }
+  return out;
+}
+function stripeBody(obj){ return stripeForm(obj).map(([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v)).join("&"); }
+
+// The single Stripe REST call point. env.STRIPE_FETCH is a test seam; production uses global fetch over TLS.
+async function stripeCall(env, method, path, params, idempotencyKey){
+  if (!env.STRIPE_SECRET_KEY && !env.STRIPE_FETCH) return { ok: false, status: 500, data: { error: { message: "stripe_unconfigured" } } };
+  const headers = { "Authorization": "Bearer " + (env.STRIPE_SECRET_KEY || ""), "Content-Type": "application/x-www-form-urlencoded" };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  const doFetch = env.STRIPE_FETCH || fetch;
+  let res;
+  try { res = await doFetch(STRIPE_API + path, { method, headers, body: params ? stripeBody(params) : undefined }); }
+  catch (_){ return { ok: false, status: 502, data: { error: { message: "stripe_unreachable" } } }; }
+  let data = null; try { data = await res.json(); } catch (_){ data = null; }
+  return { ok: res.ok, status: res.status, data };
+}
+
+// HMAC-SHA256 → lowercase hex (Stripe's signature encoding).
+async function hmacHex(message, secret){
+  const key = await crypto.subtle.importKey("raw", _enc.encode(String(secret)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, _enc.encode(String(message)));
+  const b = new Uint8Array(sig); let s = "";
+  for (let i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, "0");
+  return s;
+}
+// Verify a Stripe webhook signature header: t=<ts>,v1=<hex>[,v1=<hex>…]. Constant-time, 5-min tolerance.
+async function verifyStripeSig(rawBody, header, secret, nowS){
+  if (!header || !secret) return false;
+  let t = null; const v1 = [];
+  for (const part of String(header).split(",")){
+    const i = part.indexOf("="); if (i < 0) continue;
+    const k = part.slice(0, i).trim(), val = part.slice(i + 1).trim();
+    if (k === "t") t = val; else if (k === "v1") v1.push(val);
+  }
+  if (!t || !v1.length) return false;
+  const ts = parseInt(t, 10);
+  if (!Number.isFinite(ts) || Math.abs((nowS || nowSec()) - ts) > 300) return false;   // reject stale/forged timestamps
+  const expected = await hmacHex(t + "." + rawBody, secret);
+  const expBytes = _enc.encode(expected);
+  for (const v of v1){ if (v.length === expected.length && ctEqualBytes(expBytes, _enc.encode(v))) return true; }
+  return false;
+}
+
+// Billing schema: subscription columns on the shared `tenants` table + syn-core-owned ledgers. The ALTERs
+// throw "duplicate column" on a table that already has them (idempotent, swallowed). `tenants` is created by
+// syn-growth; in production it always exists. stripe_events = the webhook idempotency ledger. guarantee_credits
+// = the free-month credit queue (written by syn-growth on receipt gen; released here). CREATE IF NOT EXISTS is
+// shared-safe (whichever worker runs first creates it).
+async function ensureBillingTables(env){
+  const DB = env[D1_BINDING];
+  const alters = [
+    "ALTER TABLE tenants ADD COLUMN stripe_customer_id TEXT",
+    "ALTER TABLE tenants ADD COLUMN stripe_subscription_id TEXT",
+    "ALTER TABLE tenants ADD COLUMN subscription_status TEXT",     // mirrors Stripe: active|trialing|past_due|canceled|unpaid|incomplete…
+    "ALTER TABLE tenants ADD COLUMN stripe_price_id TEXT",
+    "ALTER TABLE tenants ADD COLUMN current_period_end INTEGER",
+    "ALTER TABLE tenants ADD COLUMN install_fee_charged INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tenants ADD COLUMN billing_updated_at TEXT",
+  ];
+  for (const sql of alters){ try { await DB.prepare(sql).run(); } catch (_){ /* column already exists (or tenants not created yet) */ } }
+  await DB.batch([
+    DB.prepare(`CREATE TABLE IF NOT EXISTS stripe_events (id TEXT PRIMARY KEY, type TEXT, created_at TEXT NOT NULL)`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS guarantee_credits (
+      id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, receipt_id TEXT UNIQUE,
+      period_start TEXT, period_end TEXT, amount_cents INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL,
+      approved_by TEXT, approved_at TEXT, applied_at TEXT, stripe_txn_id TEXT, note TEXT)`),
+  ]);
+}
+
+function isAdminPrincipal(principal){ return !!(principal && (principal.kind === "gate" || (principal.user && principal.user.role === "admin"))); }
+function principalTenant(env, principal){ return principal && principal.kind === "gate" ? (env.ADMIN_TENANT_ID || null) : (principal && principal.user ? principal.user.tenant_id : null); }
+function principalLabel(env, principal){ return principal && principal.kind === "gate" ? (normEmail(env.GATE_EMAIL) || "gate-admin") : (principal && principal.user ? principal.user.email : "unknown"); }
+async function getTenantRow(env, id){ return env[D1_BINDING].prepare("SELECT * FROM tenants WHERE id=?").bind(id).first(); }
+async function tenantIdByCustomer(env, cust){ if (!cust) return null; const r = await env[D1_BINDING].prepare("SELECT id FROM tenants WHERE stripe_customer_id=?").bind(cust).first(); return r ? r.id : null; }
+async function tenantIdBySubscription(env, sub){ if (!sub) return null; const r = await env[D1_BINDING].prepare("SELECT id FROM tenants WHERE stripe_subscription_id=?").bind(sub).first(); return r ? r.id : null; }
+// Write derived-from-Stripe billing fields onto a tenant. plan drives monthlyFeeFor() — we NEVER also write
+// monthly_fee_cents (the fee lives in exactly one place: plan → PLAN_FEE_CENTS, or a manual override).
+async function updateTenantBilling(env, tenantId, fields){
+  const merged = { ...fields, billing_updated_at: new Date().toISOString() };
+  const cols = Object.keys(merged);
+  const sql = "UPDATE tenants SET " + cols.map(c => c + "=?").join(", ") + " WHERE id=?";
+  await env[D1_BINDING].prepare(sql).bind(...cols.map(c => merged[c]), tenantId).run();
+}
+
+// POST /billing/checkout — start Checkout for a new (or re-subscribing) client. Subscription price + the
+// one-time install fee on the FIRST invoice only (add_invoice_items), and only if it was never charged.
+async function billingCheckout(request, env, origin, principal){
+  await ensureTables(env); await ensureBillingTables(env);
+  let body; try { body = await request.json(); } catch (_){ body = {}; }
+  const plan = body.plan === "pro" ? "pro" : body.plan === "core" ? "core" : null;
+  if (!plan) return json({ error: "invalid_plan", hint: "plan must be 'core' or 'pro'" }, 400, origin);
+  const admin = isAdminPrincipal(principal);
+  const tenantId = admin ? (body.tenant_id || principalTenant(env, principal)) : principalTenant(env, principal);
+  if (!tenantId) return json({ error: "no_tenant", hint: "pass tenant_id (admin) or sign in as a tenant user" }, 400, origin);
+  if (!admin && body.tenant_id && body.tenant_id !== tenantId) return json({ error: "forbidden" }, 403, origin);
+  const tenant = await getTenantRow(env, tenantId);
+  if (!tenant) return json({ error: "tenant_not_found" }, 404, origin);
+  const priceSub = priceIdForPlan(env, plan), priceInstall = env.STRIPE_PRICE_INSTALL;
+  if (!priceSub || !priceInstall) return json({ error: "prices_unconfigured", hint: "set STRIPE_PRICE_CORE / STRIPE_PRICE_PRO / STRIPE_PRICE_INSTALL" }, 500, origin);
+  const base = appBase(env);
+  const subData = { metadata: { tenant_id: tenantId, plan } };
+  if (!tenant.install_fee_charged) subData.add_invoice_items = [{ price: priceInstall, quantity: 1 }];
+  const params = {
+    mode: "subscription",
+    line_items: [{ price: priceSub, quantity: 1 }],
+    subscription_data: subData,
+    client_reference_id: tenantId,
+    metadata: { tenant_id: tenantId, plan, kind: "growth_subscription" },
+    success_url: base + "/#billing=success",
+    cancel_url: base + "/#billing=cancel",
+    allow_promotion_codes: true,
+  };
+  if (tenant.stripe_customer_id) params.customer = tenant.stripe_customer_id;
+  const r = await stripeCall(env, "POST", "/v1/checkout/sessions", params);
+  if (!r.ok) return json({ error: "stripe_error", detail: r.data && r.data.error ? r.data.error.message : null }, 502, origin);
+  return json({ url: r.data.url, id: r.data.id, plan, install_fee_included: !tenant.install_fee_charged }, 200, origin);
+}
+
+// POST /billing/change-plan — upgrade Core→Pro or downgrade Pro→Core, PRORATED. Only swaps the recurring
+// item; the one-time install fee is never re-added. tenants.plan is reconciled by the webhook, not here.
+async function billingChangePlan(request, env, origin, principal){
+  await ensureBillingTables(env);
+  let body; try { body = await request.json(); } catch (_){ body = {}; }
+  const plan = body.plan === "pro" ? "pro" : body.plan === "core" ? "core" : null;
+  if (!plan) return json({ error: "invalid_plan", hint: "plan must be 'core' or 'pro'" }, 400, origin);
+  const admin = isAdminPrincipal(principal);
+  const tenantId = admin ? (body.tenant_id || principalTenant(env, principal)) : principalTenant(env, principal);
+  if (!tenantId) return json({ error: "no_tenant" }, 400, origin);
+  if (!admin && body.tenant_id && body.tenant_id !== tenantId) return json({ error: "forbidden" }, 403, origin);
+  const tenant = await getTenantRow(env, tenantId);
+  if (!tenant) return json({ error: "tenant_not_found" }, 404, origin);
+  if (!tenant.stripe_subscription_id) return json({ error: "no_active_subscription", hint: "client must check out first" }, 400, origin);
+  const newPrice = priceIdForPlan(env, plan);
+  if (!newPrice) return json({ error: "prices_unconfigured" }, 500, origin);
+  const sub = await stripeCall(env, "GET", "/v1/subscriptions/" + tenant.stripe_subscription_id);
+  if (!sub.ok) return json({ error: "stripe_error", detail: sub.data && sub.data.error ? sub.data.error.message : null }, 502, origin);
+  const item = sub.data && sub.data.items && sub.data.items.data && sub.data.items.data[0];
+  if (!item) return json({ error: "subscription_item_missing" }, 502, origin);
+  const upd = await stripeCall(env, "POST", "/v1/subscriptions/" + tenant.stripe_subscription_id, {
+    items: [{ id: item.id, price: newPrice }],
+    proration_behavior: "create_prorations",
+    metadata: { tenant_id: tenantId, plan },
+  });
+  if (!upd.ok) return json({ error: "stripe_error", detail: upd.data && upd.data.error ? upd.data.error.message : null }, 502, origin);
+  return json({ ok: true, plan_requested: plan, prorated: true, install_recharged: false }, 200, origin);
+}
+
+// GET /billing/status?tenant_id= — the subscription facts on a tenant (admin any; a user only their own).
+async function billingStatus(request, env, origin, principal){
+  await ensureBillingTables(env);
+  const admin = isAdminPrincipal(principal);
+  const qid = new URL(request.url).searchParams.get("tenant_id");
+  const tenantId = admin ? (qid || principalTenant(env, principal)) : principalTenant(env, principal);
+  if (!tenantId) return json({ error: "no_tenant" }, 400, origin);
+  if (!admin && qid && qid !== tenantId) return json({ error: "forbidden" }, 403, origin);
+  const t = await getTenantRow(env, tenantId);
+  if (!t) return json({ error: "tenant_not_found" }, 404, origin);
+  const exempt = !t.stripe_subscription_id;
+  const serving = exempt || t.subscription_status === "active" || t.subscription_status === "trialing";
+  return json({ tenant_id: t.id, plan: t.plan, subscription_status: t.subscription_status || null,
+    stripe_customer_id: t.stripe_customer_id || null, stripe_subscription_id: t.stripe_subscription_id || null,
+    current_period_end: t.current_period_end || null, install_fee_charged: !!t.install_fee_charged,
+    exempt, serving }, 200, origin);
+}
+
+// POST /billing/webhook — Stripe → syn-core. Signature-verified, idempotent, reconcile-only. Runs BEFORE the
+// Origin gate (Stripe sends no Origin). A replay (same event id) is a no-op: reconcile once, then record the id.
+async function billingWebhook(request, env){
+  const raw = await request.text();
+  const sig = request.headers.get("Stripe-Signature");
+  const ok = await verifyStripeSig(raw, sig, env.STRIPE_WEBHOOK_SECRET);
+  if (!ok) return new Response(JSON.stringify({ error: "invalid_signature" }), { status: 400, headers: { "Content-Type": "application/json" } });
+  let event; try { event = JSON.parse(raw); } catch (_){ return new Response(JSON.stringify({ error: "bad_json" }), { status: 400, headers: { "Content-Type": "application/json" } }); }
+  await ensureTables(env); await ensureBillingTables(env);
+  // Idempotency: a Stripe event id we've already processed → do nothing and 200 (Stripe stops retrying).
+  const seen = await env[D1_BINDING].prepare("SELECT id FROM stripe_events WHERE id=?").bind(event.id).first();
+  if (seen) return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+  await reconcileStripeEvent(env, event);   // if this throws, we 500 WITHOUT recording → Stripe retries later
+  await env[D1_BINDING].prepare("INSERT OR IGNORE INTO stripe_events (id,type,created_at) VALUES (?,?,?)").bind(event.id, event.type || "", new Date().toISOString()).run();
+  return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
+// Reconcile ONE Stripe event onto the tenant. Every field is taken from Stripe's payload — never guessed.
+async function reconcileStripeEvent(env, event){
+  const type = event.type;
+  const obj = (event.data && event.data.object) || {};
+  if (type === "checkout.session.completed"){
+    const tenantId = (obj.metadata && obj.metadata.tenant_id) || obj.client_reference_id;
+    if (!tenantId) return;
+    // The first invoice carried the install fee (add_invoice_items) — mark it charged so it's never re-added.
+    await updateTenantBilling(env, tenantId, { stripe_customer_id: obj.customer || null, stripe_subscription_id: obj.subscription || null, install_fee_charged: 1 });
+    return;
+  }
+  if (type === "customer.subscription.created" || type === "customer.subscription.updated"){
+    const sub = obj;
+    const tenantId = (sub.metadata && sub.metadata.tenant_id) || await tenantIdBySubscription(env, sub.id) || await tenantIdByCustomer(env, sub.customer);
+    if (!tenantId) return;
+    const priceId = sub.items && sub.items.data && sub.items.data[0] && sub.items.data[0].price && sub.items.data[0].price.id;
+    const plan = planFromPriceId(env, priceId);
+    const fields = { stripe_customer_id: sub.customer || null, stripe_subscription_id: sub.id, subscription_status: sub.status || null, stripe_price_id: priceId || null, current_period_end: sub.current_period_end || null };
+    if (plan) fields.plan = plan;   // plan is the single source of the monthly fee (monthlyFeeFor); no fee duplication
+    await updateTenantBilling(env, tenantId, fields);
+    return;
+  }
+  if (type === "customer.subscription.deleted"){
+    const sub = obj;
+    const tenantId = (sub.metadata && sub.metadata.tenant_id) || await tenantIdBySubscription(env, sub.id) || await tenantIdByCustomer(env, sub.customer);
+    if (!tenantId) return;
+    await updateTenantBilling(env, tenantId, { subscription_status: "canceled" });
+    return;
+  }
+  if (type === "invoice.payment_succeeded"){
+    const inv = obj;
+    const tenantId = await tenantIdBySubscription(env, inv.subscription) || await tenantIdByCustomer(env, inv.customer);
+    if (!tenantId) return;
+    await updateTenantBilling(env, tenantId, { subscription_status: "active" });
+    return;
+  }
+  if (type === "invoice.payment_failed"){
+    const inv = obj;
+    const tenantId = await tenantIdBySubscription(env, inv.subscription) || await tenantIdByCustomer(env, inv.customer);
+    if (!tenantId) return;
+    await updateTenantBilling(env, tenantId, { subscription_status: "past_due" });
+    return;
+  }
+}
+
+// GET /billing/credits?status=&tenant_id= — the guarantee-credit queue (admin only). Free-month credits are
+// written pending by syn-growth on receipt generation; nothing applies them until an admin releases one.
+async function billingCreditsList(request, env, origin, principal){
+  await ensureBillingTables(env);
+  if (!isAdminPrincipal(principal)) return json({ error: "forbidden" }, 403, origin);
+  const u = new URL(request.url); const status = u.searchParams.get("status"); const tid = u.searchParams.get("tenant_id");
+  const where = []; const args = [];
+  if (status){ where.push("status=?"); args.push(status); }
+  if (tid){ where.push("tenant_id=?"); args.push(tid); }
+  const sql = "SELECT * FROM guarantee_credits" + (where.length ? " WHERE " + where.join(" AND ") : "") + " ORDER BY created_at DESC LIMIT 200";
+  const rows = (await env[D1_BINDING].prepare(sql).bind(...args).all()).results || [];
+  return json({ credits: rows }, 200, origin);
+}
+
+// POST /billing/credits/:id/approve — the admin RELEASE. Logs who + when, then applies the credit against the
+// client's NEXT invoice (a negative Stripe customer balance transaction). Idempotent: applying twice is a no-op.
+async function billingCreditApprove(request, env, origin, principal, id){
+  await ensureBillingTables(env);
+  if (!isAdminPrincipal(principal)) return json({ error: "forbidden" }, 403, origin);
+  const credit = await env[D1_BINDING].prepare("SELECT * FROM guarantee_credits WHERE id=?").bind(id).first();
+  if (!credit) return json({ error: "credit_not_found" }, 404, origin);
+  if (credit.status === "applied") return json({ ok: true, already_applied: true, credit }, 200, origin);
+  if (credit.status === "void") return json({ error: "credit_void" }, 400, origin);
+  const tenant = await getTenantRow(env, credit.tenant_id);
+  if (!tenant || !tenant.stripe_customer_id) return json({ error: "no_stripe_customer", hint: "tenant has no Stripe customer to credit" }, 400, origin);
+  const approver = principalLabel(env, principal), now = new Date().toISOString();
+  // Negative balance transaction = a credit that Stripe automatically applies to the next invoice.
+  const r = await stripeCall(env, "POST", "/v1/customers/" + tenant.stripe_customer_id + "/balance_transactions",
+    { amount: -Math.abs(credit.amount_cents), currency: "usd", description: "SYN guarantee credit — free month " + String(credit.period_start || "").slice(0, 7) + " (receipt " + credit.receipt_id + ")" },
+    "gcredit_" + credit.id);   // idempotency key → Stripe won't double-credit on a retry
+  if (!r.ok) return json({ error: "stripe_error", detail: r.data && r.data.error ? r.data.error.message : null }, 502, origin);
+  await env[D1_BINDING].prepare("UPDATE guarantee_credits SET status='applied', approved_by=?, approved_at=?, applied_at=?, stripe_txn_id=? WHERE id=?")
+    .bind(approver, now, now, (r.data && r.data.id) || null, id).run();
+  const updated = await env[D1_BINDING].prepare("SELECT * FROM guarantee_credits WHERE id=?").bind(id).first();
+  return json({ ok: true, applied: true, credit: updated }, 200, origin);
+}
+
 /* ---- named exports for the unit suite (worker/syn-core.test.mjs) ---- */
 export {
   ensureTables, hashPassword, verifyPassword, signAuthToken, readAuthToken, verifyToken, makeToken,
   seedAdminUser, signupAllowed, authenticate, keyTenant, canAccessKey, getUserByEmail, getUserById,
   normEmail, validEmail, publicUser, issueVerify, googleStart, googleCallback,
+  ensureBillingTables, verifyStripeSig, hmacHex, reconcileStripeEvent, planFromPriceId, stripeBody,
   PBKDF2_ITERS, SESSION_TTL_SECONDS, VERIFY_TTL_SECONDS, RESET_TTL_SECONDS, RL_MAX_FAILS, SIGNUP_MODE_DEFAULT,
 };

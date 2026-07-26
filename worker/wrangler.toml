@@ -24,3 +24,5 @@ database_id   = "d37969f2-ef28-45ab-ba3b-b9320c1e3701"
 #   AUTH_SIGNING_KEY   — session-token signing (syn-growth must share the SAME value)
 #   RESEND_API_KEY, AUTH_EMAIL_FROM  — transactional auth email (verify/reset)
 #   APP_BASE_URL, SIGNUP_MODE, ADMIN_TENANT_ID  — link base, invite/open signup, admin tenant link
+#   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET  — Stripe API + webhook signature (see worker/STRIPE.md)
+#   STRIPE_PRICE_CORE, STRIPE_PRICE_PRO, STRIPE_PRICE_INSTALL  — Growth Core/Pro recurring + one-time install price ids
