@@ -152,6 +152,20 @@ try {
     await page.close();
   }
 
+  // ---- Google button actually initiates OAuth (issues a nav request to syn-core /auth/google/start) ----
+  {
+    const page = await ctx.newPage();
+    await page.addInitScript(() => { try { localStorage.clear(); } catch(e){} });   // a prior test stored a session in shared localStorage
+    await page.goto(U); await page.waitForSelector('#site.on', { timeout: 15000 });
+    await page.evaluate(() => siteAuth('signin')); await page.waitForSelector('#gAuthBtn', { timeout: 8000 });
+    const [hit] = await Promise.all([
+      page.waitForRequest(r => /\/auth\/google\/start/.test(r.url()), { timeout: 8000 }).then(() => true).catch(() => false),
+      page.evaluate(() => document.getElementById('gAuthBtn').click()).catch(() => {}),
+    ]);
+    R("Continue with Google navigates to syn-core /auth/google/start", hit);
+    await page.close();
+  }
+
   // ---- Google failure return: #autherror → human copy ----
   {
     const page = await ctx.newPage();

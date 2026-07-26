@@ -418,6 +418,20 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   const cb3 = await worker.fetch(cbReq("code=q&state=" + encodeURIComponent(state3)), e);
   c("google unverified email → refused, no account created", /#autherror=google_email/.test(cb3.headers.get("Location")) && !e.SYN_DB._db.prepare("SELECT id FROM users WHERE email=?").get("sketch@example.com"));
 
+  // ROUTING HOLDS (Workspace vs Growth): a Google login that links to an existing GROWTH account returns
+  // product=growth in the fragment, so the client routes to the Growth dashboard (not the Workspace).
+  const nowg = new Date().toISOString();
+  e.SYN_DB._db.prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,product,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .run("usr_g", "grow@example.com", await mod.hashPassword("growpw1234"), 0, "active", "member", "ten_grow", "growth", 1, nowg);
+  const sg = await worker.fetch(startReq(), e); const stateg = new URL(sg.headers.get("Location")).searchParams.get("state");
+  withGoogle({ email: "grow@example.com", email_verified: true, sub: "google-grow" });
+  const cbg = await worker.fetch(cbReq("code=g&state=" + encodeURIComponent(stateg)), e);
+  c("google routing holds: a Growth account returns product=growth in the fragment", /product=growth/.test(fragOf(cbg)));
+  // and the returned session token carries the growth tenant → /me/* on syn-growth would scope to it
+  const tokg = tokenFromFrag(fragOf(cbg));
+  const meg = await call(e, "GET", "/auth/me", { token: tokg });
+  c("google Growth session resolves to the growth tenant", meg.status === 200 && (await meg.json()).user.tenant_id === "ten_grow" && (await (await call(e, "GET", "/auth/me", { token: tokg })).json()).user.product === "growth");
+
   // not configured → graceful redirect, never a raw 500
   const e2 = mkEnv(); await mod.ensureTables(e2);
   const s4 = await worker.fetch(startReq(), e2);
