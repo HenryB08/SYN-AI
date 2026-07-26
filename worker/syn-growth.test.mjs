@@ -139,8 +139,8 @@ async function seed(e, { slug = "acme", origin = "https://acme.com" } = {}){
 {
   const e = env(); const { tenant, install } = await seed(e, { slug: "idem", origin: "https://idem.com" });
   const opts = { origin: "https://idem.com", key: install.install_key };
-  const r1 = await (await call(e, "POST", "/w/events", { ...opts, body: { type: "appointment_booked", idempotency_key: "abc-123" } })).json();
-  const r2 = await (await call(e, "POST", "/w/events", { ...opts, body: { type: "appointment_booked", idempotency_key: "abc-123" } })).json();
+  const r1 = await (await call(e, "POST", "/w/events", { ...opts, body: { type: "inquiry_received", idempotency_key: "abc-123" } })).json();
+  const r2 = await (await call(e, "POST", "/w/events", { ...opts, body: { type: "inquiry_received", idempotency_key: "abc-123" } })).json();
   const count = e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE idempotency_key='abc-123'").get().n;
   c("duplicate idempotency_key → exactly one event row", count === 1);
   c("second call reports deduped + same id", r2.deduped === true && r2.id === r1.id && r1.deduped === false);
@@ -1079,6 +1079,14 @@ const DEFCFG = { from_email: "hello@mail.acmeco.test", reply_to: "owner@acmeco.t
 // ===== BOOKING (Prompt 21): link-mode booking, the booking moment, capture/consent, admin =====
 // ======================================================================================
 const book = (e, install, origin, body) => call(e, "POST", "/w/book", { origin, key: install.install_key, body });
+// A guaranteed-future, in-business-hours slot (a weekday at 12:00 UTC, well ahead of now) — the value a
+// real booking must carry to be CONFIRMED. offsetDays lets a test space distinct slots apart.
+function futureSlot(offsetDays = 8, hourUTC = 12){
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  d.setUTCHours(hourUTC, 0, 0, 0);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+}
 async function seedBooking(e, origin, bookingCfg, extra){
   const slug = "bk" + (++seedN);
   const t = (await (await call(e, "POST", "/admin/tenants", { adminKey: ADMIN, body: { name: "Bk " + slug, slug } })).json()).tenant;
@@ -1125,7 +1133,7 @@ async function seedBooking(e, origin, bookingCfg, extra){
 {
   const e = env();
   const { install, tenant } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" });
-  const r = await book(e, install, "https://c.com", { email: "direct@ex.com" });
+  const r = await book(e, install, "https://c.com", { when: futureSlot(), email: "direct@ex.com" });
   const jb = await r.json();
   c("booking direct: /w/book with no conversation creates + links a contact", r.status === 201 && jb.booked === true && /^con_/.test(jb.contact_id));
   const ev = e.SYN_DB._db.prepare("SELECT tenant_id, contact_id FROM events WHERE type='appointment_booked'").all();
@@ -1138,7 +1146,7 @@ async function seedBooking(e, origin, bookingCfg, extra){
   const { install, tenant } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" }, { followup: DEFCFG });
   const cid = (await (await cap(e, install, "https://c.com", { email: "booker@ex.com" })).json()).contact_id;
   c("booking cancel: follow-ups armed before the booking", fups(e, cid).filter(r => r.status === "pending").length === 3);
-  const jb = await (await book(e, install, "https://c.com", { email: "booker@ex.com" })).json();
+  const jb = await (await book(e, install, "https://c.com", { when: futureSlot(), email: "booker@ex.com" })).json();
   c("booking cancel: /w/book dedupes to the SAME contact (no duplicate record)", jb.booked === true && jb.contact_id === cid && jb.deduped === true);
   c("booking cancel: booking cancels every pending follow-up", fups(e, cid).every(r => r.status === "cancelled"));
   c("booking cancel: appointment_booked written for the linked contact + tenant", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE type='appointment_booked' AND contact_id=? AND tenant_id=?").get(cid, tenant.id).n === 1);
@@ -1148,7 +1156,7 @@ async function seedBooking(e, origin, bookingCfg, extra){
 {
   const e = env();
   const { install } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" });
-  const jb = await (await book(e, install, "https://c.com", { email: "noconsent@ex.com", phone: "(555) 222-3333" })).json();
+  const jb = await (await book(e, install, "https://c.com", { when: futureSlot(), email: "noconsent@ex.com", phone: "(555) 222-3333" })).json();
   const contact = e.SYN_DB._db.prepare("SELECT consent_sms FROM contacts WHERE id=?").get(jb.contact_id);
   c("booking consent: booked contact has consent_sms=0 (booking never grants SMS consent)", contact.consent_sms === 0);
   c("booking consent: booking writes NO consent_events (Prompt 17 rules intact)", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM consent_events WHERE contact_id=?").get(jb.contact_id).n === 0);
@@ -1159,8 +1167,8 @@ async function seedBooking(e, origin, bookingCfg, extra){
   const e = aiEnv("ok");
   const { install } = await seedBooking(e, "https://c.com", { url: "https://cal.com/acme" });
   const convId = (await (await msg(e, install, "https://c.com", { text: "hi" })).json()).conversation_id;
-  await book(e, install, "https://c.com", { conversation_id: convId, email: "idem@ex.com" });
-  await book(e, install, "https://c.com", { conversation_id: convId, email: "idem@ex.com" });
+  await book(e, install, "https://c.com", { conversation_id: convId, when: futureSlot(), email: "idem@ex.com" });
+  await book(e, install, "https://c.com", { conversation_id: convId, when: futureSlot(), email: "idem@ex.com" });
   c("booking idempotent: two confirms in one conversation write exactly one appointment_booked", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE install_id=? AND type='appointment_booked'").get(install.id).n === 1);
 }
 
@@ -1169,10 +1177,11 @@ async function seedBooking(e, origin, bookingCfg, extra){
   const e = env();
   const A = await seedBooking(e, "https://a.com", { url: "https://cal.com/a" });
   const B = await seedBooking(e, "https://b.com", { url: "https://cal.com/b" });
-  const jaB = await (await book(e, A.install, "https://a.com", { email: "a1@ex.com", when: "2026-08-01T15:00:00Z" })).json();
-  await book(e, B.install, "https://b.com", { email: "b1@ex.com" });
+  const slotA = futureSlot();
+  const jaB = await (await book(e, A.install, "https://a.com", { email: "a1@ex.com", when: slotA })).json();
+  await book(e, B.install, "https://b.com", { email: "b1@ex.com", when: futureSlot() });
   const list = await (await call(e, "GET", `/admin/tenants/${A.tenant.id}/bookings`, { adminKey: ADMIN })).json();
-  c("booking admin: lists tenant A's booking with linked contact + known time", list.count === 1 && list.bookings.length === 1 && list.bookings[0].email === "a1@ex.com" && list.bookings[0].contact_id === jaB.contact_id && list.bookings[0].when === "2026-08-01T15:00:00Z");
+  c("booking admin: lists tenant A's booking with linked contact + known time", list.count === 1 && list.bookings.length === 1 && list.bookings[0].email === "a1@ex.com" && list.bookings[0].contact_id === jaB.contact_id && list.bookings[0].when === slotA && list.bookings[0].source === "syn");
   c("booking admin: strictly tenant-scoped (B's booking absent from A's list)", !JSON.stringify(list.bookings).includes("b1@ex.com"));
   const past = await (await call(e, "GET", `/admin/tenants/${A.tenant.id}/bookings?from=2020-01-01&to=2020-12-31`, { adminKey: ADMIN })).json();
   c("booking admin: date-range filter excludes out-of-window bookings", past.count === 0 && past.bookings.length === 0);
@@ -1180,10 +1189,73 @@ async function seedBooking(e, origin, bookingCfg, extra){
   c("booking admin: requires the admin secret (install key → 401)", unauth.status === 401);
 }
 
+// ===== BOOKING INTEGRITY (financial control): deterministic slot validation + attribution =====
+{
+  const e = env();
+  const { install } = await seedBooking(e, "https://bi.com", { url: "https://cal.com/bi" });
+  const O = { origin: "https://bi.com", key: install.install_key };
+  const countBooked = () => e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE install_id=? AND type='appointment_booked'").get(install.id).n;
+
+  // The generic events endpoint CANNOT create a booking (closes the /w/events bypass; the AI can't forge one).
+  const bypass = await call(e, "POST", "/w/events", { ...O, body: { type: "appointment_booked", payload: { source: "syn" } } });
+  c("integrity: /w/events REJECTS appointment_booked (must use /w/book)", bypass.status === 400 && (await bypass.json()).error === "use_booking_endpoint" && countBooked() === 0);
+  const bypass2 = await call(e, "POST", "/w/events", { ...O, body: { type: "booking_requested" } });
+  c("integrity: /w/events rejects booking_requested too", bypass2.status === 400);
+
+  // A valid future, in-hours slot → CONFIRMED, system-produced (source:"syn").
+  const okr = await (await book(e, install, "https://bi.com", { when: futureSlot(), email: "v@ex.com" })).json();
+  c("integrity: valid slot → confirmed booking, source=syn", okr.booked === true && okr.confirmed === true && countBooked() === 1);
+  const payloadSyn = JSON.parse(e.SYN_DB._db.prepare("SELECT payload FROM events WHERE install_id=? AND type='appointment_booked'").get(install.id).payload);
+  c("integrity: the booking row records source=syn + a when_ts", payloadSyn.source === "syn" && Number.isFinite(payloadSyn.when_ts));
+
+  // Past slot → NO booking row; a non-counted booking_requested + honest pending message.
+  const past = await book(e, install, "https://bi.com", { when: "2020-06-01T12:00:00Z", email: "p@ex.com" });
+  const pastJ = await past.json();
+  c("integrity: PAST slot → no booking, pending + honest message", past.status === 202 && pastJ.pending === true && pastJ.reason === "slot_in_past" && /confirm your time shortly/i.test(pastJ.message) && countBooked() === 1);
+  c("integrity: a booking_requested (non-counted) is recorded on failure", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE install_id=? AND type='booking_requested'").get(install.id).n >= 1);
+
+  // Outside business hours (a weekday at 03:00 UTC, before the 9–17 window) → pending.
+  const oh = await (await book(e, install, "https://bi.com", { when: futureSlot(9, 3), email: "oh@ex.com" })).json();
+  c("integrity: OUTSIDE business hours → no booking, pending", oh.pending === true && oh.reason === "outside_business_hours" && countBooked() === 1);
+
+  // Unparseable / absent slot → pending (can't confirm a time that doesn't exist).
+  const none = await (await book(e, install, "https://bi.com", { email: "n@ex.com" })).json();
+  c("integrity: NO slot → pending (never a fake confirmed time)", none.pending === true && none.reason === "no_slot" && countBooked() === 1);
+
+  // Already taken: two DIFFERENT visitors booking the same slot → the second is pending, not double-booked.
+  const slot = futureSlot(10, 14);
+  const t1 = await (await book(e, install, "https://bi.com", { conversation_id: "cnv_x", when: slot, email: "x@ex.com" })).json();
+  const t2 = await (await book(e, install, "https://bi.com", { conversation_id: "cnv_y", when: slot, email: "y@ex.com" })).json();
+  c("integrity: a TAKEN slot cannot be booked twice (second → pending)", t1.confirmed === true && t2.pending === true && t2.reason === "slot_taken" && countBooked() === 2);
+}
+
+// attribution: the Receipt counts ONLY source=syn bookings (owner-handled calls never inflate the number)
+{
+  const e = env();
+  const A = await seedTenant(e, "attrib", { tz: "UTC", config: { business_hours: { days: [1,2,3,4,5], start: 9, end: 17 } } });
+  const tid = A.tenant.id, iid = A.install.id;
+  e.SYN_DB._db.prepare("INSERT INTO job_values (id,tenant_id,average_job_value_cents,effective_from,created_at) VALUES (?,?,?,?,?)").run("jv_at", tid, 30000, "2026-05-01T00:00:00.000Z", "2026-05-01T00:00:00.000Z");
+  insEv(e, { id: "at_syn", tenant: tid, install: iid, contact: "acon", type: "appointment_booked", payload: { source: "syn", when_ts: 1 }, created_at: "2026-06-05T15:00:00.000Z" });
+  insEv(e, { id: "at_own", tenant: tid, install: iid, contact: "acon2", type: "appointment_booked", payload: { source: "owner" }, created_at: "2026-06-06T15:00:00.000Z" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("attribution: Receipt counts only source=syn (owner booking excluded)", R.metrics.figures.appointments_booked.count === 1 && R.metrics.value.value_recovered_cents === 30000);
+}
+
+// guarantee_mode: per-client field on tenants, defaults to booked_value
+{
+  const e = env();
+  const A = await seedTenant(e, "gm", { tz: "UTC" });
+  const gm = e.SYN_DB._db.prepare("SELECT guarantee_mode FROM tenants WHERE id=?").get(A.tenant.id).guarantee_mode;
+  c("guarantee_mode: new tenant defaults to 'booked_value'", gm === "booked_value");
+  e.SYN_DB._db.prepare("UPDATE tenants SET guarantee_mode='binary' WHERE id=?").run(A.tenant.id);
+  c("guarantee_mode: accepts 'binary'", e.SYN_DB._db.prepare("SELECT guarantee_mode FROM tenants WHERE id=?").get(A.tenant.id).guarantee_mode === "binary");
+}
+
 // the embedded widget exposes the booking affordance + posts to /w/book
 {
   c("booking widget: WIDGET_JS surfaces a 'Book a time' affordance", worker0.WIDGET_JS.includes("Book a time") && worker0.WIDGET_JS.includes("book-open"));
   c("booking widget: WIDGET_JS confirms a booking via POST /w/book", worker0.WIDGET_JS.includes("/w/book"));
+  c("booking widget: WIDGET_JS only claims 'confirmed' on a server-confirmed slot (honest copy)", worker0.WIDGET_JS.includes("data.confirmed") && worker0.WIDGET_JS.includes("confirm your time shortly"));
   c("booking widget: WIDGET_JS reads booking from config + supports link and embed modes", worker0.WIDGET_JS.includes("conf.booking") && worker0.WIDGET_JS.includes('mode === "embed"'));
 }
 
@@ -1226,8 +1298,8 @@ const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30
   insEv(e, { id: "ev_f2", tenant: tid, install: iid, contact: "con2", type: "followup_sent", payload: { step: 1 }, created_at: "2026-06-05T09:00:00.000Z" });
   insEv(e, { id: "ev_fr1", tenant: tid, install: iid, contact: "con1", type: "followup_replied", payload: {}, created_at: "2026-06-05T10:00:00.000Z" });
   // 2 bookings (con1, con5)
-  insEv(e, { id: "ev_b1", tenant: tid, install: iid, contact: "con1", type: "appointment_booked", payload: { conversation_id: "c1" }, created_at: "2026-06-07T15:00:00.000Z" });
-  insEv(e, { id: "ev_b2", tenant: tid, install: iid, contact: "con5", type: "appointment_booked", payload: {}, created_at: "2026-06-08T16:00:00.000Z" });
+  insEv(e, { id: "ev_b1", tenant: tid, install: iid, contact: "con1", type: "appointment_booked", payload: { conversation_id: "c1", source: "syn" }, created_at: "2026-06-07T15:00:00.000Z" });
+  insEv(e, { id: "ev_b2", tenant: tid, install: iid, contact: "con5", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-08T16:00:00.000Z" });
   // missed call recovered (con6 pair)
   insEv(e, { id: "ev_cm", tenant: tid, install: iid, contact: "con6", type: "call_missed", payload: {}, created_at: "2026-06-09T18:00:00.000Z" });
   insEv(e, { id: "ev_tb", tenant: tid, install: iid, contact: "con6", type: "textback_sent", payload: {}, created_at: "2026-06-09T18:01:00.000Z" });
@@ -1291,7 +1363,7 @@ const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30
   const e = env();
   const B = await seedTenant(e, "bravo", { tz: "UTC" });
   insEv(e, { id: "b_i1", tenant: B.tenant.id, install: B.install.id, contact: "bcon1", type: "inquiry_received", payload: { conversation_id: "b1" }, created_at: "2026-06-10T10:00:00.000Z" });
-  insEv(e, { id: "b_b1", tenant: B.tenant.id, install: B.install.id, contact: "bcon1", type: "appointment_booked", payload: {}, created_at: "2026-06-11T15:00:00.000Z" });
+  insEv(e, { id: "b_b1", tenant: B.tenant.id, install: B.install.id, contact: "bcon1", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-11T15:00:00.000Z" });
   const R = (await (await call(e, "POST", `/admin/tenants/${B.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
   c("receipt (unset job value): activity shown, no dollar figure fabricated", R.metrics.value.configured === false && R.metrics.value.value_recovered_cents === null && R.job_value_cents === null && /not yet configured/i.test(R.metrics.value.formula));
   c("receipt (unset job value): appointments still counted", R.metrics.figures.appointments_booked.count === 1);
@@ -1367,7 +1439,7 @@ const meReq = (e, method, path, tok, body) => call(e, method, path, { origin: AP
   insEv(e, { id: "a_i3", tenant: tidA, install: iidA, contact: "acon1", type: "inquiry_received", payload: { conversation_id: "a3" }, created_at: "2026-06-06T12:00:00.000Z" }); // Saturday
   insEv(e, { id: "a_r1", tenant: tidA, install: iidA, type: "first_response_sent", payload: { conversation_id: "a1" }, created_at: "2026-06-03T10:01:00.000Z" }); // 60s
   insEv(e, { id: "a_r2", tenant: tidA, install: iidA, type: "first_response_sent", payload: { conversation_id: "a2" }, created_at: "2026-06-03T11:02:00.000Z" }); // 120s
-  insEv(e, { id: "a_b1", tenant: tidA, install: iidA, contact: "acon1", type: "appointment_booked", payload: { conversation_id: "a1" }, created_at: "2026-06-07T15:00:00.000Z" });
+  insEv(e, { id: "a_b1", tenant: tidA, install: iidA, contact: "acon1", type: "appointment_booked", payload: { conversation_id: "a1", source: "syn" }, created_at: "2026-06-07T15:00:00.000Z" });
   insContact(e, { id: "acon1", tenant: tidA, install: iidA, name: "Ada Lovelace", email: "ada@atlas.test", phone: "+15550001", first_seen: "2026-06-03T10:00:00.000Z", status: "booked" });
   insContact(e, { id: "acon2", tenant: tidA, install: iidA, name: "Bo Peep", email: "bo@atlas.test", first_seen: "2026-06-03T11:00:00.000Z", status: "new" });
   // B has one unrelated inquiry, so a B session sees only B.

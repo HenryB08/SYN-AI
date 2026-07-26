@@ -469,6 +469,9 @@
         go.textContent = "Open the scheduler";
         f.appendChild(go);
       }
+      // The time they booked, so the server can validate it (future, in business hours, not taken). Without
+      // a valid slot the server cannot CONFIRM — it records the request and says someone will confirm.
+      var when = document.createElement("input"); when.type = "datetime-local"; when.setAttribute("aria-label", "The time you booked");
       // Optional contact confirmation so we can link the booking to their record. Providing it here does
       // NOT grant SMS consent — the server upserts with consent off and writes no consent record.
       var email = document.createElement("input"); email.type = "email"; email.placeholder = "Email (so we can confirm)"; email.setAttribute("aria-label", "Email");
@@ -478,19 +481,23 @@
       var confirm = document.createElement("button"); confirm.type = "button"; confirm.className = "bc-confirm"; confirm.textContent = "I booked a time";
       var skip = document.createElement("button"); skip.type = "button"; skip.className = "bc-skip"; skip.textContent = "Not now";
       actions.appendChild(confirm); actions.appendChild(skip);
-      f.appendChild(email); f.appendChild(phone); f.appendChild(err); f.appendChild(actions);
+      f.appendChild(when); f.appendChild(email); f.appendChild(phone); f.appendChild(err); f.appendChild(actions);
       msgs.appendChild(f); msgs.scrollTop = msgs.scrollHeight;
       bookEl = f;
       function remove() { if (f.parentNode) f.parentNode.removeChild(f); if (bookEl === f) bookEl = null; }
       skip.addEventListener("click", remove);
       confirm.addEventListener("click", function () {
         err.style.display = "none"; confirm.disabled = true; skip.disabled = true;
+        var whenIso = null; if (when.value) { var d = new Date(when.value); if (!isNaN(d.getTime())) whenIso = d.toISOString(); }
         fetch(base + "/w/book" + q, {
           method: "POST", mode: "cors", credentials: "omit",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversation_id: convId, email: email.value.trim() || null, phone: phone.value.trim() || null })
-        }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
-          if (okr) { booked = true; if (email.value.trim() || phone.value.trim()) captured = true; remove(); addBubble("bot", "You're all set — we've got your appointment. Talk soon!"); }
+          body: JSON.stringify({ conversation_id: convId, when: whenIso, email: email.value.trim() || null, phone: phone.value.trim() || null })
+        }).then(function (r) { return r.json(); }, function () { return null; }).then(function (data) {
+          var got = email.value.trim() || phone.value.trim();
+          // ONLY say "confirmed" when the server actually confirmed a validated slot. Otherwise be honest.
+          if (data && data.confirmed) { booked = true; if (got) captured = true; remove(); addBubble("bot", "You're all set — your appointment is confirmed. Talk soon!"); }
+          else if (data && data.pending) { if (got) captured = true; remove(); addBubble("bot", "Thanks — we've noted your request and someone will confirm your time shortly."); }
           else { confirm.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through. Please try again."; err.style.display = "block"; }
         });
       });

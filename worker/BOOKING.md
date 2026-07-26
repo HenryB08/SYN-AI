@@ -9,6 +9,16 @@ Booking is **provider-backed**, not a calendar built from scratch. The client ke
 scheduler they already have (Cal.com, Calendly, Acuity, …); the widget surfaces it and records the
 outcome.
 
+> **⚠️ FINANCIAL CONTROL — bookings are deterministic, never generated (see `GUARANTEE.md`).** An
+> `appointment_booked` row is written by **one path only** (`wBook` → `POST /w/book`), and only after the
+> slot is **validated**: it must parse, be in the **future**, fall **inside business hours**, and **not be
+> taken**. Any failure → **no booking row**; a non-counted **`booking_requested`** is recorded and the
+> customer is told *"someone will confirm your time shortly"* — never a fake confirmed time. The generic
+> `POST /w/events` endpoint **rejects** `appointment_booked`/`booking_requested`, so the AI can't forge a
+> booking by emitting text. Every booking payload carries **`source`** (`syn` counts toward the Receipt;
+> `owner`/`import` do not). Live calendar-provider availability is a documented follow-up; "not taken" is
+> currently enforced against SYN's own records.
+
 ---
 
 ## 1. Two modes (set per install in `config.booking`)

@@ -142,6 +142,7 @@ Every tracked file in the repo:
 | `worker/syn-assistant.js` | Cloudflare Worker for the marketing assistant; system prompt baked in, proxies Anthropic | changing what the marketing assistant knows or how it's proxied |
 | `worker/wrangler.toml` | Wrangler config for syn-assistant | changing the Worker name / compat date |
 | `worker/README.md` | Deploy + wiring for syn-assistant, plus the origin-allowlist patch for syn-core | onboarding a deployer; changing an endpoint or the CORS allowlist |
+| `GUARANTEE.md` | **Single source of truth for the money-back guarantee** — recovered value = system-produced bookings × client-confirmed job value; attribution (`source`), immutable-Receipt payout, `guarantee_mode` (`booked_value`\|`binary`), the deterministic booking control | changing anything the guarantee pays out on, booking integrity, or attribution |
 | `CNAME` | Custom-domain pointer for GitHub Pages (`syn.syntrexio.com`) — **not committed yet; add it only at the DNS cutover** (committing it flips Pages to the domain immediately) | the DNS cutover, or changing the custom domain |
 | `robots.txt` / `sitemap.xml` | Crawler directives + one-URL sitemap, both keyed to `https://syn.syntrexio.com` | changing the public domain or adding crawlable routes |
 | `tests/*.mjs` | Playwright suites (see [§7](#7-testing)) | any behavior change — add/adjust a suite |

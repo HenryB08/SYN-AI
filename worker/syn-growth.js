@@ -106,8 +106,15 @@ const EVENT_TYPES = [
   "followup_replied", "appointment_booked", "appointment_completed",
   "call_missed", "textback_sent", "conversation_started", "conversation_ended",
   "escalated_to_human", "guardrail_blocked",
+  "booking_requested",   // an UNVALIDATED booking request (slot invalid/absent) — recorded, NOT counted
 ];
 const EVENT_TYPE_SET = new Set(EVENT_TYPES);
+// Bookings are a FINANCIAL control: appointment_booked (and the internal booking_requested) may ONLY be
+// written by the deterministic /w/book path (wBook), never the generic /w/events endpoint or AI text.
+const BOOKING_ONLY_TYPES = new Set(["appointment_booked", "booking_requested"]);
+// Attribution (payload.source): only "syn" (system-produced via /w/book, slot-validated) counts toward the
+// Receipt. "owner" = the owner booked it personally; "import" = migrated. Non-"syn" never counts.
+const BOOKING_SOURCES = new Set(["syn", "owner", "import"]);
 
 const TENANT_STATUS = new Set(["active", "paused", "cancelled"]);
 const TENANT_PLAN = new Set(["core", "pro"]);
@@ -211,7 +218,8 @@ async function ensureTables(env){
     DB.prepare(`CREATE TABLE IF NOT EXISTS tenants (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL DEFAULT 'active', timezone TEXT,
-      created_at TEXT NOT NULL, plan TEXT NOT NULL DEFAULT 'core', notes TEXT)`),
+      created_at TEXT NOT NULL, plan TEXT NOT NULL DEFAULT 'core', notes TEXT,
+      guarantee_mode TEXT NOT NULL DEFAULT 'booked_value')`),   // 'booked_value' | 'binary' (see GUARANTEE.md)
     DB.prepare(`CREATE TABLE IF NOT EXISTS brands (
       id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
       name TEXT NOT NULL, profile TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`),
@@ -302,6 +310,8 @@ async function ensureTables(env){
   // (CREATE TABLE IF NOT EXISTS can't add a column to an existing table; ADD COLUMN throws once it
   // already exists, which we swallow.)
   try { await DB.prepare("ALTER TABLE contacts ADD COLUMN unsub_token TEXT").run(); } catch (_){ /* column already present */ }
+  // guarantee_mode per client — 'booked_value' (default) or 'binary' (see GUARANTEE.md). Back-fill existing tenants.
+  try { await DB.prepare("ALTER TABLE tenants ADD COLUMN guarantee_mode TEXT NOT NULL DEFAULT 'booked_value'").run(); } catch (_){ /* column already present */ }
 }
 
 /* ============================ auth ============================ */
@@ -482,10 +492,10 @@ async function listBookings(env, tenantId, url){
     "SELECT e.id, e.contact_id, e.payload, e.created_at, c.name, c.email, c.phone, c.status FROM events e LEFT JOIN contacts c ON c.id = e.contact_id WHERE " + w + " ORDER BY e.created_at DESC, e.id DESC LIMIT ?")
     .bind(...args, limit).all()).results || [];
   const bookings = rows.map(r => {
-    let when = null;
-    try { const p = r.payload ? JSON.parse(r.payload) : null; when = p && p.when ? p.when : null; } catch (_){ when = null; }
+    let when = null, source = null;
+    try { const p = r.payload ? JSON.parse(r.payload) : null; when = p && p.when ? p.when : null; source = (p && p.source) || null; } catch (_){ when = null; }
     return { id: r.id, contact_id: r.contact_id, name: r.name || null, email: r.email || null, phone: r.phone || null,
-      contact_status: r.status || null, booked_at: r.created_at, when };
+      contact_status: r.status || null, booked_at: r.created_at, when, source };
   });
   return json({ tenant_id: tenantId, from, to, count: countRow ? countRow.n : 0, bookings });
 }
@@ -618,6 +628,9 @@ async function wConfig(env, install){
 async function wEvents(env, install, body, cors){
   const type = body && body.type;
   if (!EVENT_TYPE_SET.has(type)) return json({ error: "invalid_event_type" }, 400, cors);
+  // FINANCIAL CONTROL: bookings are never created by emitting a generic event (the AI/widget could forge
+  // one). appointment_booked / booking_requested go ONLY through the deterministic, slot-validating /w/book.
+  if (BOOKING_ONLY_TYPES.has(type)) return json({ error: "use_booking_endpoint", hint: "bookings are created only via POST /w/book (slot-validated)" }, 400, cors);
   const contactId = body.contact_id || null;
   if (contactId){   // a contact_id must belong to this install's tenant — never another tenant's
     const c = await env.SYN_DB.prepare("SELECT tenant_id FROM contacts WHERE id=?").bind(contactId).first();
@@ -1042,6 +1055,27 @@ async function wCapture(env, install, body, cors, ctx){
 // conversation, so a double-confirm counts once), and STOP any pending follow-up sequence (booking is
 // engagement, wired into the same cancellation path as a reply). Booking NEVER grants SMS consent — the
 // contact is upserted with consent_sms=0 and no consent_event is written, so Prompt 17's rules stand.
+// DETERMINISTIC slot validation — the gate the AI cannot talk past. A slot must parse, be in the FUTURE,
+// fall INSIDE configured business hours (tenant tz), and not already be TAKEN (an existing system booking
+// at the same start). Returns { ok:true, when_ts } or { ok:false, reason }. NOTE: a live calendar-provider
+// availability check ("exists in the connected calendar") requires the provider integration, which is not
+// built yet — "not taken" is enforced against SYN's own booking records; see GUARANTEE.md.
+async function validateBookingSlot(env, install, whenIso){
+  if (!whenIso || typeof whenIso !== "string") return { ok: false, reason: "no_slot" };
+  const ts = Date.parse(whenIso);
+  if (!Number.isFinite(ts)) return { ok: false, reason: "unparseable_slot" };
+  if (ts <= Date.now()) return { ok: false, reason: "slot_in_past" };
+  const tenant = await env.SYN_DB.prepare("SELECT id, timezone FROM tenants WHERE id=?").bind(install.tenant_id).first();
+  const bh = await businessHoursFor(env, tenant || { id: install.tenant_id });
+  if (isAfterHours(new Date(ts).toISOString(), bh)) return { ok: false, reason: "outside_business_hours" };
+  const rows = (await env.SYN_DB.prepare("SELECT payload FROM events WHERE install_id=? AND type='appointment_booked'").bind(install.id).all()).results || [];
+  const taken = rows.some(r => { try { return JSON.parse(r.payload || "{}").when_ts === ts; } catch (_){ return false; } });
+  if (taken) return { ok: false, reason: "slot_taken" };
+  return { ok: true, when_ts: ts };
+}
+// POST /w/book — the SINGLE code path that can write a booking. Validates the slot deterministically
+// BEFORE any appointment_booked write. On failure it records a NON-counted booking_requested and returns
+// an honest "someone will confirm shortly" — it never states a confirmed time that does not exist.
 async function wBook(env, install, body, cors, ctx){
   const convId = body && body.conversation_id ? String(body.conversation_id) : null;
   const when = (body && typeof body.when === "string" && body.when.trim()) ? body.when.trim().slice(0, 120) : null;
@@ -1063,14 +1097,34 @@ async function wBook(env, install, body, cors, ctx){
   }
   // 3. Link the contact to the conversation (+ backfill its events) when we have both.
   if (contactId && conv) await attachContact(env, install, convId, contactId);
-  // 4. Booking is engagement — stop any pending follow-up sequence for this contact.
-  if (contactId){ try { await cancelFollowups(env, contactId, "booked"); } catch (_){} }
-  // 5. Append-only appointment_booked (the Receipt counts these). Idempotent per conversation.
+
+  // 3b. Idempotency: a conversation that already has a confirmed booking re-confirms to the SAME one
+  //     (double-confirm counts once) — checked BEFORE the taken-guard so it isn't flagged as its own clash.
+  if (convId){
+    const already = await env.SYN_DB.prepare("SELECT id FROM events WHERE install_id=? AND type='appointment_booked' AND idempotency_key=?").bind(install.id, "apt_" + convId).first();
+    if (already) return json({ ok: true, booked: true, confirmed: true, when, contact_id: contactId, deduped: true }, 200, cors);
+  }
+
+  // 4. DETERMINISTIC GUARDRAIL. Validate the slot BEFORE any booking write. Invalid/absent slot → record a
+  //    non-counted booking_requested and tell the customer someone will confirm — never a fake confirmed time.
   const booking = bookingConfig(install);
+  const v = await validateBookingSlot(env, install, when);
+  if (!v.ok){
+    await insertEvent(env, { tenant_id: install.tenant_id, install_id: install.id, contact_id: contactId,
+      type: "booking_requested",
+      payload: { conversation_id: convId, when: when || null, reason: v.reason, source: "pending" },
+      idempotency_key: convId ? "breq_" + convId : null });
+    return json({ ok: true, booked: false, pending: true, reason: v.reason,
+      message: "Thanks — we’ve noted your request and someone will confirm your time shortly." }, 202, cors);
+  }
+  // 5. Valid → a confirmed, SYSTEM-PRODUCED booking (source:"syn" → counts toward the Receipt). Booking is
+  //    engagement, so stop the follow-up sequence. Idempotent per conversation, else per install+slot.
+  if (contactId){ try { await cancelFollowups(env, contactId, "booked"); } catch (_){} }
   await insertEvent(env, { tenant_id: install.tenant_id, install_id: install.id, contact_id: contactId,
-    type: "appointment_booked", payload: { conversation_id: convId, when, mode: booking ? booking.mode : "link" },
-    idempotency_key: convId ? "apt_" + convId : null });
-  return json({ ok: true, contact_id: contactId, deduped, booked: true }, 201, cors);
+    type: "appointment_booked",
+    payload: { conversation_id: convId, when, when_ts: v.when_ts, mode: booking ? booking.mode : "link", source: "syn" },
+    idempotency_key: convId ? "apt_" + convId : "apt_slot_" + install.id + "_" + v.when_ts });
+  return json({ ok: true, booked: true, confirmed: true, when, contact_id: contactId, deduped }, 201, cors);
 }
 
 /* ============================ compliance & consent ============================ */
@@ -1684,7 +1738,10 @@ async function computeReceiptMetrics(env, tenantId, periodStart, periodEnd, peri
   const responses = byType["first_response_sent"] || [];
   const followupsSent = byType["followup_sent"] || [];
   const followupsReplied = byType["followup_replied"] || [];
-  const booked = byType["appointment_booked"] || [];
+  // ATTRIBUTION (booking integrity): only SYSTEM-PRODUCED bookings (payload.source === "syn") count toward
+  // the Receipt's recovered value. Owner-handled / imported bookings carry a different source and are
+  // excluded, so a call the owner took personally can never inflate the money-back number.
+  const booked = (byType["appointment_booked"] || []).filter(e => parse(e).source === "syn");
   const callMissed = byType["call_missed"] || [];
   const textback = byType["textback_sent"] || [];
 
@@ -2431,6 +2488,9 @@ const WIDGET_JS = String.raw`(function () {
         go.textContent = "Open the scheduler";
         f.appendChild(go);
       }
+      // The time they booked, so the server can validate it (future, in business hours, not taken). Without
+      // a valid slot the server cannot CONFIRM — it records the request and says someone will confirm.
+      var when = document.createElement("input"); when.type = "datetime-local"; when.setAttribute("aria-label", "The time you booked");
       // Optional contact confirmation so we can link the booking to their record. Providing it here does
       // NOT grant SMS consent — the server upserts with consent off and writes no consent record.
       var email = document.createElement("input"); email.type = "email"; email.placeholder = "Email (so we can confirm)"; email.setAttribute("aria-label", "Email");
@@ -2440,19 +2500,23 @@ const WIDGET_JS = String.raw`(function () {
       var confirm = document.createElement("button"); confirm.type = "button"; confirm.className = "bc-confirm"; confirm.textContent = "I booked a time";
       var skip = document.createElement("button"); skip.type = "button"; skip.className = "bc-skip"; skip.textContent = "Not now";
       actions.appendChild(confirm); actions.appendChild(skip);
-      f.appendChild(email); f.appendChild(phone); f.appendChild(err); f.appendChild(actions);
+      f.appendChild(when); f.appendChild(email); f.appendChild(phone); f.appendChild(err); f.appendChild(actions);
       msgs.appendChild(f); msgs.scrollTop = msgs.scrollHeight;
       bookEl = f;
       function remove() { if (f.parentNode) f.parentNode.removeChild(f); if (bookEl === f) bookEl = null; }
       skip.addEventListener("click", remove);
       confirm.addEventListener("click", function () {
         err.style.display = "none"; confirm.disabled = true; skip.disabled = true;
+        var whenIso = null; if (when.value) { var d = new Date(when.value); if (!isNaN(d.getTime())) whenIso = d.toISOString(); }
         fetch(base + "/w/book" + q, {
           method: "POST", mode: "cors", credentials: "omit",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversation_id: convId, email: email.value.trim() || null, phone: phone.value.trim() || null })
-        }).then(function (r) { return r.ok; }, function () { return false; }).then(function (okr) {
-          if (okr) { booked = true; if (email.value.trim() || phone.value.trim()) captured = true; remove(); addBubble("bot", "You're all set — we've got your appointment. Talk soon!"); }
+          body: JSON.stringify({ conversation_id: convId, when: whenIso, email: email.value.trim() || null, phone: phone.value.trim() || null })
+        }).then(function (r) { return r.json(); }, function () { return null; }).then(function (data) {
+          var got = email.value.trim() || phone.value.trim();
+          // ONLY say "confirmed" when the server actually confirmed a validated slot. Otherwise be honest.
+          if (data && data.confirmed) { booked = true; if (got) captured = true; remove(); addBubble("bot", "You're all set — your appointment is confirmed. Talk soon!"); }
+          else if (data && data.pending) { if (got) captured = true; remove(); addBubble("bot", "Thanks — we've noted your request and someone will confirm your time shortly."); }
           else { confirm.disabled = false; skip.disabled = false; err.textContent = "Sorry, that didn't go through. Please try again."; err.style.display = "block"; }
         });
       });
