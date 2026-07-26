@@ -108,13 +108,64 @@ nothing (gate-email-only). Covered by `worker/syn-core.test.mjs`.
 - **`open`** — public signup. Flip by setting `SIGNUP_MODE=open` (`npx wrangler secret put SIGNUP_MODE`)
   and redeploying. That single switch opens the doors; set it back to `invite` to close them.
 
+## Google Sign-In (OAuth 2.0)
+
+"Continue with Google" runs alongside email/password. The client secret lives **only** on syn-core; the
+browser never sees it. Two endpoints, both handled **before the Origin gate** (they're top-level browser
+navigations with no `Origin`/CORS):
+
+- **`GET /auth/google/start`** — signs a short-lived (10 min) CSRF `state` token (HMAC, `AUTH_SIGNING_KEY`)
+  and 302-redirects to Google's consent screen (`scope: openid email profile`). Missing config → bounces
+  back to the app with `#autherror=google_not_configured` (never a raw 500).
+- **`GET /auth/google/callback?code&state`** — verifies `state`, exchanges the code for tokens **server-side**
+  (`GOOGLE_FETCH` is a test seam), reads the **verified** email from the `id_token` claims, then bounces to
+  the app with `#token=<session>&product=<p>`. Rate-limited per IP; every failure returns a human
+  `#autherror=<code>` the client maps to copy (`authErrorCopy`).
+
+**Find-or-create / link by verified email (one person, one account).** `email` is `UNIQUE`, so the
+callback looks the user up by email first:
+- **Exists** (email/password or a prior Google login) → **linked**: `google_sub` back-filled, `email_verified`
+  set, logged in. An email/password account is never duplicated — the same person signing in with Google
+  lands on their existing account (with whatever tenant/product it already has).
+- **New** → created verified (Google already verified the email → **no email-verification step**), with an
+  **unusable random password hash** (so password login is impossible until they set one via forgot-password),
+  `product='workspace'`, `google_sub` recorded.
+- **Unverified Google email** → refused (`#autherror=google_email`).
+
+Google sign-in **bypasses the invite/allowlist gate** by design (a verified Google identity is the gate).
+`google_sub` is added to `users` via the same idempotent `ensureTables` migration mechanism.
+
+### Google Cloud Console setup (you do this side)
+1. **APIs & Services → OAuth consent screen**: External; app name "SYN", support email, your logo/domain
+   (`syntrexio.com`); scopes `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`; add yourself
+   as a test user while in "Testing", or Publish for public use.
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**.
+   - **Authorized redirect URIs** — the syn-core callback (must match exactly):
+     `https://syn-core.henrybello.workers.dev/auth/google/callback`
+     and, once the custom domain fronts syn-core, its callback too. (If you route the callback through
+     `syn.syntrexio.com`, set `GOOGLE_REDIRECT_URI` to that and add it here instead.)
+   - **Authorized JavaScript origins**: `https://syn.syntrexio.com` (and `https://henryb08.github.io` during
+     the transition). Not strictly required for the server-side code flow, but harmless and future-proof.
+3. Copy the **Client ID** and **Client secret** into the syn-core secrets below.
+
+### Secrets to set on syn-core (Google)
+```
+npx wrangler secret put GOOGLE_CLIENT_ID       # the OAuth client ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET   # the OAuth client secret (server-only, never the browser)
+# optional — only if the callback is NOT the syn-core worker's own /auth/google/callback:
+npx wrangler secret put GOOGLE_REDIRECT_URI    # e.g. https://syn.syntrexio.com/auth/google/callback
+```
+`AUTH_SIGNING_KEY` (already required for sessions) also signs the OAuth `state`. Until `GOOGLE_CLIENT_ID`
+/`GOOGLE_CLIENT_SECRET` are set, the button degrades gracefully to the `google_not_configured` copy.
+
 ## Configuration (Wrangler)
 
 Secrets/vars on the syn-core Worker:
 `ANTHROPIC_API_KEY`, `GATE_EMAIL`, `GATE_PASSWORD`, `GATE_SIGNING_KEY` (existing) · **`AUTH_SIGNING_KEY`**
 (new; falls back to `GATE_SIGNING_KEY`) · **`RESEND_API_KEY`** + **`AUTH_EMAIL_FROM`** (a Resend-**verified**
 first-party sender, e.g. `SYN <no-reply@syntrexio.com>`) · **`APP_BASE_URL`** (link base, default
-`https://syn.syntrexio.com`) · **`SIGNUP_MODE`** · **`ADMIN_TENANT_ID`** (optional).
+`https://syn.syntrexio.com`) · **`SIGNUP_MODE`** · **`ADMIN_TENANT_ID`** (optional) · **`GOOGLE_CLIENT_ID`**
++ **`GOOGLE_CLIENT_SECRET`** (Google sign-in) + **`GOOGLE_REDIRECT_URI`** (optional override).
 
 > **Email identity note:** auth mail is **first-party transactional** (SYN's own verify/reset to SYN's own
 > users), so it correctly sends from a **Syntrex-verified** domain. This is distinct from the follow-up
@@ -133,18 +184,16 @@ first-party sender, e.g. `SYN <no-reply@syntrexio.com>`) · **`APP_BASE_URL`** (
   every request to curb email-send abuse).
 - **No secret, token, or password is ever logged.** Passwords exist only as PBKDF2 records.
 
-## Client migration (follow-up — NOT wired in this change)
+## Client wiring (DONE — the finished experience)
 
-This change is **server-side only**; the 8-file app JS still uses the gate (it keeps working). To cut the
-client over, the `gate*` helpers in `js/01-boot-auth.js` map 1:1:
-
-- `gateSignIn(email,pw)` → `POST /auth/login`; store `token`/`exp` exactly as today (the token is a Bearer
-  and slots into `gateHeaders()` unchanged).
-- New UI: signup → `POST /auth/signup`; a `#verify=<t>` route → `POST /auth/verify`; forgot → `POST
-  /auth/forgot`; a `#reset=<t>` route → `POST /auth/reset`.
-- Stop reading the global `syn5:orgs` registry to locate a workspace — `/auth/login` (and `/auth/me`)
-  return the user's `tenant_id`; load `syn5:<tenant_id>:*` directly. A tenant-scoped session **cannot**
-  read `syn5:orgs`, by design.
+The app UI is now on real auth (cloud mode; `js/01-boot-auth.js` + `css/02-base.css`). `showCloudAuth(view)`
+renders one card with sub-views **signin / signup / forgot / reset** plus **Continue with Google**;
+`cloudAuthSubmit` dispatches by `authView`. Deep links are handled at boot by `handleAuthHashRoutes`:
+`#token=` (Google return → store + `routeAfterAuth`), `#autherror=` (human copy), `#verify=` (confirm →
+signin), `#reset=` (in-card set-password — no more `prompt()`). Every failure renders as copy, never a raw
+error. `routeAfterAuth` sends a `product==='growth'` user to the dashboard and everyone else into the
+Workspace (located by email). Covered by `tests/auth-experience.mjs` + `tests/growth-dashboard.mjs`. The
+legacy gate remains only as an emergency fallback.
 
 ## Weaknesses I did NOT fully close (honest list)
 

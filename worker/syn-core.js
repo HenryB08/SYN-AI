@@ -56,6 +56,11 @@ const SIGNUP_MODE_DEFAULT = "invite";          // "invite" (private beta) | "ope
 // A fixed, valid PBKDF2 record used ONLY to equalize login timing when the email does not exist, so a
 // missing account and a wrong password take the same work (no account enumeration via timing).
 const DUMMY_PBKDF2 = "pbkdf2$100000$eWuqF8XIsam08BtYEREypA$fhOgDW52UkmL6PpbgrmhOZNgk5UttVCoxEiGlOqF05M";
+// Google OAuth 2.0 (Authorization Code). Client secret lives ONLY in env (never the browser). The
+// GOOGLE_FETCH seam lets tests stub the token exchange; production uses the real endpoints over TLS.
+const GOOGLE_AUTH_URL  = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const OAUTH_STATE_TTL  = 600;                  // signed CSRF state token: 10 minutes
 
 /* ---- CORS: explicit allowlist, reflect the specific origin, never "*", fail closed ---- */
 function isAllowedOrigin(o){ return typeof o === "string" && ALLOWED_ORIGINS.includes(o); }
@@ -208,6 +213,7 @@ async function ensureTables(env){
   const migrations = [
     `ALTER TABLE users ADD COLUMN product TEXT NOT NULL DEFAULT 'workspace'`,
     `ALTER TABLE auth_invites ADD COLUMN product TEXT`,
+    `ALTER TABLE users ADD COLUMN google_sub TEXT`,   // Google account link (one person, one account by email)
   ];
   for (const sql of migrations){ try { await env[D1_BINDING].prepare(sql).run(); } catch (_){ /* column already exists */ } }
 }
@@ -363,10 +369,90 @@ async function adminSetPassword(request, env){
   return plain({ ok: true, email, note: "password set; email verified; existing sessions revoked" }, 200);
 }
 
+/* ---- Google OAuth 2.0 (Authorization Code) ---- */
+function appBaseUrl(env){ return (env.APP_BASE_URL && String(env.APP_BASE_URL).replace(/\/+$/, "")) || "https://syn.syntrexio.com"; }
+function googleRedirectUri(env, request){
+  if (env.GOOGLE_REDIRECT_URI) return env.GOOGLE_REDIRECT_URI;
+  return new URL(request.url).origin + "/auth/google/callback";   // default: this Worker's own callback
+}
+function redirectTo(url){ return new Response(null, { status: 302, headers: { "Location": url, "Cache-Control": "no-store" } }); }
+// A top-level browser navigation (no Origin, no CORS). Start the OAuth dance: sign a short-lived CSRF
+// state and bounce to Google's consent screen. Missing config → bounce back to the app with an error.
+async function googleStart(request, env){
+  if (!env.GOOGLE_CLIENT_ID || !(env.GOOGLE_CLIENT_SECRET) || !authKey(env))
+    return redirectTo(appBaseUrl(env) + "#autherror=google_not_configured");
+  const state = await signAuthToken(env, "oauth", { n: randToken(12) }, OAUTH_STATE_TTL);
+  const p = new URLSearchParams({
+    client_id: env.GOOGLE_CLIENT_ID, redirect_uri: googleRedirectUri(env, request),
+    response_type: "code", scope: "openid email profile", state,
+    access_type: "online", prompt: "select_account", include_granted_scopes: "true",
+  });
+  return redirectTo(GOOGLE_AUTH_URL + "?" + p.toString());
+}
+// Google bounces the visitor back here with ?code&state. Exchange the code server-side (client secret
+// stays in env), read the VERIFIED email from the id_token, find-or-create/LINK the user by email, and
+// bounce to the app with a session token in the fragment. GOOGLE_FETCH is a test seam.
+async function googleCallback(request, env){
+  const back = (frag) => redirectTo(appBaseUrl(env) + frag);
+  const url = new URL(request.url);
+  const ip = request.headers.get("CF-Connecting-IP") || "0.0.0.0";
+  const rk = ip + "|google";
+  if (await rateBlocked(env, rk)) return back("#autherror=rate_limited");
+  const err = url.searchParams.get("error");
+  if (err){ await rateFail(env, rk); return back("#autherror=google_denied"); }
+  const code = url.searchParams.get("code") || "";
+  const state = url.searchParams.get("state") || "";
+  const st = await readAuthToken(env, state, "oauth");   // CSRF: state must be our signed, unexpired token
+  if (!code || !st){ await rateFail(env, rk); return back("#autherror=google_state"); }
+  await ensureTables(env);
+  // Exchange the authorization code for tokens.
+  let tok;
+  try {
+    const doFetch = env.GOOGLE_FETCH || fetch;
+    const r = await doFetch(GOOGLE_TOKEN_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: googleRedirectUri(env, request), grant_type: "authorization_code" }).toString() });
+    if (!r.ok){ await rateFail(env, rk); return back("#autherror=google_exchange"); }
+    tok = await r.json();
+  } catch (_){ await rateFail(env, rk); return back("#autherror=google_exchange"); }
+  // The id_token is a JWT from Google's token endpoint over TLS; read its claims (middle segment).
+  let claims = null;
+  try { const parts = String(tok.id_token || "").split("."); if (parts.length >= 2) claims = JSON.parse(b64urlToStr(parts[1])); } catch (_){ claims = null; }
+  const email = normEmail(claims && claims.email);
+  const emailVerified = !!(claims && (claims.email_verified === true || claims.email_verified === "true"));
+  const sub = claims && claims.sub ? String(claims.sub) : null;
+  if (!email || !emailVerified){ await rateFail(env, rk); return back("#autherror=google_email"); }
+  await rateClear(env, rk);
+  // Find-or-create/LINK by verified email. email is UNIQUE, so this is one-account-per-person: an
+  // existing email/password account is LINKED (google_sub set, email marked verified) — never duplicated.
+  let user = await getUserByEmail(env, email);
+  if (user){
+    await env[D1_BINDING].prepare("UPDATE users SET email_verified=1, status='active', google_sub=COALESCE(google_sub, ?), last_login_at=? WHERE id=?")
+      .bind(sub, new Date().toISOString(), user.id).run();
+    user = await getUserById(env, user.id);
+  } else {
+    // New Google user: verified (Google verified it → no email-verification step), with an UNUSABLE random
+    // password hash (NOT NULL) so password login is impossible until they set one via forgot-password.
+    const id = newId("usr");
+    await env[D1_BINDING].prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,product,google_sub,session_epoch,created_at,last_login_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+      .bind(id, email, await hashPassword(randToken(24)), 1, "active", "member", null, "workspace", sub, 1, new Date().toISOString(), new Date().toISOString()).run();
+    user = await getUserById(env, id);
+  }
+  if (!user) return back("#autherror=google_account");
+  const token = await signAuthToken(env, "sess", { uid: user.id, tid: user.tenant_id || null, role: user.role, ver: 1, epoch: Number(user.session_epoch) }, SESSION_TTL_SECONDS);
+  return back("#token=" + encodeURIComponent(token) + "&product=" + encodeURIComponent(user.product || "workspace"));
+}
+
 export default {
   async fetch(request, env){
     // BREAK-GLASS admin password reset — before the browser Origin gate (curl carries no Origin).
     if (new URL(request.url).pathname === "/auth/admin/set-password" && request.method === "POST") return adminSetPassword(request, env);
+    // Google OAuth — top-level navigations (no Origin header), so they run before the Origin gate.
+    {
+      const p0 = new URL(request.url).pathname;
+      if (p0 === "/auth/google/start" && request.method === "GET") return googleStart(request, env);
+      if (p0 === "/auth/google/callback" && request.method === "GET") return googleCallback(request, env);
+    }
 
     const origin = request.headers.get("Origin");
 
@@ -627,6 +713,6 @@ async function issueVerify(env, user){
 export {
   ensureTables, hashPassword, verifyPassword, signAuthToken, readAuthToken, verifyToken, makeToken,
   seedAdminUser, signupAllowed, authenticate, keyTenant, canAccessKey, getUserByEmail, getUserById,
-  normEmail, validEmail, publicUser, issueVerify,
+  normEmail, validEmail, publicUser, issueVerify, googleStart, googleCallback,
   PBKDF2_ITERS, SESSION_TTL_SECONDS, VERIFY_TTL_SECONDS, RESET_TTL_SECONDS, RL_MAX_FAILS, SIGNUP_MODE_DEFAULT,
 };

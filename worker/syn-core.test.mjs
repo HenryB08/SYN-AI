@@ -338,6 +338,63 @@ const c = (n, cond) => { cond ? ok++ : fail++; console.log((cond ? "✓" : "✗ 
   c("admin logs in on the migrated DB", li.status === 200 && (await li.json()).user.role === "admin");
 }
 
+/* =================== Google OAuth 2.0 (find-or-create / link by verified email) =================== */
+{
+  const e = mkEnv({ SIGNUP_MODE: "invite" });   // Google sign-in bypasses the invite gate by design
+  e.GOOGLE_CLIENT_ID = "gcid"; e.GOOGLE_CLIENT_SECRET = "gsecret"; e.GOOGLE_REDIRECT_URI = "https://syn-core.workers.dev/auth/google/callback";
+  await mod.ensureTables(e);
+  // helper: a fake Google token response carrying an id_token whose middle segment is our claims
+  const b64u = (o) => Buffer.from(JSON.stringify(o)).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const idToken = (claims) => "hdr." + b64u(claims) + ".sig";
+  const withGoogle = (claims) => { e.GOOGLE_FETCH = async () => new Response(JSON.stringify({ id_token: idToken(claims), access_token: "at" }), { status: 200, headers: { "content-type": "application/json" } }); };
+  const startReq = () => new Request("https://syn-core.workers.dev/auth/google/start", { method: "GET" });
+  const cbReq = (qs) => new Request("https://syn-core.workers.dev/auth/google/callback?" + qs, { method: "GET" });
+  const fragOf = (resp) => { const loc = resp.headers.get("Location") || ""; const i = loc.indexOf("#"); return i >= 0 ? loc.slice(i + 1) : ""; };
+  const tokenFromFrag = (frag) => { const m = /(?:^|&)token=([^&]+)/.exec(frag); return m ? decodeURIComponent(m[1]) : null; };
+
+  // /auth/google/start → 302 to Google with our signed state, no Origin needed (top-level nav)
+  const s = await worker.fetch(startReq(), e);
+  c("google start → 302 to accounts.google.com with client_id + state", s.status === 302 && /accounts\.google\.com/.test(s.headers.get("Location")) && /client_id=gcid/.test(s.headers.get("Location")) && /state=/.test(s.headers.get("Location")));
+  const state = new URL(s.headers.get("Location")).searchParams.get("state");
+
+  // callback with a bad/absent state → error fragment (CSRF guard), no session minted
+  const badState = await worker.fetch(cbReq("code=abc&state=forged"), e);
+  c("google callback rejects a forged state (CSRF)", badState.status === 302 && /#autherror=google_state/.test(badState.headers.get("Location")));
+
+  // NEW Google user: verified email → account created, verified, logged in (no verify step)
+  withGoogle({ email: "Gwen@Gmail.com", email_verified: true, sub: "google-123", name: "Gwen" });
+  const cb1 = await worker.fetch(cbReq("code=abc&state=" + encodeURIComponent(state)), e);
+  const tok1 = tokenFromFrag(fragOf(cb1));
+  const gwen = e.SYN_DB._db.prepare("SELECT * FROM users WHERE email=?").get("gwen@gmail.com");
+  c("google new user: created, email lowercased, verified, no password login, google_sub set", !!gwen && gwen.email_verified === 1 && gwen.google_sub === "google-123");
+  c("google new user: bypasses the invite gate + returns a session token in the fragment", !!tok1 && /product=workspace/.test(fragOf(cb1)));
+  // that session token actually authorizes /auth/me
+  const me = await call(e, "GET", "/auth/me", { token: tok1 });
+  c("google session token authorizes /auth/me", me.status === 200 && (await me.json()).user.email === "gwen@gmail.com");
+
+  // COLLISION: an existing email/password account with the same email → LINKED, not duplicated
+  const now = new Date().toISOString();
+  e.SYN_DB._db.prepare("INSERT INTO users (id,email,password_hash,email_verified,status,role,tenant_id,product,session_epoch,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .run("usr_pw", "dual@example.com", await mod.hashPassword("existingpw12"), 0, "active", "member", "o_X", "workspace", 1, now);
+  const s2 = await worker.fetch(startReq(), e); const state2 = new URL(s2.headers.get("Location")).searchParams.get("state");
+  withGoogle({ email: "dual@example.com", email_verified: true, sub: "google-999", name: "Dual" });
+  const cb2 = await worker.fetch(cbReq("code=xyz&state=" + encodeURIComponent(state2)), e);
+  const rows = e.SYN_DB._db.prepare("SELECT * FROM users WHERE email=?").all("dual@example.com");
+  c("google collision: one account, not a duplicate (linked by email)", rows.length === 1 && rows[0].id === "usr_pw");
+  c("google collision: existing account is linked + verified (google_sub set, tenant preserved)", rows[0].google_sub === "google-999" && rows[0].email_verified === 1 && rows[0].tenant_id === "o_X");
+
+  // unverified Google email → refused
+  const s3 = await worker.fetch(startReq(), e); const state3 = new URL(s3.headers.get("Location")).searchParams.get("state");
+  withGoogle({ email: "sketch@example.com", email_verified: false, sub: "google-x" });
+  const cb3 = await worker.fetch(cbReq("code=q&state=" + encodeURIComponent(state3)), e);
+  c("google unverified email → refused, no account created", /#autherror=google_email/.test(cb3.headers.get("Location")) && !e.SYN_DB._db.prepare("SELECT id FROM users WHERE email=?").get("sketch@example.com"));
+
+  // not configured → graceful redirect, never a raw 500
+  const e2 = mkEnv(); await mod.ensureTables(e2);
+  const s4 = await worker.fetch(startReq(), e2);
+  c("google start without config → graceful #autherror redirect", s4.status === 302 && /#autherror=google_not_configured/.test(s4.headers.get("Location")));
+}
+
 /* =================== protected surface still rejects no/invalid token =================== */
 {
   const e = mkEnv();

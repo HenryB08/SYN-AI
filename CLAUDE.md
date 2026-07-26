@@ -99,6 +99,15 @@ as-is.
   `worker/syn-core.test.mjs`. **The client login IS now wired to real auth** (cloud sign-in posts to
   `/auth/login`, stores the session token, routes by `product`; the gate is a fallback) — see the
   Growth-dashboard bullet below and `worker/DASHBOARD.md`.
+- **✅ FULL AUTH EXPERIENCE + GOOGLE SIGN-IN (`worker/AUTH.md`).** The sign-in card (`showCloudAuth` in
+  `js/01-boot-auth.js`, styles in `css/02-base.css`) is finished: **signin / signup / forgot / reset**
+  sub-views + **Continue with Google**, all failures as human copy. Email deep links `#verify=`/`#reset=`
+  and the Google return `#token=` / failure `#autherror=` are handled at boot (`handleAuthHashRoutes`).
+  **Google OAuth 2.0** lives server-side in syn-core (`/auth/google/{start,callback}`, handled before the
+  Origin gate; client secret only in env; `GOOGLE_FETCH` test seam): find-or-create/**link by verified
+  email** (one person, one account; `users.google_sub`), a verified Google email skips email-verification,
+  and Google bypasses the invite gate. Covered by `worker/syn-core.test.mjs` + `tests/auth-experience.mjs`.
+  Google Cloud Console steps + the `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` secrets are in `worker/AUTH.md`.
 - **✅ GROWTH CLIENT DASHBOARD — the first surface on real auth (`worker/DASHBOARD.md`).** A Growth
   client signs in at the app and lands on a self-contained **`#growth`** scene instead of the Workspace,
   routed by the explicit **`users.product`** field (`workspace`|`growth`|`both`). It reads its own tenant
@@ -362,6 +371,7 @@ prints `CHECKS: N passed, M failed` and `ERRORS: NONE/PRESENT`.
 | `chat-visibility.mjs` | Chat visibility is owner-only; re-keying never orphans a record |
 | `cost-control.mjs` | Manual actions cost 0 API calls; per-user daily caps trip & reset; capped user keeps all non-AI features; cost meter + overrides |
 | `cross-feature.mjs` | Cross-feature integration: task+due→calendar, complete→auto-activity, follow-ups→My Day, dependency→notify, AI items respect privacy |
+| `auth-experience.mjs` | The finished cloud sign-in surface: signin/signup/forgot/reset sub-views + Google button render; `#verify`/`#reset`/`#token`/`#autherror` deep links; Google return lands logged in with no verify step; every failure (wrong password, unverified, rate-limited, invalid token) renders as human copy |
 | `growth-dashboard.mjs` | Real-auth login (cloud, no gate) → a `product='growth'` user lands on the `#growth` scene (never the Workspace); headline/receipt/leads/bookings/past-Receipts render from mocked `/me/*`; snippet copy; config edit PUTs back; session token on every `/me` call |
 | `guide-access.mjs` | In-app Guide: signed-out inaccessible, signed-in renders, search, deep links, checklist linkage, admin gating |
 | `identity-persistence.mjs` | Identity + cloud persistence; a failed cloud read never silently falls back to empty localStorage |

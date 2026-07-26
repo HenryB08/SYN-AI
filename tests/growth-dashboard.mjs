@@ -157,7 +157,7 @@ try {
   await page.fill('#aPass', 'wrongpass');
   await page.evaluate(() => authSubmit());
   const errTxt = await page.evaluate(async () => { await new Promise(r => setTimeout(r, 400)); const el = document.getElementById('authErr'); return el ? el.textContent : ""; });
-  R("wrong password rejected generically", /Wrong email or password/.test(errTxt), errTxt);
+  R("wrong password rejected generically", /don’t match|don't match|Wrong email or password/.test(errTxt), errTxt);
 
 } catch (e) {
   R("suite ran without fatal error", false, String(e && e.stack || e));

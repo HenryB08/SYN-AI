@@ -117,14 +117,34 @@ async function authReset(token, password){ try{ const res=await fetch(cloudBase(
 async function authVerify(token){ try{ const res=await fetch(cloudBase()+"/auth/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})}); const j=await res.json().catch(()=>null); return { ok:res.ok, error:(j&&j.error)||null }; }catch(e){ return { ok:false, error:"network" }; } }
 /* On boot, handle a #verify=<token> or #reset=<token> deep link (from the auth emails). Returns true if
    it took over the screen. Minimal UI: verify confirms then routes to sign-in; reset shows a set-password prompt. */
+// Boot-time deep links delivered in the URL fragment by the auth emails and the Google callback:
+//   #token=<session>&product=<p>  (Google sign-in return) → store + route straight in
+//   #autherror=<code>             (Google callback failure)  → sign-in card with human copy
+//   #verify=<token>               (email confirmation link)  → confirm, then sign-in
+//   #reset=<token>                (password reset link)      → in-card "set a new password" view
+// Returns true if it took over the screen. Only active in cloud mode.
 async function handleAuthHashRoutes(){
   const hsh = (location.hash || "");
-  const mv = /#verify=([^&]+)/.exec(hsh), mr = /#reset=([^&]+)/.exec(hsh);
-  if (mv){ document.getElementById("bootScreen").classList.remove("on"); const r = await authVerify(decodeURIComponent(mv[1])); try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} hideSite(); showAuth("signin"); authErr(r.ok ? "" : "That verification link is invalid or expired."); if (r.ok){ const el=document.getElementById("authErr"); if(el){ el.style.color="var(--good)"; el.style.display="block"; el.textContent="Email confirmed — sign in below."; } } return true; }
-  if (mr){ document.getElementById("bootScreen").classList.remove("on"); const token = decodeURIComponent(mr[1]); try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} hideSite(); showAuth("signin");
-    const pass = window.prompt ? window.prompt("Enter a new password (min 8 characters):") : null;
-    if (pass){ const r = await authReset(token, pass); authErr(r.ok ? "" : "That reset link is invalid or expired."); if (r.ok){ const el=document.getElementById("authErr"); if(el){ el.style.color="var(--good)"; el.style.display="block"; el.textContent="Password reset — sign in with your new password."; } } }
+  const clearHash = () => { try{ history.replaceState(null, "", location.pathname + location.search); }catch(e){} };
+  const bootOff = () => { const b = document.getElementById("bootScreen"); if (b) b.classList.remove("on"); };
+  const mt = /[#&]token=([^&]+)/.exec(hsh), mae = /[#&]autherror=([^&]+)/.exec(hsh);
+  const mv = /[#&]verify=([^&]+)/.exec(hsh), mr = /[#&]reset=([^&]+)/.exec(hsh);
+  if (mt){                                  // Google sign-in returned a session token
+    bootOff(); const token = decodeURIComponent(mt[1]); clearHash();
+    const exp = gateReadExp(token) || (Math.floor(Date.now()/1000) + 7*24*3600);
+    let user = null;
+    try{ const r = await fetch(cloudBase() + "/auth/me", { headers: { "Authorization": "Bearer " + token } }); if (r.ok) user = (await r.json()).user; }catch(e){}
+    authStore({ token, exp, user });
+    if (user){ await routeAfterAuth(user); }
+    else { hideSite(); showCloudAuth("signin"); authErr("Signed in with Google, but couldn’t load your account. Try again."); }
+    return true;
+  }
+  if (mae){ bootOff(); clearHash(); hideSite(); showCloudAuth("signin"); authErr(authErrorCopy(decodeURIComponent(mae[1]))); return true; }
+  if (mv){ bootOff(); const r = await authVerify(decodeURIComponent(mv[1])); clearHash(); hideSite(); showCloudAuth("signin");
+    if (r.ok) authOk("Email confirmed — sign in below."); else authErr("That verification link is invalid or has expired. Sign in to resend it.");
     return true; }
+  if (mr){ bootOff(); authResetToken = decodeURIComponent(mr[1]); clearHash(); hideSite(); showCloudAuth("reset");
+    authOk("Choose a new password below."); return true; }
   return false;
 }
 
@@ -957,11 +977,10 @@ function codeMinutesLeft(){ return Math.max(1, Math.ceil((1800000 - (Date.now() 
 
 /* ---------------- AUTH ---------------- */
 function showAuth(m){
-  // ACCESS GATE (temporary): while the gate is on, only the single-admin Sign In exists.
-  // The New Workspace and Join Team tabs — the public routes into workspace creation — are
-  // hidden entirely, and any attempt to open them is coerced back to Sign In. Prompt 26 removes this.
-  const gated = gateActive();
-  if (gated) m = "signin";
+  // Cloud mode → the full real-auth experience (signin/signup/forgot/reset + Google). Non-cloud keeps
+  // the workspace create/join/signin card below (used by the file:// / preview test suites).
+  if (gateActive()){ showCloudAuth(m === "create" ? "signup" : m); return; }
+  const gated = false;
   authMode = m;
   const f = document.getElementById("authFields");
   const sub = document.getElementById("authSub");
@@ -1000,44 +1019,121 @@ function forgotInfo(){
   e.style.display = "block"; e.style.color = "var(--gold)";
 }
 function authErr(msg){ const e = document.getElementById("authErr"); e.style.color = "var(--bad)"; e.textContent = msg; e.style.display = "block"; }
+function authOk(msg){ const e = document.getElementById("authErr"); e.style.color = "var(--good)"; e.textContent = msg; e.style.display = "block"; }
+
+/* ===================== CLOUD AUTH EXPERIENCE (real /auth/* — signin/signup/forgot/reset + Google) ===================== */
+let authView = "signin";       // signin | signup | forgot | reset
+let authResetToken = null;     // set by the #reset= deep link
+const GOOGLE_G_SVG = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>';
+function gAuthBlock(){ return '<button type="button" class="g-btn" id="gAuthBtn" onclick="authGoogle()">' + GOOGLE_G_SVG + '<span>Continue with Google</span></button><div class="auth-or"><span>or</span></div>'; }
+function authGoogle(){ location.href = cloudBase() + "/auth/google/start"; }   // top-level nav; server redirects to Google
+
+function showCloudAuth(view){
+  authView = ["signin", "signup", "forgot", "reset"].includes(view) ? view : "signin";
+  const f = document.getElementById("authFields"), sub = document.getElementById("authSub");
+  const btn = document.getElementById("authBtn"), sw = document.getElementById("authSwitch"), tabs = document.getElementById("authTabs");
+  const err = document.getElementById("authErr"); err.style.display = "none"; err.textContent = "";
+  tabs.innerHTML = "";
+  if (authView === "signup"){
+    sub.textContent = "Create your account";
+    f.innerHTML = gAuthBlock() + '<input class="f-input" id="aEmail" placeholder="Email" autocomplete="off"><input class="f-input" id="aPass" type="password" placeholder="Create a password (8+ characters)">';
+    btn.textContent = "Create account";
+    sw.innerHTML = 'Already have an account? <button onclick="showCloudAuth(\'signin\')">Sign in</button>';
+  } else if (authView === "forgot"){
+    sub.textContent = "Reset your password";
+    f.innerHTML = '<input class="f-input" id="aEmail" placeholder="Email" autocomplete="off">';
+    btn.textContent = "Send reset link";
+    sw.innerHTML = '<button onclick="showCloudAuth(\'signin\')">← Back to sign in</button>';
+  } else if (authView === "reset"){
+    sub.textContent = "Set a new password";
+    f.innerHTML = '<input class="f-input" id="aPass" type="password" placeholder="New password (8+ characters)">';
+    btn.textContent = "Set password & sign in";
+    sw.innerHTML = '<button onclick="showCloudAuth(\'signin\')">← Back to sign in</button>';
+  } else {
+    sub.textContent = "Sign in to SYN";
+    f.innerHTML = gAuthBlock() + '<input class="f-input" id="aEmail" placeholder="Email" autocomplete="off"><input class="f-input" id="aPass" type="password" placeholder="Password">';
+    btn.textContent = "Sign in";
+    sw.innerHTML = '<button onclick="showCloudAuth(\'forgot\')">Forgot password?</button><span class="auth-sep">·</span>New here? <button onclick="showCloudAuth(\'signup\')">Create an account</button>';
+  }
+  document.getElementById("authScreen").classList.add("on");
+  f.querySelectorAll("input").forEach(i2 => i2.addEventListener("keydown", e => { if (e.key === "Enter") authSubmit(); }));
+}
+
+async function cloudAuthSubmit(em, pass){
+  const btn = document.getElementById("authBtn"); const lbl = btn ? btn.textContent : "";
+  const busy = t => { if (btn){ btn.disabled = true; btn.textContent = t; } };
+  const done = () => { if (btn){ btn.disabled = false; btn.textContent = lbl; } };
+  if (authView === "signup"){
+    if (!em) return authErr("Enter your email.");
+    if (pass.length < 8) return authErr("Password needs at least 8 characters.");
+    busy("Creating…"); const r = await authSignup(em, pass); done();
+    if (r.rateLimited || r.error === "rate_limited") return authErr("Too many attempts. Wait a few minutes and try again.");
+    // Generic by design (no account enumeration, invite gate honored server-side): always the same copy.
+    return authOk("Check your inbox to confirm your email, then sign in. If you’re not on the beta list yet, you’ll hear from us.");
+  }
+  if (authView === "forgot"){
+    if (!em) return authErr("Enter your email.");
+    busy("Sending…"); await authForgot(em); done();
+    return authOk("If an account exists for that email, a reset link is on its way. Check your inbox.");
+  }
+  if (authView === "reset"){
+    if (pass.length < 8) return authErr("Password needs at least 8 characters.");
+    if (!authResetToken) return authErr("This reset link is invalid. Request a new one from “Forgot password?”.");
+    busy("Saving…"); const r = await authReset(authResetToken, pass); done();
+    if (!r.ok) return authErr("That reset link is invalid or has expired. Request a new one from “Forgot password?”.");
+    authResetToken = null; showCloudAuth("signin"); return authOk("Password updated — sign in with your new password.");
+  }
+  // signin
+  if (!em) return authErr("Enter your email.");
+  if (!pass) return authErr("Enter your password.");
+  busy("Signing in…"); const r = await authLogin(em, pass); done();
+  if (r.rateLimited) return authErr("Too many attempts. Wait a few minutes and try again.");
+  if (r.error === "email_not_verified") return authErr("Please verify your email first — check your inbox for the confirmation link.");
+  if (!r.ok) return authErr("That email and password don’t match. Try again, or reset your password.");
+  await routeAfterAuth(r.user);
+}
+
+// Route a freshly authenticated user: Growth → dashboard; Workspace/both → locate their workspace by email.
+async function routeAfterAuth(user){
+  user = user || authUser || {};
+  if (user.product === "growth"){ await enterGrowth(user); return; }
+  const em = (user.email || "").trim().toLowerCase();
+  let orgs;
+  try{ orgs = (await sGetStrict("syn5:orgs")) || []; }
+  catch(e){ return authErr("Signed in, but couldn’t reach SYN Core to load your workspace. Try again."); }
+  ORGS = orgs;
+  for (const org of ORGS){
+    let team;
+    try{ team = (await sGetStrict("syn5:" + org.id + ":team")) || []; }
+    catch(e){ return authErr("Signed in, but couldn’t load your workspace. Try again."); }
+    const u = team.find(t => (t.email || "").trim().toLowerCase() === em);
+    if (u){ await sSet("syn5:session", { orgId: org.id, userId: u.id }, false); await enterOrg(org, u); return; }
+  }
+  return authErr("Signed in, but no workspace is set up for this account yet. Contact henry@syntrexio.com.");
+}
+
+// Human copy for the #autherror= codes the Google callback can bounce back with.
+function authErrorCopy(code){
+  return ({
+    google_not_configured: "Google sign-in isn’t set up yet. Use your email and password.",
+    google_denied: "Google sign-in was cancelled.",
+    google_state: "That Google sign-in link expired. Please try again.",
+    google_exchange: "Couldn’t complete Google sign-in. Please try again.",
+    google_email: "Your Google account’s email isn’t verified, so we can’t sign you in with it.",
+    google_account: "Couldn’t finish setting up your account. Please try again.",
+    rate_limited: "Too many attempts. Wait a few minutes and try again.",
+  })[code] || "Sign-in didn’t complete. Please try again.";
+}
 
 async function authSubmit(){
   const val = id => { const el = document.getElementById(id); return el ? el.value : ""; };
   const em = val("aEmail").trim().toLowerCase();
   const pass = val("aPass");
+  // REAL AUTH (cloud) — the full experience (signin / signup / forgot / reset), dispatched by authView.
+  // Non-cloud (file:// / preview) keeps the original workspace create/join/signin flows below.
+  if (gateActive()) return cloudAuthSubmit(em, pass);
   if (!em) return authErr("Enter your email.");
   if (!pass) return authErr("Enter your password.");
-
-  // REAL AUTH (Prompt 26): in cloud mode the Worker validates per-user credentials and issues a signed
-  // session token. We then route by the EXPLICIT `product` field: a Growth client lands on the Growth
-  // dashboard; a Workspace user is located by email (identity already proven) and enters the app. The
-  // legacy /gate remains as a fallback but is no longer the login path.
-  if (gateActive()){
-    const btn = document.getElementById("authBtn");
-    const lbl = btn ? btn.textContent : "";
-    if (btn){ btn.disabled = true; btn.textContent = "Signing in…"; }
-    const r = await authLogin(em, pass);
-    if (btn){ btn.disabled = false; btn.textContent = lbl; }
-    if (r.rateLimited) return authErr("Too many attempts. Wait a few minutes and try again.");
-    if (r.error === "email_not_verified") return authErr("Please verify your email first — check your inbox for the confirmation link.");
-    if (!r.ok) return authErr("Wrong email or password.");
-    const user = r.user || {};
-    // §PART 2 — route by product. A Growth client never enters the full Workspace.
-    if (user.product === "growth"){ await enterGrowth(user); return; }
-    // Workspace / both: locate the workspace by email (real auth already proved identity).
-    let orgs;
-    try{ orgs = (await sGetStrict("syn5:orgs")) || []; }
-    catch(e){ return authErr("Signed in, but couldn’t reach SYN Core to load your workspace. Try again."); }
-    ORGS = orgs;
-    for (const org of ORGS){
-      let team;
-      try{ team = (await sGetStrict("syn5:" + org.id + ":team")) || []; }
-      catch(e){ return authErr("Signed in, but couldn’t load your workspace. Try again."); }
-      const u = team.find(t => (t.email || "").trim().toLowerCase() === em);
-      if (u){ await sSet("syn5:session", { orgId: org.id, userId: u.id }, false); await enterOrg(org, u); return; }
-    }
-    return authErr("Signed in, but no workspace is set up for this account yet. Contact henry@syntrexio.com.");
-  }
 
   // Always work from the latest workspace registry (cloud when live) so sign-in and join
   // see workspaces created in another browser, not just whatever was loaded at boot.

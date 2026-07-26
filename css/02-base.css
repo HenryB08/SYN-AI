@@ -52,6 +52,16 @@ body.no-motion .blob{animation:none!important}
 .auth-note{margin-top:16px;font-family:'Inter',sans-serif;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);line-height:1.9}
 .auth-err{color:var(--bad);font-size:12.5px;margin-top:12px;display:none}
 .auth-tabs{display:flex;gap:7px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+/* Cloud auth extras: Google button + "or" divider + inline switch separator. Dark, monochrome chrome;
+   the Google "G" keeps its brand colors (required), everything else stays neutral. */
+.g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;
+  font-family:'Inter',sans-serif;font-size:14px;font-weight:600;padding:13px 15px;border-radius:var(--r-btn);
+  color:var(--text,#eee);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.16);cursor:pointer;transition:background .18s,border-color .18s}
+.g-btn:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.28)}
+.g-btn svg{flex:0 0 auto}
+.auth-or{display:flex;align-items:center;gap:12px;margin:4px 0 14px;color:var(--faint);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.12)}
+.auth-sep{margin:0 8px;color:var(--faint)}
 .color-row{display:flex;gap:9px;align-items:center}
 .pal-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 .pal-row .f-input{padding:10px 13px;font-size:13px}
