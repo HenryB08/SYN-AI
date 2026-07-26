@@ -50,15 +50,17 @@ const MOCK = () => {
       window.__gv.hits.push(p);
       window.__gv.authHeaders.push(auth);
       const C = window.__gv.config;
-      if (p.startsWith("/me/summary")) return J({ period: { label: "June 2026" }, headline: {
+      if (p.startsWith("/me/summary")) return J({ period: { label: "June 2026" }, informational: true, headline: {
         inquiries_received: 12, inquiries_answered: 9, after_hours_inquiries: 3, leads_captured: 7,
-        followups_sent: 5, appointments_booked: 4, value_recovered_cents: 100000, value_configured: true },
-        guarantee: { captured_value: true, verdict: "Value captured this period — 7 captured leads and 4 bookings." } });
+        followups_sent: 5, appointments_booked: 4, value_recovered_cents: 100000, value_configured: true,
+        guarantee_mode: "booked_value", monthly_fee_cents: 34900, guarantee_outcome: "met", guarantee_met: true, evaluated_on: "dollars" },
+        guarantee: { mode: "booked_value", outcome: "met", met: true, monthly_fee_cents: 34900, recovered_value_cents: 100000, booking_count: 4, captured_value: true,
+          verdict: "Estimated recovered value $1,000.00 from 4 bookings met the $349.00 monthly fee." } });
       // NOTE: check plural /me/receipts BEFORE singular /me/receipt (startsWith would otherwise swallow it).
       if (p.startsWith("/me/receipts/")) return HTML("<html><body>Past Receipt</body></html>");
-      if (p.startsWith("/me/receipts")) return J({ receipts: [{ id: "rcp_may", label: "May 2026", period_start: "2026-05-01T00:00:00.000Z", captured_value: true, value_recovered_cents: 75000 }] });
+      if (p.startsWith("/me/receipts")) return J({ receipts: [{ id: "rcp_may", label: "May 2026", period_start: "2026-05-01T00:00:00.000Z", captured_value: true, value_recovered_cents: 75000, guarantee_outcome: "met", booking_count: 3, monthly_fee_cents: 34900 }] });
       if (p.startsWith("/me/receipt?") && p.includes("format=html")) return HTML("<html><body>Value Receipt</body></html>");
-      if (p.startsWith("/me/receipt")) return J({ receipt: { metrics: { value: { formula: "Appointments booked (4) × average job value ($250.00, in effect from 2026-05-01) = $1,000.00", value_recovered_cents: 100000 }, guarantee: { verdict: "Value captured this period." } } }, live: true });
+      if (p.startsWith("/me/receipt")) return J({ receipt: { metrics: { value: { configured: true, formula: "Appointments booked (4) × average job value ($250.00, in effect from 2026-05-01) = $1,000.00", value_recovered_cents: 100000 }, guarantee: { mode: "booked_value", outcome: "met", met: true, verdict: "Estimated recovered value $1,000.00 from 4 bookings met the $349.00 monthly fee." } } }, live: true });
       if (p.startsWith("/me/leads")) return J({ contacts: [
         { id: "c1", name: "Ada Lovelace", email: "ada@atlas.test", phone: "+15550001", status: "booked", source: "chat", first_seen: "2026-06-03T10:00:00.000Z" },
         { id: "c2", name: "Bo Peep", email: "bo@atlas.test", status: "new", source: "chat", first_seen: "2026-06-04T11:00:00.000Z" } ] });
@@ -112,10 +114,20 @@ try {
   const stripText = await page.evaluate(() => document.querySelector('#gvBody .gv-strip').innerText);
   R("headline strip renders real numbers (12 inquiries, 7 leads, 4 bookings)", /12/.test(stripText) && /\b7\b/.test(stripText) && /\b4\b/.test(stripText), stripText.replace(/\n/g, ' '));
   R("headline shows value recovered ($1,000.00)", /\$1,000\.00/.test(stripText), stripText.replace(/\n/g, ' '));
+  // GUARANTEE.md: the dollar figure NEVER stands alone — the booking count + the word "estimated" ride beside it.
+  R("value recovered shows booking count + 'estimated' beside the dollar", /estimated/i.test(stripText) && /4 bookings/.test(stripText), stripText.replace(/\n/g, ' '));
 
-  // Guarantee verdict shown plainly
-  const verdict = await page.evaluate(() => { const el = document.querySelector('.gv-verdict'); return el ? el.textContent : ""; });
-  R("current Receipt guarantee verdict shown plainly", /Value captured this period/.test(verdict), verdict);
+  // Guarantee gauge: recovered value vs the monthly fee (informational progress)
+  const gaugeText = await page.evaluate(() => { const el = document.querySelector('.gv-guarantee'); return el ? el.innerText : ""; });
+  R("guarantee gauge shows recovered $ + estimated + booking count", /\$1,000\.00/.test(gaugeText) && /estimated/i.test(gaugeText) && /4 bookings/.test(gaugeText), gaugeText.replace(/\n/g, ' '));
+  R("guarantee gauge names the monthly fee and the met status", /\$349\.00/.test(gaugeText) && /guarantee met/i.test(gaugeText), gaugeText.replace(/\n/g, ' '));
+  R("guarantee gauge is flagged informational (Receipt governs)", /informational/i.test(gaugeText) && /record of account/i.test(gaugeText), gaugeText.replace(/\n/g, ' '));
+  const barPct = await page.evaluate(() => { const el = document.querySelector('.gv-bar-fill'); return el ? el.style.width : ""; });
+  R("guarantee progress bar filled to 100% (recovered ≥ fee)", barPct === "100%", barPct);
+
+  // Guarantee verdict shown plainly (now the dollar verdict)
+  const verdict = await page.evaluate(() => { const el = document.querySelector('.gv-receipt .gv-verdict'); return el ? el.textContent : ""; });
+  R("current Receipt dollar verdict shown plainly", /Estimated recovered value \$1,000\.00 from 4 bookings met the \$349\.00 monthly fee/.test(verdict), verdict);
 
   // Every /me call carried the session token (tenant scoping is by the session)
   const auths = await page.evaluate(() => window.__gv.authHeaders);
@@ -126,6 +138,7 @@ try {
   R("recent leads render (Ada Lovelace, booked)", /Ada Lovelace/.test(bodyText) && /booked/.test(bodyText));
   R("recent bookings render", /Tue 3pm/.test(bodyText) || /Ada Lovelace/.test(bodyText));
   R("past Receipts render (May 2026)", /May 2026/.test(bodyText));
+  R("past Receipt row shows the guarantee outcome ('met')", /May 2026[\s\S]*?met/i.test(bodyText), bodyText.replace(/\n/g, ' ').slice(0, 400));
 
   // Install snippet + copy
   const snippet = await page.evaluate(() => { const el = document.getElementById('gvSnippet'); return el ? el.textContent : ""; });

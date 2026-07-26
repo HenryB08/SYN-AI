@@ -1318,8 +1318,10 @@ const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30
   c("receipt: leads_captured = 5 distinct contacts", R.metrics.leads_captured.count === 5);
   c("receipt: value uses the PERIOD job value ($250), not the current ($900)", R.job_value_cents === 25000 && R.metrics.value.job_value_cents === 25000 && R.metrics.value.value_recovered_cents === 50000);
   c("receipt: value formula stated in plain language", /Appointments booked \(2\)/.test(R.metrics.value.formula) && /\$500\.00/.test(R.metrics.value.formula));
-  c("receipt: guarantee verdict = value captured, names the basis (leads + bookings)", R.metrics.guarantee.captured_value === true && /^Value captured this period — 5 captured leads and 2 bookings\.$/.test(R.metrics.guarantee.verdict));
-  c("receipt: guarantee definition says a captured lead counts on its own", /a single captured lead counts as value on its own/.test(R.metrics.guarantee.definition));
+  // booked_value mode WITH a confirmed job value → the guarantee evaluates on DOLLARS: $500 recovered
+  // (2 bookings × $250) vs the core plan's $349 fee → met. The booking count rides beside the dollar.
+  c("receipt: guarantee verdict = dollars recovered vs the monthly fee (met)", R.metrics.guarantee.mode === "booked_value" && R.metrics.guarantee.evaluated_on === "dollars" && R.metrics.guarantee.outcome === "met" && R.metrics.guarantee.monthly_fee_cents === 34900 && R.metrics.guarantee.recovered_value_cents === 50000 && R.metrics.guarantee.booking_count === 2 && R.metrics.guarantee.verdict === "Estimated recovered value $500.00 from 2 bookings met the $349.00 monthly fee.");
+  c("receipt: guarantee definition names the recovered-value formula and the estimate", /Recovered value = system-produced bookings × your confirmed job value \(estimated/.test(R.metrics.guarantee.definition));
   c("receipt: states its own period + generation date + per-figure method", !!R.generated_at && !!f.inquiries_received.method && !!f.after_hours_inquiries.method);
   // audit event written
   c("receipt: a receipt_generated audit event is written", e.SYN_DB._db.prepare("SELECT COUNT(*) n FROM events WHERE type='receipt_generated' AND tenant_id=?").get(tid).n === 1);
@@ -1345,7 +1347,7 @@ const JUNE = { period_start: "2026-06-01T00:00:00.000Z", period_end: "2026-06-30
   // ---- HTML render + list + get ----
   const htmlRes = await call(e, "GET", `/admin/tenants/${tid}/receipts/${R.id}?format=html`, { adminKey: ADMIN });
   const html = await htmlRes.text();
-  c("receipt HTML: renders with brand, verdict, and the value figure", /text\/html/.test(htmlRes.headers.get("Content-Type") || "") && /Value Receipt/.test(html) && /\$500\.00/.test(html) && /Value captured/.test(html));
+  c("receipt HTML: renders with brand, dollar verdict, booking count, and the value figure", /text\/html/.test(htmlRes.headers.get("Content-Type") || "") && /Value Receipt/.test(html) && /\$500\.00/.test(html) && /estimated · from 2 bookings/.test(html) && /met the \$349\.00 monthly fee/.test(html));
   const list = await (await call(e, "GET", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN })).json();
   c("receipt list: newest first, with compact summary", list.receipts.length === 1 && list.receipts[0].id === R.id && list.receipts[0].summary.appointments_booked === 2 && list.receipts[0].value_recovered_cents === 50000);
 
@@ -1512,6 +1514,113 @@ const meReq = (e, method, path, tok, body) => call(e, method, path, { origin: AP
   // --- revocation: bump epoch → old token stops verifying here too ---
   e.SYN_DB._db.prepare("UPDATE users SET session_epoch=2 WHERE id=?").run("u_A");
   c("stale-epoch session (post logout/password change) → 401", (await meReq(e, "GET", "/me/summary", tokA)).status === 401);
+}
+
+// ===================== recovered-revenue: the dollar layer + guarantee outcome =====================
+
+// ---- Admin guarantee setter: monthly fee override + guarantee_mode ----
+{
+  const e = env();
+  const A = await seedTenant(e, "setter", { tz: "UTC" });
+  const tid = A.tenant.id;
+  // default: no override → plan-derived core fee $349
+  const t0 = e.SYN_DB._db.prepare("SELECT plan, monthly_fee_cents, guarantee_mode FROM tenants WHERE id=?").get(tid);
+  c("guarantee setter: fresh tenant has no fee override, defaults booked_value", t0.monthly_fee_cents === null && t0.guarantee_mode === "booked_value");
+  const setFee = await (await call(e, "POST", `/admin/tenants/${tid}/guarantee`, { adminKey: ADMIN, body: { monthly_fee_cents: 42000 } })).json();
+  c("guarantee setter: sets a fee override and echoes the effective fee", setFee.tenant.monthly_fee_cents === 42000 && setFee.tenant.effective_monthly_fee_cents === 42000);
+  const setMode = await (await call(e, "POST", `/admin/tenants/${tid}/guarantee`, { adminKey: ADMIN, body: { guarantee_mode: "binary" } })).json();
+  c("guarantee setter: switches mode to binary, keeps the fee override", setMode.tenant.guarantee_mode === "binary" && setMode.tenant.monthly_fee_cents === 42000);
+  const bad = await call(e, "POST", `/admin/tenants/${tid}/guarantee`, { adminKey: ADMIN, body: { guarantee_mode: "wat" } });
+  c("guarantee setter: rejects an invalid mode (400)", bad.status === 400);
+  const badFee = await call(e, "POST", `/admin/tenants/${tid}/guarantee`, { adminKey: ADMIN, body: { monthly_fee_cents: -5 } });
+  c("guarantee setter: rejects a negative fee (400)", badFee.status === 400);
+  const empty = await call(e, "POST", `/admin/tenants/${tid}/guarantee`, { adminKey: ADMIN, body: {} });
+  c("guarantee setter: rejects an empty body (400)", empty.status === 400);
+  const noKey = await call(e, "POST", `/admin/tenants/${tid}/guarantee`, { body: { monthly_fee_cents: 1 } });
+  c("guarantee setter: requires admin auth (401)", noKey.status === 401);
+}
+
+// ---- booked_value FREE MONTH: recovered dollars under the fee → this month is free ----
+{
+  const e = env();
+  const A = await seedTenant(e, "underfee", { tz: "UTC" });
+  const tid = A.tenant.id, iid = A.install.id;
+  await setJobValue(e, tid, 5000, "2026-05-01T00:00:00.000Z");   // $50 job value
+  insEv(e, { id: "uf_b1", tenant: tid, install: iid, contact: "ufc1", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-07T15:00:00.000Z" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  const g = R.metrics.guarantee;
+  c("free month: 1 booking × $50 = $50 recovered, under $349 fee", R.metrics.value.value_recovered_cents === 5000 && g.recovered_value_cents === 5000 && g.monthly_fee_cents === 34900);
+  c("free month: outcome is free_month_owed, evaluated on dollars", g.outcome === "free_month_owed" && g.met === false && g.evaluated_on === "dollars");
+  c("free month: verdict names the shortfall and says the month is free", g.verdict === "Estimated recovered value $50.00 from 1 booking is under the $349.00 monthly fee — this month is free.");
+}
+
+// ---- binary mode: evaluate on CAPTURE, never on dollars (even if a job value exists) ----
+{
+  const e = env();
+  const A = await seedTenant(e, "binaryco", { tz: "UTC" });
+  const tid = A.tenant.id, iid = A.install.id;
+  await call(e, "POST", `/admin/tenants/${tid}/guarantee`, { adminKey: ADMIN, body: { guarantee_mode: "binary" } });
+  await setJobValue(e, tid, 100000, "2026-05-01T00:00:00.000Z");   // a job value exists, but binary ignores it for the verdict
+  insEv(e, { id: "bin_b1", tenant: tid, install: iid, contact: "binc1", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-07T15:00:00.000Z" });
+  const R = (await (await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  const g = R.metrics.guarantee;
+  c("binary: mode is binary, evaluated on capture (not dollars) despite a set job value", g.mode === "binary" && g.evaluated_on === "captured" && g.met === true);
+  c("binary: verdict is capture-based, claims no dollar figure", /^Value captured this period/.test(g.verdict) && !/\$/.test(g.definition));
+  // binary + NO capture → free month
+  const B = await seedTenant(e, "binaryno", { tz: "UTC" });
+  await call(e, "POST", `/admin/tenants/${B.tenant.id}/guarantee`, { adminKey: ADMIN, body: { guarantee_mode: "binary" } });
+  insEv(e, { id: "bn_cs", tenant: B.tenant.id, install: B.install.id, contact: null, type: "conversation_started", payload: { url: "https://x" }, created_at: "2026-06-12T10:00:00.000Z" });
+  const R2 = (await (await call(e, "POST", `/admin/tenants/${B.tenant.id}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("binary + no capture: free month owed, guarantee applies", R2.metrics.guarantee.mode === "binary" && R2.metrics.guarantee.outcome === "free_month_owed" && /guarantee applies/i.test(R2.metrics.guarantee.verdict));
+}
+
+// ---- mid-period job-value change moves NEITHER the current live period NOR any past Receipt ----
+{
+  const e = env(); e.AUTH_SIGNING_KEY = AUTH_KEY; ensureUsersTable(e);
+  const A = await seedTenant(e, "lockperiod", { tz: "UTC" });
+  const tid = A.tenant.id, iid = A.install.id;
+  await setJobValue(e, tid, 30000, "2026-06-01T00:00:00.000Z");   // $300 in effect at the period START
+  insEv(e, { id: "lp_b1", tenant: tid, install: iid, contact: "lpc1", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-07T15:00:00.000Z" });
+  insEv(e, { id: "lp_b2", tenant: tid, install: iid, contact: "lpc2", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-08T15:00:00.000Z" });
+  insUser(e, { id: "u_LP", email: "owner@lockperiod.test", tenant_id: tid, product: "growth" });
+  const tok = await sessionToken({ uid: "u_LP", epoch: 1 });
+  // BEFORE the change: live current-period value = 2 × $300 = $600
+  const before = await (await meReq(e, "GET", "/me/summary?month=2026-06", tok)).json();
+  c("lock: live period value uses the period-start job value ($600 from 2×$300)", before.headline.value_recovered_cents === 60000 && before.headline.appointments_booked === 2);
+  // change the job value MID-period (effective June 20)
+  await setJobValue(e, tid, 90000, "2026-06-20T00:00:00.000Z");
+  const after = await (await meReq(e, "GET", "/me/summary?month=2026-06", tok)).json();
+  c("lock: a mid-period change does NOT move the current live period (still $600)", after.headline.value_recovered_cents === 60000);
+  // and the GENERATED Receipt for June also holds the period-start value, immutable thereafter
+  const gen = (await (await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-06" } })).json()).receipt;
+  c("lock: generated June Receipt uses the period-start value ($600), not the mid-period $900", gen.metrics.value.value_recovered_cents === 60000 && gen.job_value_cents === 30000);
+  // the change DOES apply to the NEXT period (July): 0 bookings there, but the value-in-effect is $900
+  await setJobValue(e, tid, 90000, "2026-07-01T00:00:00.000Z");
+  const july = (await (await call(e, "POST", `/admin/tenants/${tid}/receipts`, { adminKey: ADMIN, body: { month: "2026-07" } })).json()).receipt;
+  c("lock: the next period (July) picks up the changed job value ($900)", july.metrics.value.job_value_cents === 90000);
+}
+
+// ---- dashboard summary carries the dollar/guarantee layer (informational; the Receipt governs) ----
+{
+  const e = env(); e.AUTH_SIGNING_KEY = AUTH_KEY; ensureUsersTable(e);
+  const A = await seedTenant(e, "dashdollar", { tz: "UTC" });
+  const tid = A.tenant.id, iid = A.install.id;
+  await setJobValue(e, tid, 20000, "2026-05-01T00:00:00.000Z");
+  insEv(e, { id: "dd_b1", tenant: tid, install: iid, contact: "ddc1", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-07T15:00:00.000Z" });
+  insEv(e, { id: "dd_b2", tenant: tid, install: iid, contact: "ddc2", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-08T15:00:00.000Z" });
+  insUser(e, { id: "u_DD", email: "owner@dashdollar.test", tenant_id: tid, product: "growth" });
+  const tok = await sessionToken({ uid: "u_DD", epoch: 1 });
+  const s = await (await meReq(e, "GET", "/me/summary?month=2026-06", tok)).json();
+  c("dashboard: headline carries booking count BESIDE the dollar (never without it)", s.headline.appointments_booked === 2 && s.headline.value_recovered_cents === 40000);
+  c("dashboard: headline carries the guarantee status vs the fee", s.headline.guarantee_mode === "booked_value" && s.headline.monthly_fee_cents === 34900 && s.headline.guarantee_outcome === "met" && s.headline.guarantee_met === true && s.headline.evaluated_on === "dollars");
+  c("dashboard: response is flagged informational (the Receipt is the record of account)", s.informational === true && !!s.guarantee);
+  // a growth client with NO confirmed job value: counts show, but NO dollar figure is invented (PART 4)
+  const N = await seedTenant(e, "nodollar", { tz: "UTC" });
+  insEv(e, { id: "nd_b1", tenant: N.tenant.id, install: N.install.id, contact: "ndc1", type: "appointment_booked", payload: { source: "syn" }, created_at: "2026-06-07T15:00:00.000Z" });
+  insUser(e, { id: "u_ND", email: "owner@nodollar.test", tenant_id: N.tenant.id, product: "growth" });
+  const tokN = await sessionToken({ uid: "u_ND", epoch: 1 });
+  const sN = await (await meReq(e, "GET", "/me/summary?month=2026-06", tokN)).json();
+  c("dashboard (no job value): booking count shows, dollar figure is null (not guessed)", sN.headline.appointments_booked === 1 && sN.headline.value_configured === false && sN.headline.value_recovered_cents === null);
 }
 
 console.log(`\nCHECKS: ${ok} passed, ${fail} failed`);

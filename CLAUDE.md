@@ -118,6 +118,13 @@ as-is.
   scheduling/job value) write back and the live widget reflects them. Client: `SYN_GROWTH_URL` +
   `growthGet/Put` + `renderGrowth` in `js/01-boot-auth.js`, scene markup in `index.html`, styles in
   `css/03-app.css`. Covered by `worker/syn-growth.test.mjs` (`/me/*`) + `tests/growth-dashboard.mjs`.
+  **Dollar layer (recovered-revenue):** the dashboard + Receipt show recovered value = `source="syn"`
+  bookings × the client-confirmed job value in effect at the **period start** (a mid-period change applies
+  next period only — never moves the current or a past period), with the **booking count always beside the
+  dollar** and **"estimated"** on every dollar, a guarantee gauge vs the **plan-derived monthly fee**
+  (Core $349 / Pro $549, per-tenant `monthly_fee_cents` override; snapshotted into each Receipt), and
+  `guarantee_mode` respected (`booked_value` evaluates on dollars, `binary` on ≥1 captured lead/booking).
+  Admin fee/mode setter: `POST /admin/tenants/:id/guarantee`. `GUARANTEE.md` is authoritative for the math.
 - **Secrets:** live **only** in each Worker's environment as Wrangler secrets
   (e.g. `ANTHROPIC_API_KEY` via `npx wrangler secret put`). **No secret value
   appears in this repo or in the browser.** Deploy steps are in

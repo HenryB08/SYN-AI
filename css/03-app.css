@@ -1204,6 +1204,17 @@ button,.chat-item,.md-row,.ops-row,.search-item,.team-row,.notif-item,.asset-row
 .gv-receipt.is-warn{border-left:2px solid var(--amber)}
 .gv-verdict{font-size:15px;font-weight:600;margin-top:6px;color:var(--text)}
 .gv-formula{font-size:12px;color:var(--text-3);margin-top:4px;font-variant-numeric:tabular-nums}
+/* guarantee gauge — recovered value vs the monthly fee (informational) */
+.gv-guarantee.is-good{border-left:2px solid var(--good)}
+.gv-guarantee.is-warn{border-left:2px solid var(--amber)}
+.gv-gauge{margin-top:10px}
+.gv-gauge-nums{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.gv-gauge-big{font-size:28px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:var(--text)}
+.gv-gauge-sub{font-size:12px;color:var(--text-3)}
+.gv-bar{height:6px;border-radius:var(--r-full);background:var(--surface-3);margin:12px 0 8px;overflow:hidden}
+.gv-bar-fill{height:100%;border-radius:var(--r-full);background:var(--good);transition:width .5s var(--ease-reveal)}
+.gv-guarantee.is-warn .gv-bar-fill{background:var(--amber)}
+.gv-gauge-foot{font-size:12px;color:var(--text-3)}
 /* tables */
 .gv-table{width:100%;border-collapse:collapse;font-size:13px}
 .gv-table th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-4);font-weight:500;padding:0 8px 8px}

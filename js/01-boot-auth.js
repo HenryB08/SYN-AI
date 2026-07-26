@@ -195,27 +195,60 @@ function renderGrowthBody(d){
   const h = (d.summary.headline) || {}, g = (d.summary.guarantee) || {}, period = (d.summary.period && d.summary.period.label) || "This month";
   const val = (d.receiptCur && d.receiptCur.receipt && d.receiptCur.receipt.metrics && d.receiptCur.receipt.metrics.value) || {};
   const captured = !!g.captured_value;
+  // Outcome drives the visual state: guarantee MET (good) vs FREE MONTH OWED (warn). Fall back to the
+  // capture flag for older summaries with no outcome field.
+  const met = (h.guarantee_met === true) || (h.guarantee_outcome ? h.guarantee_outcome === "met" : captured);
+  const nBooked = h.appointments_booked || 0;
+  const bookLabel = nBooked + " booking" + (nBooked === 1 ? "" : "s");
+  const evalDollars = (h.evaluated_on === "dollars") || (h.value_configured && h.guarantee_mode !== "binary" && h.monthly_fee_cents != null);
   const stat = (label, v, sub) => '<div class="gv-stat"><div class="gv-stat-n">' + v + '</div><div class="gv-stat-l">' + gvEsc(label) + '</div>' + (sub ? '<div class="gv-stat-s">' + gvEsc(sub) + '</div>' : '') + '</div>';
   const strip =
-    '<div class="gv-h"><h2>' + gvEsc(period) + '</h2><span class="gv-sub">Live from your captured events</span></div>' +
+    '<div class="gv-h"><h2>' + gvEsc(period) + '</h2><span class="gv-sub">Live from your captured events · informational, the Receipt governs</span></div>' +
     '<div class="gv-strip">' +
       stat("Inquiries captured", h.inquiries_received||0) + stat("Leads", h.leads_captured||0) +
-      stat("Follow-ups sent", h.followups_sent||0) + stat("Bookings", h.appointments_booked||0) +
-      stat("Value recovered", h.value_configured ? gvUsd(h.value_recovered_cents) : "—", h.value_configured ? "" : "set a job value") +
+      stat("Follow-ups sent", h.followups_sent||0) + stat("Bookings", nBooked) +
+      // GUARANTEE.md: the booking count rides BESIDE the dollar (never a dollar alone), and every dollar is "estimated".
+      stat("Value recovered", h.value_configured ? gvUsd(h.value_recovered_cents) : "—", h.value_configured ? ("estimated · " + bookLabel) : "set a job value") +
+    '</div>';
+  // Guarantee progress: recovered value against the monthly fee, so the owner sees the guarantee status live.
+  const fee = h.monthly_fee_cents, rec = h.value_recovered_cents;
+  const pct = (evalDollars && fee > 0 && rec != null) ? Math.max(0, Math.min(100, Math.round(rec / fee * 100))) : (met ? 100 : 0);
+  const gauge = evalDollars
+    ? '<div class="gv-gauge">' +
+        '<div class="gv-gauge-nums"><span class="gv-gauge-big">' + gvUsd(rec||0) + '</span><span class="gv-gauge-sub"> estimated recovered · from ' + gvEsc(bookLabel) + '</span></div>' +
+        '<div class="gv-bar"><div class="gv-bar-fill" style="width:' + pct + '%"></div></div>' +
+        '<div class="gv-gauge-foot">' + (met
+          ? 'Past your ' + gvEsc(gvUsd(fee)) + ' monthly fee — guarantee met.'
+          : gvEsc(gvUsd(fee)) + ' monthly fee not yet reached — if the month closed now, it’s free.') + '</div>' +
+      '</div>'
+    : '<div class="gv-gauge"><div class="gv-verdict">' + gvEsc(g.verdict||"") + '</div>' +
+        '<div class="gv-formula">' + gvEsc(h.value_configured ? "" : (g.definition||"")) + '</div></div>';
+  const guarantee =
+    '<div class="gv-card gv-guarantee ' + (met?'is-good':'is-warn') + '">' +
+      '<div class="gv-h"><h3>Guarantee status</h3><span class="gv-sub">Informational — your monthly Receipt is the record of account</span></div>' +
+      gauge +
     '</div>';
   const receipt =
-    '<div class="gv-card gv-receipt ' + (captured?'is-good':'is-warn') + '">' +
+    '<div class="gv-card gv-receipt ' + (met?'is-good':'is-warn') + '">' +
       '<div><div class="gv-micro">This month’s Receipt · guarantee</div>' +
         '<div class="gv-verdict">' + gvEsc(g.verdict||"") + '</div>' +
-        '<div class="gv-formula">' + gvEsc(val.formula||"") + '</div></div>' +
+        '<div class="gv-formula">' + gvEsc(val.formula ? (val.configured ? "Estimated: " + val.formula : val.formula) : "") + '</div></div>' +
       '<button class="gv-btn ghost" id="gvViewReceipt">View full Receipt</button>' +
     '</div>';
   const leadRows = (d.leadsR.contacts||[]).map(c => '<tr><td>' + gvEsc(c.name||"—") + '</td><td class="gv-dim">' + gvEsc(c.email||c.phone||"—") + '</td><td><span class="gv-tag">' + gvEsc(c.status||"new") + '</span></td><td class="gv-dim">' + gvEsc(c.source||"") + '</td><td class="gv-dim">' + gvWhen(c.first_seen) + '</td></tr>').join("");
   const leads = '<div class="gv-card"><div class="gv-h"><h3>Recent leads</h3></div>' + ((d.leadsR.contacts||[]).length ? '<table class="gv-table"><thead><tr><th>Name</th><th>Contact</th><th>Status</th><th>Source</th><th>Seen</th></tr></thead><tbody>' + leadRows + '</tbody></table>' : '<div class="gv-empty">No leads captured yet.</div>') + '</div>';
   const bookRows = (d.booksR.bookings||[]).map(b => '<tr><td>' + gvEsc(b.name||"—") + '</td><td class="gv-dim">' + gvEsc(b.email||b.phone||"—") + '</td><td class="gv-dim">' + gvEsc(b.when||"") + '</td><td class="gv-dim">' + gvWhen(b.booked_at) + '</td></tr>').join("");
   const bookings = '<div class="gv-card"><div class="gv-h"><h3>Recent bookings</h3></div>' + ((d.booksR.bookings||[]).length ? '<table class="gv-table"><thead><tr><th>Name</th><th>Contact</th><th>When</th><th>Booked</th></tr></thead><tbody>' + bookRows + '</tbody></table>' : '<div class="gv-empty">No bookings yet.</div>') + '</div>';
-  const rcpRows = (d.receiptsR.receipts||[]).map(r => '<tr><td>' + gvEsc(r.label || (r.period_start||"").slice(0,7)) + '</td><td>' + (r.captured_value ? '<span class="gv-tag good">captured</span>' : '<span class="gv-tag warn">free month</span>') + '</td><td class="gv-dim">' + (r.value_recovered_cents!=null ? gvUsd(r.value_recovered_cents) : "—") + '</td><td><button class="gv-link" data-rcp="' + gvEsc(r.id) + '">view</button></td></tr>').join("");
-  const receipts = '<div class="gv-card"><div class="gv-h"><h3>Past Receipts</h3></div>' + ((d.receiptsR.receipts||[]).length ? '<table class="gv-table"><thead><tr><th>Period</th><th>Result</th><th>Value</th><th></th></tr></thead><tbody>' + rcpRows + '</tbody></table>' : '<div class="gv-empty">No Receipts generated yet — your first arrives at month end.</div>') + '</div>';
+  const rcpRows = (d.receiptsR.receipts||[]).map(r => {
+    // Prefer the snapshot's guarantee outcome (met / free month owed); fall back to the capture flag.
+    const rMet = r.guarantee_outcome ? (r.guarantee_outcome === "met") : !!r.captured_value;
+    const tag = rMet ? '<span class="gv-tag good">met</span>' : '<span class="gv-tag warn">free month</span>';
+    const dollars = (r.value_recovered_cents != null)
+      ? gvUsd(r.value_recovered_cents) + (r.booking_count != null ? '<span class="gv-dim"> · ' + r.booking_count + '×</span>' : '')
+      : (r.booking_count ? r.booking_count + ' booking' + (r.booking_count === 1 ? '' : 's') : '—');
+    return '<tr><td>' + gvEsc(r.label || (r.period_start||"").slice(0,7)) + '</td><td>' + tag + '</td><td class="gv-dim">' + dollars + '</td><td><button class="gv-link" data-rcp="' + gvEsc(r.id) + '">view</button></td></tr>';
+  }).join("");
+  const receipts = '<div class="gv-card"><div class="gv-h"><h3>Past Receipts</h3><span class="gv-sub">Immutable — the guarantee pays out on these</span></div>' + ((d.receiptsR.receipts||[]).length ? '<table class="gv-table"><thead><tr><th>Period</th><th>Result</th><th>Est. value</th><th></th></tr></thead><tbody>' + rcpRows + '</tbody></table>' : '<div class="gv-empty">No Receipts generated yet — your first arrives at month end.</div>') + '</div>';
   const snip = (d.installR && d.installR.snippet) || "";
   const install = '<div class="gv-card"><div class="gv-h"><h3>Install</h3><span class="gv-sub">Paste before &lt;/body&gt; on your site</span></div><pre class="gv-code" id="gvSnippet">' + gvEsc(snip) + '</pre><button class="gv-btn" id="gvCopy">Copy snippet</button></div>';
   const cfg = (d.configR && d.configR.config) || {};
@@ -235,6 +268,7 @@ function renderGrowthBody(d){
 
   document.getElementById("gvBody").innerHTML =
     '<div class="gv-section">' + strip + '</div>' +
+    '<div class="gv-section">' + guarantee + '</div>' +
     '<div class="gv-section">' + receipt + '</div>' +
     '<div class="gv-section gv-grid2">' + leads + bookings + '</div>' +
     '<div class="gv-section">' + receipts + '</div>' +

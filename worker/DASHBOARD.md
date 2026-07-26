@@ -33,6 +33,13 @@ Routing is by the **explicit `product` field** on the syn-core user (`users.prod
   deep links `#verify=<token>` and `#reset=<token>` are handled at boot by `handleAuthHashRoutes()`.
 - The dashboard reads syn-growth via `SYN_GROWTH_URL` with `growthGet`/`growthPut` (Bearer session token);
   a 401 signs the client out. `renderGrowth()` builds the whole scene.
+- **Dollar layer (§recovered-revenue).** `renderGrowthBody` shows dollars recovered this period with the
+  **booking count always beside the dollar** and the word **"estimated"** on every dollar (never a dollar
+  alone — `GUARANTEE.md`), a **guarantee gauge** (recovered vs the monthly fee, `met`/`free month owed`),
+  and past-Receipt rows tagged by `guarantee_outcome`. The whole live view is labelled **informational**;
+  the immutable Receipt is the record of account. A client with **no confirmed job value** sees counts and
+  **no dollar figure** (not a guessed one). Admin sets the fee/mode via `POST /admin/tenants/:id/guarantee`
+  (`monthly_fee_cents` and/or `guarantee_mode`); the fee in force is snapshotted into each Receipt.
 
 ## syn-growth `/me/*` (session-scoped, tenant-isolated)
 
@@ -44,7 +51,7 @@ tenant id from the request. A non-growth user (or one with no tenant) gets 403.
 
 | Method + path | Serves |
 |---|---|
-| `GET /me/summary` | headline strip for the month (`?month=YYYY-MM`, default current): inquiries, answered, after-hours, leads, follow-ups, bookings, value recovered, guarantee verdict |
+| `GET /me/summary` | headline strip for the month (`?month=YYYY-MM`, default current): inquiries, answered, after-hours, leads, follow-ups, bookings, value recovered, and the **dollar/guarantee layer** — `guarantee_mode`, `monthly_fee_cents`, `guarantee_outcome` (`met`\|`free_month_owed`), `guarantee_met`, `evaluated_on` (`dollars`\|`captured`); response is flagged `informational:true` (the Receipt governs) |
 | `GET /me/receipt` | the current month's Receipt, **live** (JSON, or `?format=html` rendered) — the month isn't closed yet |
 | `GET /me/receipts` · `GET /me/receipts/:id` | past (generated, immutable) Receipts, newest first · one Receipt (`?format=html`) |
 | `GET /me/leads` | recent captured contacts (name/email/phone/status/source/when) |
@@ -81,9 +88,13 @@ No new D1: the `users` table is syn-core's, in the shared database.
 
 ## Tests
 
-- `worker/syn-growth.test.mjs` — the `/me/*` suite (+22 checks): auth gates, tenant isolation, headline ==
+- `worker/syn-growth.test.mjs` — the `/me/*` suite: auth gates, tenant isolation, headline ==
   live == generated Receipt, leads/bookings, install snippet, config get + write-back reflected in the
-  live `/w/config`, append-only job value, session revocation.
+  live `/w/config`, append-only job value, session revocation. Plus the **dollar layer**: the admin
+  guarantee setter (fee override + mode + validation), dollars = bookings × period-start job value,
+  free-month-owed when recovered < fee, binary-mode evaluation, a **mid-period job-value change moving
+  neither the current live period nor a past Receipt**, and the summary carrying the dollar/guarantee
+  fields (with no dollar invented when the job value is unset).
 - `worker/syn-core.test.mjs` — `product` threaded through login/me/invite/seeded-admin.
 - `tests/growth-dashboard.mjs` — Playwright: real-auth login → `#growth`, headline/receipt/leads/bookings/
   past-receipts render, snippet copy, config edit PUT, session token on every `/me` call, Growth user can't

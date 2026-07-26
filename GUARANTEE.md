@@ -13,7 +13,10 @@ the number, so every figure here is deterministic and reconstructable from raw e
 - **Never industry averages.** The job value is the figure the client confirmed at install for *their*
   business. We never substitute a category/industry estimate.
 - **The free-month rule:** if the recovered (booked) value in a period is **under the monthly fee**, that
-  month is **free**.
+  month is **free**. The **monthly fee** is plan-derived — **Growth Core $349, Growth Pro $549** (see
+  `SYNTREX_PRICING_CANONICAL.md`) — with an optional per-client override in `tenants.monthly_fee_cents`
+  for custom pricing. The fee **in force at generation is snapshotted into the Receipt** alongside the job
+  value, so a later fee/plan change never moves a past Receipt.
 
 The word **"estimated"** stays in all legal and guarantee wording — the recovered figure is an estimate of
 value from bookings, not a claim of collected revenue.
@@ -44,9 +47,11 @@ value from bookings, not a claim of collected revenue.
    booking count next to the dollar figure** — the count is the honest denominator behind the estimate.
 
 4. **Client-confirmed job value is timestamped and versioned, locked for the period.** The job value lives
-   in an append-only `job_values` ledger (`effective_from` + `created_at`, never updated in place). A
-   Receipt uses the value in effect **during** its period. Changing the job value applies to the **next**
-   period only — it can never retroactively move a past period's number.
+   in an append-only `job_values` ledger (`effective_from` + `created_at`, never updated in place). A period
+   uses the value **in effect at its start** (`effective_from ≤ period_start`) — for both the immutable
+   Receipt and the live dashboard, so the two never disagree. A change made mid-period has a later
+   `effective_from` and therefore applies to the **next** period only; it can never move the current period
+   or retroactively move a past period's number.
 
 5. **The immutable monthly Receipt snapshot is the payout document.** Generation snapshots the metrics, the
    per-figure event IDs, and the period's job value into the `receipts` row; it never changes afterward

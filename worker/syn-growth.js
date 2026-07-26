@@ -118,6 +118,13 @@ const BOOKING_SOURCES = new Set(["syn", "owner", "import"]);
 
 const TENANT_STATUS = new Set(["active", "paused", "cancelled"]);
 const TENANT_PLAN = new Set(["core", "pro"]);
+// Monthly fee by plan (cents) — the number recovered value is measured against for the guarantee (see
+// GUARANTEE.md). tenants.monthly_fee_cents overrides this per client (custom pricing); else plan-derived.
+const PLAN_FEE_CENTS = { core: 34900, pro: 54900 };
+function monthlyFeeFor(tenant){
+  if (tenant && Number.isInteger(tenant.monthly_fee_cents) && tenant.monthly_fee_cents >= 0) return tenant.monthly_fee_cents;
+  return PLAN_FEE_CENTS[(tenant && tenant.plan) || "core"] || PLAN_FEE_CENTS.core;
+}
 const CONTACT_STATUS = new Set(["new", "contacted", "booked", "closed", "lost"]);
 const CONTACT_SOURCE = new Set(["chat", "form", "call", "sms"]);
 
@@ -219,7 +226,8 @@ async function ensureTables(env){
       id TEXT PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL DEFAULT 'active', timezone TEXT,
       created_at TEXT NOT NULL, plan TEXT NOT NULL DEFAULT 'core', notes TEXT,
-      guarantee_mode TEXT NOT NULL DEFAULT 'booked_value')`),   // 'booked_value' | 'binary' (see GUARANTEE.md)
+      guarantee_mode TEXT NOT NULL DEFAULT 'booked_value',   -- 'booked_value' | 'binary' (see GUARANTEE.md)
+      monthly_fee_cents INTEGER)`),   // per-client fee override; NULL → plan-derived (PLAN_FEE_CENTS)
     DB.prepare(`CREATE TABLE IF NOT EXISTS brands (
       id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
       name TEXT NOT NULL, profile TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`),
@@ -312,6 +320,9 @@ async function ensureTables(env){
   try { await DB.prepare("ALTER TABLE contacts ADD COLUMN unsub_token TEXT").run(); } catch (_){ /* column already present */ }
   // guarantee_mode per client — 'booked_value' (default) or 'binary' (see GUARANTEE.md). Back-fill existing tenants.
   try { await DB.prepare("ALTER TABLE tenants ADD COLUMN guarantee_mode TEXT NOT NULL DEFAULT 'booked_value'").run(); } catch (_){ /* column already present */ }
+  // monthly_fee_cents per-client override (nullable → plan-derived via PLAN_FEE_CENTS). The number recovered
+  // value is measured against for the free-month rule (GUARANTEE.md).
+  try { await DB.prepare("ALTER TABLE tenants ADD COLUMN monthly_fee_cents INTEGER").run(); } catch (_){ /* column already present */ }
 }
 
 /* ============================ auth ============================ */
@@ -362,9 +373,11 @@ async function createTenant(env, body){
   const plan = TENANT_PLAN.has(body.plan) ? body.plan : "core";
   const existing = await env.SYN_DB.prepare("SELECT id FROM tenants WHERE slug=?").bind(slug).first();
   if (existing) return json({ error: "slug_taken" }, 409);
-  const t = { id: newId("ten"), name, slug, status, timezone: body.timezone || null, created_at: nowIso(), plan, notes: body.notes || null };
-  await env.SYN_DB.prepare("INSERT INTO tenants (id,name,slug,status,timezone,created_at,plan,notes) VALUES (?,?,?,?,?,?,?,?)")
-    .bind(t.id, t.name, t.slug, t.status, t.timezone, t.created_at, t.plan, t.notes).run();
+  const fee = Number.isInteger(body.monthly_fee_cents) && body.monthly_fee_cents >= 0 ? body.monthly_fee_cents : null;
+  const gmode = (body.guarantee_mode === "binary" || body.guarantee_mode === "booked_value") ? body.guarantee_mode : "booked_value";
+  const t = { id: newId("ten"), name, slug, status, timezone: body.timezone || null, created_at: nowIso(), plan, notes: body.notes || null, monthly_fee_cents: fee, guarantee_mode: gmode };
+  await env.SYN_DB.prepare("INSERT INTO tenants (id,name,slug,status,timezone,created_at,plan,notes,monthly_fee_cents,guarantee_mode) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .bind(t.id, t.name, t.slug, t.status, t.timezone, t.created_at, t.plan, t.notes, fee, gmode).run();
   return json({ tenant: t }, 201);
 }
 async function getTenant(env, id){
@@ -431,6 +444,25 @@ async function addJobValue(env, tenantId, body){
   await env.SYN_DB.prepare("INSERT INTO job_values (id,tenant_id,average_job_value_cents,effective_from,created_at,set_by,note) VALUES (?,?,?,?,?,?,?)")
     .bind(row.id, row.tenant_id, row.average_job_value_cents, row.effective_from, row.created_at, row.set_by, row.note).run();
   return json({ job_value: row }, 201);
+}
+// Admin: set the monthly fee override and/or the guarantee mode for a tenant (the guarantee's other inputs).
+// The fee/mode used by a PAST Receipt is snapshotted at generation, so changing them never moves a past one.
+async function setTenantGuarantee(env, tenantId, body){
+  const t = await env.SYN_DB.prepare("SELECT id FROM tenants WHERE id=?").bind(tenantId).first();
+  if (!t) return json({ error: "tenant_not_found" }, 404);
+  const sets = [], args = [];
+  if (body && body.monthly_fee_cents !== undefined){
+    if (!Number.isInteger(body.monthly_fee_cents) || body.monthly_fee_cents < 0) return json({ error: "monthly_fee_cents_must_be_nonneg_int" }, 400);
+    sets.push("monthly_fee_cents=?"); args.push(body.monthly_fee_cents);
+  }
+  if (body && body.guarantee_mode !== undefined){
+    if (body.guarantee_mode !== "booked_value" && body.guarantee_mode !== "binary") return json({ error: "guarantee_mode_invalid" }, 400);
+    sets.push("guarantee_mode=?"); args.push(body.guarantee_mode);
+  }
+  if (!sets.length) return json({ error: "nothing_to_set", hint: "pass monthly_fee_cents and/or guarantee_mode" }, 400);
+  await env.SYN_DB.prepare("UPDATE tenants SET " + sets.join(", ") + " WHERE id=?").bind(...args, tenantId).run();
+  const row = await env.SYN_DB.prepare("SELECT id, plan, monthly_fee_cents, guarantee_mode FROM tenants WHERE id=?").bind(tenantId).first();
+  return json({ tenant: { ...row, effective_monthly_fee_cents: monthlyFeeFor(row) } });
 }
 async function listEvents(env, tenantId, url){
   const t = await env.SYN_DB.prepare("SELECT id FROM tenants WHERE id=?").bind(tenantId).first();
@@ -515,23 +547,28 @@ function meMonthPeriod(url){
 async function meLiveMetrics(env, tenantId, period){
   const tenant = await env.SYN_DB.prepare("SELECT * FROM tenants WHERE id=?").bind(tenantId).first();
   const bh = await businessHoursFor(env, tenant);
-  const jobValue = await jobValueInEffect(env, tenantId, period.period_end);
-  return computeReceiptMetrics(env, tenantId, period.period_start, period.period_end, period.label, bh, jobValue);
+  // Value in effect at the period START (see generateReceipt) so a mid-period change never moves the
+  // current live period — it lands in the next one, exactly like the immutable Receipt.
+  const jobValue = await jobValueInEffect(env, tenantId, period.period_start);
+  return computeReceiptMetrics(env, tenantId, period.period_start, period.period_end, period.label, bh, jobValue, tenant && tenant.guarantee_mode, monthlyFeeFor(tenant));
 }
 async function meSummary(env, tenantId, url, cors){
   const period = meMonthPeriod(url);
   const m = await meLiveMetrics(env, tenantId, period);
-  const f = m.figures;
+  const f = m.figures, g = m.guarantee || {};
   return json({ period: m.period, headline: {
     inquiries_received: f.inquiries_received.count,
     inquiries_answered: f.inquiries_answered.count,
     after_hours_inquiries: f.after_hours_inquiries.count,
     leads_captured: m.leads_captured.count,
     followups_sent: f.followups_sent.count,
-    appointments_booked: f.appointments_booked.count,
+    appointments_booked: f.appointments_booked.count,   // shown BESIDE the dollar, never without it (GUARANTEE.md)
     value_recovered_cents: m.value.value_recovered_cents,
     value_configured: m.value.configured,
-  }, guarantee: m.guarantee }, 200, cors);
+    // the dollar layer — recovered value vs the monthly fee (informational; the Receipt governs)
+    guarantee_mode: g.mode, monthly_fee_cents: g.monthly_fee_cents,
+    guarantee_outcome: g.outcome, guarantee_met: g.met, evaluated_on: g.evaluated_on,
+  }, guarantee: m.guarantee, informational: true }, 200, cors);
 }
 // The current month's Receipt, rendered LIVE from the same metrics (the month isn't closed/snapshotted
 // yet). Past, immutable Receipts come from /me/receipts (generated snapshots). ?format=html renders it.
@@ -1728,7 +1765,7 @@ function isAfterHours(iso, bh){
 
 // Compute every figure from the tenant's events in [periodStart, periodEnd]. Each figure carries the
 // EXACT event IDs that produced it (snapshotted for the drill-down + immutability). Reads events once.
-async function computeReceiptMetrics(env, tenantId, periodStart, periodEnd, periodLabel, bh, jobValue){
+async function computeReceiptMetrics(env, tenantId, periodStart, periodEnd, periodLabel, bh, jobValue, guaranteeMode, monthlyFeeCents){
   const rows = (await env.SYN_DB.prepare(
     "SELECT id, install_id, contact_id, type, payload, created_at FROM events WHERE tenant_id=? AND created_at>=? AND created_at<=? ORDER BY created_at ASC, id ASC")
     .bind(tenantId, periodStart, periodEnd).all()).results || [];
@@ -1793,20 +1830,44 @@ async function computeReceiptMetrics(env, tenantId, periodStart, periodEnd, peri
     : { configured: false, job_value_cents: null, value_recovered_cents: null,
         formula: "Average job value not yet configured — activity above is real; no dollar figure is claimed." };
 
-  // Guarantee: captured value = at least one captured lead OR at least one booking in the period. A
-  // captured lead counts as value ON ITS OWN — no booking required; anonymous chats that leave no
-  // contact do not count. This is the exact rule the money-back guarantee is judged on.
+  // GUARANTEE OUTCOME (see GUARANTEE.md), respecting the per-client guarantee_mode:
+  //  • booked_value + a confirmed job value → evaluate on DOLLARS: recovered value vs the monthly fee.
+  //    Under the fee → this month is free.
+  //  • binary (or booked_value with NO job value → nothing to price on) → evaluate on CAPTURE: at least
+  //    one captured lead OR one booking. No dollar figure is claimed.
   const nLeads = leadSet.size, nBooked = booked.length;
   const captured = nLeads > 0 || nBooked > 0;
-  // Plain-language basis, so the verdict states WHAT counted as value this period.
   const basis = [];
   if (nLeads > 0) basis.push(nLeads + " captured lead" + (nLeads === 1 ? "" : "s"));
   if (nBooked > 0) basis.push(nBooked + " booking" + (nBooked === 1 ? "" : "s"));
-  const guarantee = { captured_value: captured, leads_captured: nLeads, appointments_booked: nBooked,
-    definition: "Captured value means at least one captured lead (a contact we obtained) OR at least one booked appointment in the period — a single captured lead counts as value on its own, even with no booking. Anonymous chats that leave no contact do not count.",
-    verdict: captured
+  const mode = (guaranteeMode === "binary") ? "binary" : "booked_value";
+  const fee = Number.isInteger(monthlyFeeCents) && monthlyFeeCents >= 0 ? monthlyFeeCents : null;
+  const dollarBasis = (mode === "booked_value" && value.configured);   // can we evaluate on dollars?
+  let met, verdict;
+  if (dollarBasis){
+    const recovered = value.value_recovered_cents;
+    met = fee != null ? (recovered >= fee) : true;   // no fee configured → nothing to fall under
+    verdict = met
+      ? "Estimated recovered value " + usd(recovered) + " from " + nBooked + " booking" + (nBooked === 1 ? "" : "s") + " met the " + usd(fee) + " monthly fee."
+      : "Estimated recovered value " + usd(recovered) + " from " + nBooked + " booking" + (nBooked === 1 ? "" : "s") + " is under the " + usd(fee) + " monthly fee — this month is free.";
+  } else {
+    met = captured;
+    verdict = met
       ? "Value captured this period — " + basis.join(" and ") + "."
-      : "No value captured this period — the first-month guarantee applies and this month is free." };
+      : "No value captured this period — the guarantee applies and this month is free.";
+  }
+  const guarantee = {
+    mode, evaluated_on: dollarBasis ? "dollars" : "captured",
+    outcome: met ? "met" : "free_month_owed", met,
+    monthly_fee_cents: fee,
+    recovered_value_cents: value.configured ? value.value_recovered_cents : null,
+    booking_count: nBooked,
+    captured_value: captured, leads_captured: nLeads, appointments_booked: nBooked,
+    definition: dollarBasis
+      ? "Recovered value = system-produced bookings × your confirmed job value (estimated, not collected cash). If it is under your monthly fee, this month is free."
+      : "Captured value means at least one captured lead (a contact we obtained) OR at least one booked appointment in the period. No dollar figure is claimed" + (mode === "booked_value" ? " until an average job value is set." : "."),
+    verdict,
+  };
 
   return { schema_version: RECEIPT_SCHEMA_VERSION, period: { start: periodStart, end: periodEnd, label: periodLabel || "" },
     business_hours: bh, figures, leads_captured, value, guarantee, generated_at: nowIso() };
@@ -1827,8 +1888,12 @@ async function generateReceipt(env, tenantId, periodStart, periodEnd, periodLabe
   const existing = await env.SYN_DB.prepare("SELECT * FROM receipts WHERE tenant_id=? AND period_start=? AND period_end=?").bind(tenantId, periodStart, periodEnd).first();
   if (existing) return { receipt: normalizeReceipt(existing), deduped: true };
   const bh = await businessHoursFor(env, tenant);
-  const jobValue = await jobValueInEffect(env, tenantId, periodEnd);
-  const metrics = await computeReceiptMetrics(env, tenantId, periodStart, periodEnd, periodLabel || "", bh, jobValue);
+  // The job value for a period is the one in effect at its START (GUARANTEE.md §4): a change made
+  // mid-period has a later effective_from and therefore applies to the NEXT period only — it can never
+  // move the current period or a past one.
+  const jobValue = await jobValueInEffect(env, tenantId, periodStart);
+  // Snapshot the guarantee inputs (mode + fee) in force at generation → immutable with the rest.
+  const metrics = await computeReceiptMetrics(env, tenantId, periodStart, periodEnd, periodLabel || "", bh, jobValue, tenant.guarantee_mode, monthlyFeeFor(tenant));
   const id = newId("rcp"); const gen = nowIso();
   try {
     await env.SYN_DB.prepare("INSERT INTO receipts (id,tenant_id,period_start,period_end,metrics,job_value_cents,generated_at,sent_at,status) VALUES (?,?,?,?,?,?,?,NULL,'generated')")
@@ -1873,17 +1938,25 @@ function receiptHtml(receipt, tenant, brandName){
   const m = receipt.metrics || {}; const f = m.figures || {}; const g = m.guarantee || {}; const v = m.value || {};
   const name = esc(brandName || (tenant && tenant.name) || "Your business");
   const captured = !!g.captured_value;
-  const banner = captured
+  // Outcome drives the banner: guarantee MET (green) vs FREE MONTH OWED (amber). Fall back to the
+  // capture flag for older snapshots that predate the outcome field.
+  const met = g.outcome ? (g.outcome === "met") : captured;
+  const banner = met
     ? '<div style="background:#e9f7ef;border:1px solid #b7e0c4;color:#1c6b38;border-radius:10px;padding:14px 16px;font-weight:600">✓ ' + esc(g.verdict || "Value captured this period.") + '</div>'
-    : '<div style="background:#fdf3e7;border:1px solid #f0d6ad;color:#8a5a12;border-radius:10px;padding:14px 16px;font-weight:600">◑ ' + esc(g.verdict || "First-month guarantee applies.") + '</div>';
+    : '<div style="background:#fdf3e7;border:1px solid #f0d6ad;color:#8a5a12;border-radius:10px;padding:14px 16px;font-weight:600">◑ ' + esc(g.verdict || "The guarantee applies — this month is free.") + '</div>';
   const rowFig = (label, fig, extra) => {
     const c = fig ? fig.count : 0; const method = fig ? fig.method : "";
     return '<tr><td style="padding:12px 14px;border-top:1px solid #eee;vertical-align:top"><div style="font-weight:600;color:#111">' + esc(label) + '</div><div style="font-size:12px;color:#666;margin-top:3px">' + esc(method) + '</div></td>' +
       '<td style="padding:12px 14px;border-top:1px solid #eee;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums"><span style="font-size:20px;font-weight:700;color:#111">' + c + '</span>' + (extra ? '<div style="font-size:12px;color:#666;margin-top:2px">' + esc(extra) + '</div>' : '') + '</td></tr>';
   };
   const ans = f.inquiries_answered || {};
+  // GUARANTEE.md: the booking count ALWAYS shows next to the dollar figure (it is the honest denominator),
+  // and the word "estimated" rides every dollar. The job-value version in force for the period is named.
+  const bookedCount = (f.appointments_booked && f.appointments_booked.count != null) ? f.appointments_booked.count : (g.booking_count || 0);
+  const jvVer = v.job_value_effective_from ? ('Job value ' + usd(v.job_value_cents) + ' in effect from ' + String(v.job_value_effective_from).slice(0, 10)) : '';
   const valueLine = v.configured
-    ? '<div style="font-size:26px;font-weight:800;color:#111">' + esc(usd(v.value_recovered_cents)) + '</div><div style="font-size:12px;color:#666;margin-top:4px">' + esc(v.formula) + '</div>'
+    ? '<div style="font-size:26px;font-weight:800;color:#111">' + esc(usd(v.value_recovered_cents)) + ' <span style="font-size:13px;font-weight:600;color:#666">estimated · from ' + bookedCount + ' booking' + (bookedCount === 1 ? '' : 's') + '</span></div>' +
+      '<div style="font-size:12px;color:#666;margin-top:4px">' + esc(v.formula) + '</div>' + (jvVer ? '<div style="font-size:11px;color:#999;margin-top:2px">' + esc(jvVer) + '</div>' : '')
     : '<div style="font-size:16px;font-weight:700;color:#8a5a12">Not yet configured</div><div style="font-size:12px;color:#666;margin-top:4px">' + esc(v.formula) + '</div>';
   const body =
     '<div style="max-width:640px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;line-height:1.5;padding:8px">' +
@@ -1907,6 +1980,9 @@ function receiptHtml(receipt, tenant, brandName){
         '<div style="margin-top:6px">' + valueLine + '</div></div>' +
       '<div style="border:1px solid #eee;border-radius:12px;margin-top:16px;padding:16px">' +
         '<div style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#888">Guarantee</div>' +
+        (g.monthly_fee_cents != null
+          ? '<div style="font-size:12px;color:#666;margin-top:6px">Monthly fee ' + esc(usd(g.monthly_fee_cents)) + ' · outcome: <strong>' + (met ? 'met' : 'free month owed') + '</strong></div>'
+          : '<div style="font-size:12px;color:#666;margin-top:6px">Outcome: <strong>' + (met ? 'met' : 'free month owed') + '</strong></div>') +
         '<div style="font-size:12px;color:#666;margin-top:6px">' + esc(g.definition || "") + '</div>' +
         '<div style="margin-top:8px;font-weight:600">' + esc(g.verdict || "") + '</div></div>' +
       '<div style="font-size:11px;color:#999;margin-top:18px;padding:0 2px">Every number above is computed only from your own event records for ' + esc((m.period && m.period.label) || "this period") + ', and is fixed as of the generation date — later activity does not change a past Receipt. Prepared by ' + PROCESSOR_NAME + ' on behalf of ' + name + '.</div>' +
@@ -1938,9 +2014,12 @@ async function receiptsList(env, tenantId, url){
   const limit = Math.min(EVENTS_PAGE_MAX, Math.max(1, parseInt(url.searchParams.get("limit") || "24", 10) || 24));
   const rows = (await env.SYN_DB.prepare("SELECT * FROM receipts WHERE tenant_id=? ORDER BY period_start DESC, generated_at DESC LIMIT ?").bind(tenantId, limit).all()).results || [];
   const receipts = rows.map(row => { const r = normalizeReceipt(row); const m = r.metrics || {}; const f = m.figures || {};
+    const gr = m.guarantee || {};
     return { id: r.id, period_start: r.period_start, period_end: r.period_end, label: (m.period && m.period.label) || "", status: r.status, generated_at: r.generated_at, sent_at: r.sent_at,
       job_value_cents: r.job_value_cents, value_recovered_cents: (m.value && m.value.value_recovered_cents) != null ? m.value.value_recovered_cents : null,
-      captured_value: !!(m.guarantee && m.guarantee.captured_value),
+      captured_value: !!gr.captured_value,
+      guarantee_outcome: gr.outcome || null, guarantee_mode: gr.mode || null, monthly_fee_cents: gr.monthly_fee_cents != null ? gr.monthly_fee_cents : null,
+      booking_count: gr.booking_count != null ? gr.booking_count : ((f.appointments_booked || {}).count || 0),
       summary: { inquiries_received: (f.inquiries_received || {}).count || 0, inquiries_answered: (f.inquiries_answered || {}).count || 0,
         after_hours_inquiries: (f.after_hours_inquiries || {}).count || 0, followups_sent: (f.followups_sent || {}).count || 0,
         appointments_booked: (f.appointments_booked || {}).count || 0 } }; });
@@ -2704,6 +2783,7 @@ export default {
       if (seg[1] === "tenants" && seg[3] === "installs" && method === "POST") return createInstall(env, seg[2], body || {});
       if (seg[1] === "installs" && seg[3] === "revoke" && method === "POST") return revokeInstall(env, seg[2]);
       if (seg[1] === "tenants" && seg[3] === "job-value" && method === "POST") return addJobValue(env, seg[2], body || {});
+      if (seg[1] === "tenants" && seg[3] === "guarantee" && method === "POST") return setTenantGuarantee(env, seg[2], body || {});
       if (seg[1] === "tenants" && seg[3] === "events" && method === "GET") return listEvents(env, seg[2], url);
       if (seg[1] === "tenants" && seg[3] === "contacts" && seg.length === 4 && method === "GET") return listContacts(env, seg[2], url);
       if (seg[1] === "tenants" && seg[3] === "bookings" && seg.length === 4 && method === "GET") return listBookings(env, seg[2], url);
